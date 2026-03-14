@@ -1,0 +1,227 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { usePacientes } from "@/features/pacientes/hooks/usePacientes";
+import { PatientModal } from "@/features/pacientes/components/PatientModal";
+import { Plus, Search, Edit2, User } from "lucide-react";
+import { Skeleton } from "@/shared/ui/Skeleton";
+import { PacienteSchema } from "@/shared/schemas/validation";
+import { toast } from "sonner";
+import { Paciente } from "@/features/pacientes/types";
+
+// Definimos tus 2 programas fijos aquí.
+const PROGRAMAS_FIJOS = [
+  {
+    id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", // UUID válido generado
+    nombre: "Enfermería Técnica",
+    activo: true,
+    creado_at: new Date().toISOString(),
+    actualizado_at: new Date().toISOString(),
+    sync_status: "synced" as const,
+  },
+  {
+    id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a12", // UUID válido generado
+    nombre: "Desarrollo de Sistemas de Información",
+    activo: true,
+    creado_at: new Date().toISOString(),
+    actualizado_at: new Date().toISOString(),
+    sync_status: "synced" as const,
+  },
+];
+
+export default function PatientsPage() {
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Paciente | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Usamos el hook para obtener datos y funciones (Clean Architecture)
+  const { pacientes, crearPaciente, actualizarPaciente, asegurarPrograma } =
+    usePacientes();
+
+  // 1. RENDIMIENTO: Implementación de Debounce
+  // Espera 300ms después de que el usuario deja de escribir para filtrar
+  useEffect(() => {
+    setIsSearching(true);
+    const timer = setTimeout(() => {
+      setDebouncedTerm(searchTerm);
+      setIsSearching(false);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // 2. INICIALIZACIÓN: Asegurar que los programas fijos existan en la BD
+  useEffect(() => {
+    PROGRAMAS_FIJOS.forEach((p) => {
+      asegurarPrograma(p.nombre, p.id);
+    });
+  }, []);
+
+  const filteredPacientes = pacientes.filter((p: Paciente) => {
+    if (!debouncedTerm) return true;
+    const term = debouncedTerm.toLowerCase();
+    return (
+      p.nombres.toLowerCase().includes(term) ||
+      p.apellidos.toLowerCase().includes(term) ||
+      p.dni.includes(term)
+    );
+  });
+
+  const handleEdit = (item: Paciente) => {
+    setEditingItem(item);
+    setIsModalOpen(true);
+  };
+
+  const handleAddNew = () => {
+    setEditingItem(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (
+    data: Partial<Paciente>,
+    // newProgramaName ya no es necesario porque la lista es fija
+  ) => {
+    // 1. VALIDACIÓN CON ZOD
+    // Combinamos con los datos existentes si es edición para validar el objeto completo
+    const dataToValidate = editingItem ? { ...editingItem, ...data } : data;
+
+    const result = PacienteSchema.safeParse(dataToValidate);
+
+    if (!result.success) {
+      // Mostramos el primer error encontrado
+      toast.error(result.error.issues[0].message);
+      return; // Detenemos el guardado
+    }
+
+    // Usamos el ID seleccionado o un valor por defecto si fallara
+    const progId = data.programa_id || PROGRAMAS_FIJOS[0].id;
+
+    if (editingItem) {
+      await actualizarPaciente(editingItem.id, {
+        ...data,
+        programa_id: progId,
+      });
+      toast.success("Paciente actualizado correctamente");
+    } else {
+      await crearPaciente({
+        ...(data as any),
+        programa_id: progId,
+      });
+      toast.success("Paciente registrado correctamente");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+          Gestión de Pacientes
+        </h1>
+        <button
+          onClick={handleAddNew}
+          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          <Plus size={20} />
+          <span className="hidden sm:inline">Nuevo Paciente</span>
+          <span className="sm:hidden">Nuevo</span>
+        </button>
+      </div>
+
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Buscar por DNI o nombre..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+        />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* 2. UX: Estado de Carga con Skeletons */}
+        {isSearching ? (
+          Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800"
+            >
+              <div className="flex items-center gap-4">
+                <Skeleton className="h-12 w-12 rounded-full" />
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-20" />
+                </div>
+              </div>
+            </div>
+          ))
+        ) : filteredPacientes.length > 0 ? (
+          filteredPacientes.map((patient: Paciente) => (
+            <div
+              key={patient.id}
+              className="group relative overflow-hidden rounded-xl bg-white p-4 shadow-sm transition-all hover:shadow-md dark:bg-gray-800"
+            >
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/20">
+                    <User size={24} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {patient.nombres} {patient.apellidos}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {patient.dni}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                        {patient.categoria}
+                      </span>
+                      {/* Indicador visual de sincronización */}
+                      <span
+                        className={`inline-flex h-2 w-2 rounded-full ${
+                          patient.sync_status === "synced"
+                            ? "bg-green-500"
+                            : "bg-amber-500"
+                        }`}
+                        title={
+                          patient.sync_status === "synced"
+                            ? "Sincronizado"
+                            : "Pendiente de subir"
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+                {/* 3. DISEÑO MÓVIL: Botón de editar más accesible */}
+                <button
+                  onClick={() => handleEdit(patient)}
+                  className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700"
+                  aria-label="Editar paciente"
+                >
+                  <Edit2 size={20} />
+                </button>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="col-span-full py-8 text-center text-gray-500">
+            No se encontraron pacientes con "{searchTerm}".
+          </p>
+        )}
+      </div>
+
+      {isModalOpen && (
+        <PatientModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          item={editingItem}
+          programas={PROGRAMAS_FIJOS}
+          onSave={handleSave}
+        />
+      )}
+    </div>
+  );
+}

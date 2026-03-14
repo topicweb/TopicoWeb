@@ -1,36 +1,56 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏥 Tópico PWA - Gestión de Enfermerías
 
-## Getting Started
+Tópico PWA es una solución **Offline-first** diseñada para la gestión eficiente de enfermerías escolares o institucionales. Permite el control de inventario, registro de pacientes, consultas médicas y seguimiento de stock, funcionando incluso sin conexión a internet.
 
-First, run the development server:
+## 🚀 Características Principales
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Offline-First:** Sincronización bidireccional automática entre Dexie.js (local) y Supabase (nube).
+- **Multi-Tenancy (SaaS):** Aislamiento completo de datos por institución (`business_id`).
+- **Gestión de Inventario:** Control de stock, alertas de agotamiento y registro de movimientos (Entrada/Salida).
+- **Consultas Médicas:** Registro de atenciones, signos vitales (JSONB) y dispensación automática de medicamentos.
+- **PWA Ready:** Instalable en dispositivos móviles con soporte para funcionamiento sin red.
+- **Dashboard Analítico:** Gráficos de tendencias y resumen de actividades recientes.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Stack Tecnológico
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Frontend:** Next.js 15 (App Router), Tailwind CSS.
+- **Base de Datos Local (Navegador):** Dexie.js (IndexedDB).
+- **Base de Datos Nube & Auth:** Supabase.
+- **Iconografía:** Lucide React.
+- **Gestor de Paquetes:** Pnpm.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📋 Requisitos Previos
 
-## Learn More
+1. Nodo.js 18+
+2. Pnpm (`npm install -g pnpm`)
+3. Proyecto en Supabase con las tablas configuradas según el spec.
 
-To learn more about Next.js, take a look at the following resources:
+## 🔌 Instalación
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Clona el repositorio:
+   ```bash
+   git clone [url-del-repo-privado]
+   ```
+2. Instala las dependencias:
+   ```bash
+   pnpm install
+   ```
+3. Configura las variables de entorno (`.env.local`):
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=tu_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=tu_anon_key
+   SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key (solo para admin actions)
+   ```
+4. Inicia el servidor de desarrollo:
+   ```bash
+   pnpm dev
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔐 Estructura de Datos (Multi-tenancy)
 
-## Deploy on Vercel
+El proyecto utiliza la **Regla de Oro #1**: Todas las tablas principales (`pacientes`, `medicamentos`, `atenciones`, `perfiles`) contienen un `business_id`. 
+Esto permite que un solo despliegue del sistema pueda servir a múltiples instituciones (colegios, empresas) manteniendo la privacidad total de los datos.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📄 Licencia
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Este es un proyecto privado para uso institucional.
