@@ -48,7 +48,7 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
       nombre: data.nombre!,
       rol: data.rol || 'personal',
       business_id: data.business_id!, // CRITICAL: Return it so local Dexie put is reactive
-      activo: data.activo ?? true,
+      activo: data.activo ?? 1,
       creado_at: new Date().toISOString(),
       actualizado_at: new Date().toISOString(),
       sync_status: 'synced' 

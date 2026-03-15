@@ -5,9 +5,10 @@ export const PacienteSchema = z.object({
   nombres: z.string().min(2, "El nombre debe tener al menos 2 letras"),
   apellidos: z.string().min(2, "El apellido debe tener al menos 2 letras"),
   dni: z.string().regex(/^\d{8}$/, "El DNI debe tener exactamente 8 números"),
+  sexo: z.enum(["M", "F"]),
   categoria: z.string().min(1, "La categoría de paciente es requerida"),
-  // programa_id es opcional o null en la validación estricta porque lo manejamos con un valor por defecto si falta
   programa_id: z.string().nullable().optional(),
+  metadata: z.record(z.string(), z.any()).optional().default({}),
 });
 
 // Esquema para Medicamentos

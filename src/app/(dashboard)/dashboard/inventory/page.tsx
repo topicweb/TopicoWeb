@@ -50,7 +50,7 @@ export default function InventoryPage() {
   }, [searchTerm]);
 
   const filteredMedicamentos = medicamentos.filter((m: Medicamento) => {
-    if (m.activo === false) return false;
+    if (m.activo === 0) return false;
     if (!debouncedTerm) return true;
     return m.nombre.toLowerCase().includes(debouncedTerm.toLowerCase());
   });
@@ -59,7 +59,7 @@ export default function InventoryPage() {
     if (confirm("¿Eliminar medicamento?")) {
       // Usamos borrado lógico actualizando el campo activo
       await actualizarMedicamento(id, {
-        activo: false,
+        activo: 0,
         sync_status: "pending",
       });
       toast.success("Medicamento eliminado");

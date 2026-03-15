@@ -15,60 +15,62 @@ import {
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db/dexie/db";
 import { Skeleton } from "../ui/Skeleton";
+import { useAuth } from "@/core/providers/AuthProvider";
 import { useState, useEffect } from "react";
 
-const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
+const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export function DashboardCharts() {
+  const { businessId } = useAuth();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Data 1: Attentions by Month (Simplified to last 7 days for demo)
   const attentionsData = useLiveQuery(async () => {
-    if (typeof window === "undefined") return [];
-    
-    // Direct Query Replacement for atencionRepo.getStatsLast7Days()
+    if (!businessId) return [];
+
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 7);
     const isoCutoff = cutoff.toISOString();
 
     const atenciones = await db.atenciones
-      .where("fecha_atencion")
-      .aboveOrEqual(isoCutoff)
+      .where("[business_id+fecha_atencion]")
+      .aboveOrEqual([businessId, isoCutoff])
       .toArray();
 
-    // Agrupar por fecha
+    const tenantAtenciones = atenciones.filter(a => a.business_id === businessId);
+
     const countsByDate = new Map<string, number>();
-    atenciones.forEach((att) => {
-      const date = att.fecha_atencion.split("T")[0]; // Solo YYYY-MM-DD
+    tenantAtenciones.forEach((att) => {
+      const date = att.fecha_atencion.split("T")[0];
       countsByDate.set(date, (countsByDate.get(date) || 0) + 1);
     });
 
-    // Generar últimos 7 días con 0 si no hay
     const result = [];
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const dateStr = d.toISOString().split("T")[0];
+      const dayName = d.toLocaleDateString('es-ES', { weekday: 'short' });
       result.push({
         date: dateStr,
+        day: dayName.charAt(0).toUpperCase() + dayName.slice(1),
         count: countsByDate.get(dateStr) || 0,
       });
     }
 
     return result;
-  });
+  }, [businessId]);
 
-  // Data 2: Most dispensed medicines
   const medicineData = useLiveQuery(async () => {
-    if (typeof window === "undefined") return [];
-    
-    // Direct Query Replacement for movimientoRepo.getTopDispensed()
+    if (!businessId) return [];
+
     const salidas = await db.movimientos_stock
-      .filter((m) => m.tipo === "SALIDA")
+      .where("business_id")
+      .equals(businessId)
+      .filter(s => s.tipo === "SALIDA")
       .toArray();
 
     const countsByMed = new Map<string, number>();
@@ -80,10 +82,9 @@ export function DashboardCharts() {
     });
 
     const entries = Array.from(countsByMed.entries())
-      .sort((a, b) => b[1] - a[1]) // Descending
-      .slice(0, 5); // Top 5
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5);
 
-    // Resolve names
     const result = await Promise.all(
       entries.map(async ([medId, count]) => {
         const med = await db.medicamentos.get(medId);
@@ -95,73 +96,134 @@ export function DashboardCharts() {
     );
 
     return result;
-  });
+  }, [businessId]);
+
+  const cardStyle = "rounded-[2rem] bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-6 border border-white/50 dark:border-gray-700/50 shadow-sm transition-all hover:shadow-md hover:border-indigo-500/20";
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
       {/* Bar Chart */}
-      <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
-        <h3 className="mb-4 font-bold text-gray-700 dark:text-gray-300">
-          Atenciones (Últimos 7 días)
-        </h3>
-        {mounted && attentionsData ? (
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart data={attentionsData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+      <div className={cardStyle}>
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
+            Atenciones Semanales
+          </h3>
+          <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+        </div>
+
+        <div className="w-full h-[250px]">
+          {mounted && attentionsData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={attentionsData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.8} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.03)" />
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: '#64748b', fontWeight: 800 }}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: '#64748b', fontWeight: 800 }}
+                />
                 <Tooltip
+                  cursor={{ fill: 'rgba(99, 102, 241, 0.03)', radius: 8 }}
                   contentStyle={{
-                    borderRadius: "8px",
+                    borderRadius: "20px",
                     border: "none",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    background: "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(10px)",
+                    boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.1)",
+                    fontSize: '12px',
+                    fontWeight: '900',
+                    color: '#1e293b'
                   }}
                 />
-                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="count"
+                  fill="url(#barGradient)"
+                  radius={[10, 10, 0, 0]}
+                  barSize={32}
+                  animationBegin={200}
+                  animationDuration={1200}
+                />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        ) : (
-          <Skeleton className="h-64 w-full" />
-        )}
+          ) : (
+            <Skeleton className="size-full rounded-2xl" />
+          )}
+        </div>
       </div>
 
       {/* Pie Chart */}
-      <div className="rounded-xl bg-white p-6 shadow-sm dark:bg-gray-800">
-        <h3 className="mb-4 font-bold text-gray-700 dark:text-gray-300">
-          Medicamentos Más Entregados
-        </h3>
-        {mounted && medicineData ? (
-          <>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                <PieChart>
-                  <Pie
-                    data={medicineData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {medicineData?.map((entry, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+      <div className={cardStyle}>
+        <div className="mb-6 flex items-center justify-between">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
+            Stock Distribuido
+          </h3>
+          <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+        </div>
+
+        <div className="relative w-full h-[250px]">
+          {mounted && medicineData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={medicineData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={65}
+                  outerRadius={90}
+                  paddingAngle={8}
+                  dataKey="value"
+                  stroke="none"
+                  animationBegin={400}
+                  animationDuration={1200}
+                >
+                  {medicineData?.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                      className="hover:opacity-90 transition-opacity cursor-pointer focus:outline-none"
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: "20px",
+                    border: "none",
+                    background: "rgba(255, 255, 255, 0.95)",
+                    backdropFilter: "blur(10px)",
+                    boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.1)",
+                    fontSize: '12px',
+                    fontWeight: '900',
+                    color: '#1e293b'
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <Skeleton className="size-full rounded-2xl" />
+          )}
+
+          {/* Center text for Donut chart */}
+          {medicineData && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</span>
+              <span className="text-3xl font-black text-slate-900 dark:text-white mt-1">
+                {medicineData.reduce((acc, curr) => acc + curr.value, 0)}
+              </span>
             </div>
-            {/* ... (resto del código de la leyenda) */}
-          </>
-        ) : (
-          <Skeleton className="h-64 w-full" />
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

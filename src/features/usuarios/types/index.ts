@@ -27,7 +27,7 @@ export interface Perfil extends BaseEntity {
   nombre: string;
   email: string;
   rol: RolUsuario;
-  activo: boolean;
+  activo: number; // 0 | 1 para indexación
   /**
    * FK a public.instituciones.
    * Clave para el filtrado multi-tenant — nunca puede ser null en producción.

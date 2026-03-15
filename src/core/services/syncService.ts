@@ -66,6 +66,12 @@ export class SyncService {
                     for (const col of colsToOmit) {
                         delete cleanItem[col];
                     }
+
+                    // Mapeo de booleano para Supabase (Dexie usa 1/0 para índices)
+                    if ('activo' in cleanItem && typeof (cleanItem as any).activo === 'number') {
+                        (cleanItem as any).activo = (cleanItem as any).activo === 1;
+                    }
+
                     return cleanItem;
                 });
 
@@ -111,8 +117,23 @@ export class SyncService {
             if (data && data.length > 0) {
                 console.log(`Pulled ${data.length} items for ${tableName} from Supabase.`);
                 const table: Table<any, any> = (db as any)[tableName];
-                const dataToPut = data.map(row => ({ ...row, sync_status: 'synced' }));
-                await table.bulkPut(dataToPut);
+                
+                // Procesamiento por lotes (batching) para no bloquear el hilo principal
+                const BATCH_SIZE = 50;
+                for (let i = 0; i < data.length; i += BATCH_SIZE) {
+                    const batch = data.slice(i, i + BATCH_SIZE);
+                    const dataToPut = batch.map(row => {
+                        const localItem = { ...row, sync_status: 'synced' };
+                        if ('activo' in localItem && typeof localItem.activo === 'boolean') {
+                            localItem.activo = localItem.activo ? 1 : 0;
+                        }
+                        return localItem;
+                    });
+                    
+                    await table.bulkPut(dataToPut);
+                    // Pequeño respiro para la UI si hay muchos datos
+                    if (data.length > BATCH_SIZE) await new Promise(r => setTimeout(r, 10));
+                }
             }
         }
 
@@ -131,7 +152,11 @@ export class SyncService {
             const table: Table<any, any> = (db as any)[tableName];
             
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                await table.put({ ...payload.new, sync_status: 'synced' });
+                const localItem = { ...payload.new, sync_status: 'synced' };
+                if ('activo' in localItem && typeof localItem.activo === 'boolean') {
+                    localItem.activo = localItem.activo ? 1 : 0;
+                }
+                await table.put(localItem);
             } else if (payload.eventType === 'DELETE') {
                 const existing = await table.get(payload.old.id);
                 if (existing) {

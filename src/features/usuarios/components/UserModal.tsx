@@ -23,7 +23,7 @@ export const UserModal = ({
     nombre: "",
     email: "",
     rol: "personal",
-    activo: true,
+    activo: 1,
     password: "",
   });
   const [saving, setSaving] = useState(false);
@@ -42,7 +42,7 @@ export const UserModal = ({
         nombre: "",
         email: "",
         rol: "personal",
-        activo: true,
+        activo: 1,
         password: "",
       });
     }

@@ -42,7 +42,7 @@ export interface Atencion extends BaseEntity {
    */
   signos_vitales: SignosVitales;
   observacion?: string;
-  activo: boolean;
+  activo: number; // 0 | 1 para indexación
   fecha_atencion: string; // ISO string
 }
 

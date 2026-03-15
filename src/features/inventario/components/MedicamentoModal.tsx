@@ -55,7 +55,7 @@ export const MedicamentoModal = ({
       await onSave({
         ...formData,
         // En nuevo registro, stock_actual empieza en 0 (se gestiona con movimientos)
-        ...(medicamento ? {} : { activo: true, stock_actual: 0 }),
+        ...(medicamento ? {} : { activo: 1, stock_actual: 0 }),
       });
       onClose();
     } catch (error) {

@@ -30,7 +30,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
         await db.table('instituciones' as any).add({
             id: currentBusinessId,
             nombre: 'Institución Educativa Demo',
-            activo: true,
+            activo: 1,
             creado_at: new Date().toISOString(),
             sync_status: remoteInst ? 'synced' : 'pending' 
         } as any);
@@ -46,7 +46,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
             email: userEmail,
             nombre: 'Admin Demo',
             rol: 'admin',
-            activo: true,
+            activo: 1,
             business_id: currentBusinessId, // FK a institución
             creado_at: new Date().toISOString(),
             actualizado_at: new Date().toISOString(),
@@ -68,14 +68,14 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 id: programaId,
                 business_id: currentBusinessId,
                 nombre: 'Enfermería Técnica',
-                activo: true,
+                activo: 1,
                 sync_status: 'pending'
             },
             {
                 id: generateUUID(),
                 business_id: currentBusinessId,
                 nombre: 'Desarrollo de Sistemas',
-                activo: true,
+                activo: 1,
                 sync_status: 'pending'
             }
         ] as any);
@@ -100,7 +100,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 programa_id: programaId,
                 categoria: 'estudiante',
                 sexo: 'M',
-                activo: true,
+                activo: 1,
                 metadata: { ciclo: 'IV', turno: 'Mañana' },
                 creado_at: new Date().toISOString(),
                 actualizado_at: new Date().toISOString(),
@@ -115,7 +115,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 programa_id: programaId,
                 categoria: 'estudiante',
                 sexo: 'F',
-                activo: true,
+                activo: 1,
                 metadata: { ciclo: 'II', turno: 'Tarde' },
                 creado_at: new Date().toISOString(),
                 actualizado_at: new Date().toISOString(),
@@ -143,7 +143,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 anaquel: 'A-1',
                 stock_actual: 100,
                 stock_minimo: 20,
-                activo: true,
+                activo: 1,
                 creado_at: new Date().toISOString(),
                 actualizado_at: new Date().toISOString(),
                 sync_status: 'pending'
@@ -157,7 +157,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 anaquel: 'C-3',
                 stock_actual: 10,
                 stock_minimo: 5,
-                activo: true,
+                activo: 1,
                 creado_at: new Date().toISOString(),
                 actualizado_at: new Date().toISOString(),
                 sync_status: 'pending'
@@ -191,7 +191,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 motivo_consulta: 'Gripe estacional',
                 observacion: 'Reposo sugerido',
                 signos_vitales: { temp: '37.5', presion: '120/80', saturacion: '98' },
-                activo: true,
+                activo: 1,
                 creado_at: dateStr,
                 actualizado_at: dateStr,
                 sync_status: 'pending'

@@ -5,7 +5,7 @@ import type { Medicamento, MovimientoStock } from '@/features/inventario/types';
 import type { Atencion } from '@/features/atenciones/types';
 
 const db = new Dexie('TopicoDatabase') as Dexie & {
-  instituciones: EntityTable<{ id: string; nombre: string; activo: boolean; creado_at: string }, 'id'>;
+  instituciones: EntityTable<{ id: string; nombre: string; activo: number; creado_at: string }, 'id'>;
   perfiles: EntityTable<Perfil, 'id'>;
   programas_estudio: EntityTable<ProgramaEstudio, 'id'>;
   pacientes: EntityTable<Paciente, 'id'>;
@@ -14,16 +14,36 @@ const db = new Dexie('TopicoDatabase') as Dexie & {
   movimientos_stock: EntityTable<MovimientoStock, 'id'>;
 };
 
-// v11: Agrega 'sync_status' a la tabla instituciones para evitar SchemaError en el SyncService
-db.version(11).stores({
+// v11: Agrega 'sync_status' a la tabla instituciones
+// v12: Migración masiva de activo: boolean -> activo: number (0/1) para evitar DataError
+// v13: Índice compuesto para optimizar "Atenciones Hoy"
+db.version(13).stores({
   instituciones:     'id, nombre, activo, creado_at, sync_status',
   perfiles:          'id, business_id, rol, email, sync_status, deleted_at, [business_id+activo]',
   programas_estudio: 'id, business_id, nombre, sync_status, deleted_at, [business_id+activo]',
   pacientes:         'id, business_id, dni, programa_id, sync_status, deleted_at, [business_id+activo]',
   medicamentos:      'id, business_id, nombre, activo, sync_status, deleted_at, [business_id+activo]',
-  atenciones:        'id, business_id, paciente_id, perfil_id, fecha_atencion, creado_at, sync_status, deleted_at, [business_id+activo]',
+  atenciones:        'id, business_id, paciente_id, perfil_id, fecha_atencion, creado_at, sync_status, deleted_at, [business_id+activo], [business_id+fecha_atencion]',
   movimientos_stock: 'id, business_id, medicamento_id, atencion_id, tipo, fecha_movimiento, creado_at, sync_status, deleted_at',
-}).upgrade(() => {});
+}).upgrade(async (tx) => {
+  const tablesToMigrate = [
+    'instituciones',
+    'perfiles',
+    'programas_estudio',
+    'pacientes',
+    'medicamentos',
+    'atenciones'
+  ];
+
+  for (const tableName of tablesToMigrate) {
+    const table = tx.table(tableName);
+    await table.toCollection().modify(item => {
+      if (typeof item.activo === 'boolean') {
+        item.activo = item.activo ? 1 : 0;
+      }
+    });
+  }
+});
 
 export { db };
 

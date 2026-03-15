@@ -101,7 +101,7 @@ export function useAtenciones() {
           creado_at: now,
           actualizado_at: now,
           sync_status: 'pending',
-          activo: true,
+          activo: 1,
           signos_vitales: datos.signos_vitales ?? SIGNOS_VITALES_VACIO,
         };
         await db.atenciones.add(atencion);

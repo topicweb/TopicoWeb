@@ -31,7 +31,7 @@ export function usePacientes() {
       if (!businessId) return [];
       return db.programas_estudio
         .where('business_id').equals(businessId)
-        .filter((p: ProgramaEstudio) => p.activo !== false)
+        .filter((p: ProgramaEstudio) => p.activo === 1)
         .toArray();
     },
     [businessId]
@@ -74,7 +74,7 @@ export function usePacientes() {
       const programa: ProgramaEstudio = {
         id: finalId,
         nombre: nombrePrograma,
-        activo: true,
+        activo: 1,
         creado_at: new Date().toISOString(),
         actualizado_at: new Date().toISOString(),
         sync_status: 'pending',

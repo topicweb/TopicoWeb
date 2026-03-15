@@ -10,7 +10,7 @@ export interface DexieCrudEntity {
   id: string;
   business_id: string;
   creado_at: string;
-  activo: boolean;
+  activo: number; // 0 | 1 para indexación
 }
 
 /**
@@ -38,7 +38,7 @@ export function useDexieCrud<T extends DexieCrudEntity>(
     const results = await table
       .where('business_id')
       .equals(businessId)
-      .filter((item: T) => item.activo !== false)
+      .filter((item: T) => item.activo === 1)
       .toArray();
     return results as T[];
   }, [businessId]);
@@ -59,7 +59,7 @@ export function useDexieCrud<T extends DexieCrudEntity>(
       business_id: businessId,
       creado_at: now,
       actualizado_at: now,
-      activo: true,
+      activo: 1,
       sync_status: 'pending' as const,
     } as unknown as T;
 
@@ -94,7 +94,7 @@ export function useDexieCrud<T extends DexieCrudEntity>(
     if (!item || item.business_id !== businessId) return;
 
     const patch = {
-      activo: false,
+      activo: 0,
       actualizado_at: new Date().toISOString(),
       sync_status: 'pending' as const,
     } as unknown as Partial<T>;

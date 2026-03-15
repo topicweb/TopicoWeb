@@ -14,7 +14,7 @@ const PROGRAMAS_FIJOS = [
   {
     id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", // UUID válido generado
     nombre: "Enfermería Técnica",
-    activo: true,
+    activo: 1,
     creado_at: new Date().toISOString(),
     actualizado_at: new Date().toISOString(),
     sync_status: "synced" as const,
@@ -22,7 +22,7 @@ const PROGRAMAS_FIJOS = [
   {
     id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a12", // UUID válido generado
     nombre: "Desarrollo de Sistemas de Información",
-    activo: true,
+    activo: 1,
     creado_at: new Date().toISOString(),
     actualizado_at: new Date().toISOString(),
     sync_status: "synced" as const,
@@ -95,8 +95,14 @@ export default function PatientsPage() {
       return; // Detenemos el guardado
     }
 
-    // Usamos el ID seleccionado o un valor por defecto si fallara
-    const progId = data.programa_id || PROGRAMAS_FIJOS[0].id;
+    // 2. Lógica de programa_id según categoría
+    const isAcademic = data.categoria === 'estudiante' || data.categoria === 'docente';
+    // Si es académico y no tiene programa, usamos el primero por defecto.
+    // Si no es académico, programa_id ya debería ser null desde el modal.
+    let progId = data.programa_id;
+    if (isAcademic && !progId) {
+      progId = PROGRAMAS_FIJOS[0].id;
+    }
 
     if (editingItem) {
       await actualizarPaciente(editingItem.id, {
@@ -176,9 +182,19 @@ export default function PatientsPage() {
                       {patient.dni}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                      <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300 capitalize">
                         {patient.categoria}
                       </span>
+                      {(patient.metadata as any)?.ciclo && (
+                        <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+                          Ciclo {(patient.metadata as any).ciclo}
+                        </span>
+                      )}
+                      {(patient.metadata as any)?.turno && (
+                        <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
+                          {(patient.metadata as any).turno}
+                        </span>
+                      )}
                       {/* Indicador visual de sincronización */}
                       <span
                         className={`inline-flex h-2 w-2 rounded-full ${

@@ -41,7 +41,7 @@ export interface Medicamento extends BaseEntity {
   stock_minimo: number;
   imagen_url?: string;
   creado_at: string;
-  activo: boolean;
+  activo: number; // 0 | 1 para indexación
 }
 
 /**

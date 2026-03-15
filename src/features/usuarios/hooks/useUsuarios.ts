@@ -25,7 +25,7 @@ export function useUsuarios() {
       if (!businessId) return [];
       return db.perfiles
         .where('business_id').equals(businessId)
-        .filter((p: Perfil) => !p.deleted_at && p.activo !== false)
+        .filter((p: Perfil) => !p.deleted_at && p.activo === 1)
         .toArray();
     },
     [businessId]
@@ -88,7 +88,7 @@ export function useUsuarios() {
 
     // 1. Soft-delete local inmediato (funciona offline)
     await db.perfiles.update(id, {
-      activo: false,
+      activo: 0,
       deleted_at: now,
       actualizado_at: now,
       sync_status: 'pending',

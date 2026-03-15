@@ -24,7 +24,7 @@ export interface ProgramaEstudio extends BaseEntity {
   /** Multi-tenancy: institución a la que pertenece el programa */
   business_id?: string;
   nombre: string;
-  activo: boolean;
+  activo: number; // 0 | 1 para indexación en IndexedDB
 }
 
 /**
@@ -53,7 +53,7 @@ export interface Paciente extends BaseEntity {
    */
   metadata: Record<string, unknown>;
   creado_at: string;
-  activo: boolean;
+  activo: number; // 0 | 1 para indexación
 }
 
 // ── DTOs / Form types ──────────────────────────────────────────────────────
