@@ -15,10 +15,17 @@ import {
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db/dexie/db";
 import { Skeleton } from "../ui/Skeleton";
+import { useState, useEffect } from "react";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
 export function DashboardCharts() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Data 1: Attentions by Month (Simplified to last 7 days for demo)
   const attentionsData = useLiveQuery(async () => {
     if (typeof window === "undefined") return [];
@@ -97,9 +104,9 @@ export function DashboardCharts() {
         <h3 className="mb-4 font-bold text-gray-700 dark:text-gray-300">
           Atenciones (Últimos 7 días)
         </h3>
-        {attentionsData ? (
+        {mounted && attentionsData ? (
           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
               <BarChart data={attentionsData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="date" tick={{ fontSize: 12 }} />
@@ -125,10 +132,10 @@ export function DashboardCharts() {
         <h3 className="mb-4 font-bold text-gray-700 dark:text-gray-300">
           Medicamentos Más Entregados
         </h3>
-        {medicineData ? (
+        {mounted && medicineData ? (
           <>
             <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                 <PieChart>
                   <Pie
                     data={medicineData}

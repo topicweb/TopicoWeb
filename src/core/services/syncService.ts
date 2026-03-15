@@ -121,7 +121,7 @@ export class SyncService {
 
     listenToChanges() {
         if (this.channels.length > 0) {
-            console.log('Realtime listeners already attached.');
+            // Silencio el log si ya están conectados para evitar spam en la consola
             return;
         }
         console.log('Attaching Supabase Realtime listeners...');
@@ -133,7 +133,6 @@ export class SyncService {
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                 await table.put({ ...payload.new, sync_status: 'synced' });
             } else if (payload.eventType === 'DELETE') {
-                // Asumiendo soft-delete, si no, usar table.delete(payload.old.id)
                 const existing = await table.get(payload.old.id);
                 if (existing) {
                     await table.delete(payload.old.id);
@@ -154,6 +153,11 @@ export class SyncService {
                 });
             return channel;
         });
+    }
+
+    async stopListening() {
+        await Promise.all(this.channels.map(ch => ch.unsubscribe()));
+        this.channels = [];
     }
 }
 
