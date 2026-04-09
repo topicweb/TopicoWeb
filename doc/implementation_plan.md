@@ -144,10 +144,25 @@ Este plan establece una reestructuración profunda de la lógica de Atenciones d
   - Scroll infinito con IntersectionObserver
   - Filtrado por medicamento, atención, tipo y fechas
 
-#### **🔒 4.3 Seguridad y Validación**
-- [ ] **Sanitización de inputs** en cantidades
-- [ ] **Validación de permisos** por tipo de medicamento
-- [ ] **Audit trail** completo de dispensaciones
+#### **🔒 4.3 Seguridad y Validación** ✅ COMPLETADO
+- [x] **Sanitización de inputs** - `security.ts` con:
+  - `sanitizeString()`: Elimina HTML, escapa caracteres especiales, limita a 1000 chars
+  - `sanitizeCantidad()`: Valida números según tipo_medida (UNIDAD=enteros, VOLUMEN_ML=1 decimal)
+  - `sanitizeId()`: Valida UUIDs y strings alfanuméricos
+  - `sanitizeDescription()`: Elimina scripts y event handlers
+  - **39 tests pasando** para sanitización
+- [x] **Validación de permisos** - Sistema RBAC con:
+  - Roles: `admin` (todos los permisos), `personal` (dispensar solo)
+  - Límites por tipo: UNIDAD(50), VOLUMEN_ML(500), PESO_MG(1000), PORCENTAJE(100)
+  - `requiereAutorizacion`: Porcentajes siempre requieren autorización
+  - Rate limiting: Máximo 10 requests/minuto por usuario
+- [x] **Audit trail** - `audit.ts` con:
+  - Tabla `security_audit_log` en Dexie (v14) + índices
+  - Registro de dispensaciones: quién, qué, cuándo, cuánto, stock antes/después
+  - Registro de errores: stock insuficiente, permisos denegados, validaciones
+  - Sincronización automática con Supabase (30s intervalo)
+  - Limpieza automática: retención 90 días, máximo 1000 registros locales
+  - Reportes por usuario: actividad, top medicamentos, errores
 
 ---
 

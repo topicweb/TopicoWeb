@@ -3,6 +3,7 @@ import type { Perfil } from '@/features/usuarios/types';
 import type { Paciente, ProgramaEstudio } from '@/features/pacientes/types';
 import type { Medicamento, MovimientoStock } from '@/features/inventario/types';
 import type { Atencion } from '@/features/atenciones/types';
+import type { RegistroAuditoria } from '@/shared/utils/audit';
 
 const db = new Dexie('TopicoDatabase') as Dexie & {
   instituciones: EntityTable<{ id: string; nombre: string; activo: number; creado_at: string }, 'id'>;
@@ -12,6 +13,7 @@ const db = new Dexie('TopicoDatabase') as Dexie & {
   medicamentos: EntityTable<Medicamento, 'id'>;
   atenciones: EntityTable<Atencion, 'id'>;
   movimientos_stock: EntityTable<MovimientoStock, 'id'>;
+  security_audit_log: EntityTable<RegistroAuditoria, 'id'>;
 };
 
 // v11: Agrega 'sync_status' a la tabla instituciones
@@ -29,6 +31,8 @@ db.version(14).stores({
   atenciones: 'id, business_id, paciente_id, perfil_id, fecha_atencion, creado_at, sync_status, deleted_at, [business_id+activo], [business_id+fecha_atencion]',
   // FASE 4.2: Índices para movimientos por medicamento y tipo (para lazy loading)
   movimientos_stock: 'id, business_id, medicamento_id, atencion_id, tipo, tipo_medida, fecha_movimiento, creado_at, sync_status, deleted_at, [business_id+medicamento_id], [business_id+atencion_id], [medicamento_id+fecha_movimiento]',
+  // FASE 4.3: Tabla de auditoría de seguridad
+  security_audit_log: 'id, user_id, business_id, tipo, medicamento_id, atencion_id, timestamp, sync_status, [business_id+tipo], [business_id+timestamp]',
 }).upgrade(async (tx) => {
   const tablesToMigrate = [
     'instituciones',
