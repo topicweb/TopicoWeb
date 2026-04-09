@@ -73,17 +73,16 @@ Este plan establece una reestructuración profunda de la lógica de Atenciones d
 - [x] **Rollback automático** - Dexie maneja rollback automático si falla cualquier operación dentro de la transacción
 - [x] **Generación de descripciones consolidadas** - `generarDescripcionMovimiento()` crea descripciones como "Atención: 2unid. Paracetamol, 5ml Alcohol"
 
-#### **🔄 2.2 Sistema de Agrupación Inteligente**
-- [ ] **Implementar lógica de agrupación**:
-  ```typescript
-  // Agrupar: 2 pastillas Paracetamol + 1 pastilla Ibuprofeno
-  // Resultado: 1 movimiento "Atención: 2 Unid. Paracetamol, 1 Unid. Ibuprofeno"
-  ```
+#### **🔄 2.2 Sistema de Agrupación Inteligente** ✅ COMPLETADO
+- [x] **`agruparDispensacionesPorMedicamento()`** - Agrupa por ID, suma cantidades: 2 pastillas + 1 pastilla = 3 pastillas
+- [x] **`agruparDispensacionesPorTipoMedida()`** - Separa por categoría: UNIDAD, VOLUMEN_ML, PESO_MG, PORCENTAJE
+- [x] **`generarDescripcionMovimiento()`** - Crea descripciones consolidadas: "Atención: 3unid. Paracetamol, 5ml Alcohol"
+- [x] **`generarResumenPorTipoMedida()`** - Genera resúmenes por tipo: "3unid. (Paracetamol) | 5ml (Alcohol)"
 
-#### **✅ 2.3 Validaciones de Negocio**
-- [ ] **Stock suficiente por tipo de medida**
-- [ ] **Compatibilidad medicamento-dispensación**
-- [ ] **Límites de dispensación** (según tipo de medicamento)
+#### **✅ 2.3 Validaciones de Negocio** ✅ COMPLETADO
+- [x] **Stock suficiente por tipo de medida** - `validarStockSuficiente()` verifica stock antes de dispensar
+- [x] **Compatibilidad medicamento-dispensación** - `validarCompatibilidadTipoMedida()` valida que tipos coincidan
+- [x] **Límites de dispensación** - `validarLimiteDispensacion()` con límites por defecto: UNIDAD(50), VOLUMEN_ML(500), PESO_MG(1000), PORCENTAJE(100)
 
 ---
 
