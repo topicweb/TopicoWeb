@@ -320,10 +320,10 @@ describe('generarDescripcionMovimiento', () => {
 
   it('usa unidades correctas según tipo de medida', () => {
     const tests = [
-      { tipo: 'UNIDAD' as const, esperado: 'unid.' },
-      { tipo: 'VOLUMEN_ML' as const, esperado: 'ml' },
-      { tipo: 'PESO_MG' as const, esperado: 'mg' },
-      { tipo: 'PORCENTAJE' as const, esperado: '%' },
+      { tipo: 'UNIDAD' as const, esperado: '10 unid.' },
+      { tipo: 'VOLUMEN_ML' as const, esperado: '10ml' },
+      { tipo: 'PESO_MG' as const, esperado: '10mg' },
+      { tipo: 'PORCENTAJE' as const, esperado: '10%' },
     ];
 
     for (const { tipo, esperado } of tests) {
@@ -331,7 +331,7 @@ describe('generarDescripcionMovimiento', () => {
       const descripcion = generarDescripcionMovimiento([
         { medicamento: med, cantidad: 10 },
       ]);
-      expect(descripcion).toContain(`10${esperado}`);
+      expect(descripcion).toContain(esperado);
     }
   });
 });
@@ -348,7 +348,7 @@ describe('generarResumenPorTipoMedida', () => {
       { medicamento: med3, cantidad: 5 },
     ]);
 
-    expect(resumen).toContain('3unid.'); // 2 + 1
+    expect(resumen).toContain('3 unid.'); // 2 + 1
     expect(resumen).toContain('5ml');
     expect(resumen).toContain('(Paracetamol, Ibuprofeno)');
     expect(resumen).toContain('(Alcohol)');
@@ -387,9 +387,9 @@ describe('Escenarios Críticos - FASE 4.1', () => {
   describe('Escenario: Tipos de medida mixtos', () => {
     it('permite dispensación con múltiples tipos de medida', () => {
       const dispensaciones = [
-        { medicamento: mockMedicamento({ tipo_medida: 'UNIDAD' }), cantidad: 2 },
-        { medicamento: mockMedicamento({ tipo_medida: 'VOLUMEN_ML' }), cantidad: 5 },
-        { medicamento: mockMedicamento({ tipo_medida: 'PESO_MG' }), cantidad: 100 },
+        { medicamento: mockMedicamento({ nombre: 'Paracetamol', tipo_medida: 'UNIDAD' }), cantidad: 2 },
+        { medicamento: mockMedicamento({ nombre: 'Alcohol', tipo_medida: 'VOLUMEN_ML' }), cantidad: 5 },
+        { medicamento: mockMedicamento({ nombre: 'Crema', tipo_medida: 'PESO_MG' }), cantidad: 100 },
       ];
 
       const descripcion = generarDescripcionMovimiento(dispensaciones);
