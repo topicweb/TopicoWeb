@@ -120,40 +120,43 @@ export default function InventoryPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Inventario de Medicamentos
-        </h1>
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center border-b border-slate-100 dark:border-slate-800 pb-5">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Inventario de Farmacia
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Control de stock y suministros</p>
+        </div>
         <button
           onClick={handleAddNew}
-          className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 shadow-lg shadow-teal-600/20 transition-all active:scale-95"
         >
-          <Plus size={20} />
-          Nuevo Medicamento
+          <Plus size={18} />
+          <span>Nuevo Medicamento</span>
         </button>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Buscar medicamento..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-white"
         />
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-400">
+          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+            <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
               <tr>
-                <th className="px-6 py-3">Nombre</th>
-                <th className="px-6 py-3">Anaquel</th>
-                <th className="px-6 py-3">Stock Actual</th>
-                <th className="px-6 py-3">Estado</th>
-                <th className="px-6 py-3">Acciones</th>
+                <th className="px-6 py-4">Medicamento</th>
+                <th className="px-6 py-4">Ubicación</th>
+                <th className="px-6 py-4">Stock</th>
+                <th className="px-6 py-4">Estado</th>
+                <th className="px-6 py-4">Operaciones</th>
               </tr>
             </thead>
             <tbody>

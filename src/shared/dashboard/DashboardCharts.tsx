@@ -18,7 +18,7 @@ import { Skeleton } from "../ui/Skeleton";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useState, useEffect } from "react";
 
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
+const COLORS = ["#0d9488", "#0891b2", "#059669", "#d97706", "#dc2626"];
 
 export function DashboardCharts() {
   const { businessId } = useAuth();
@@ -98,17 +98,17 @@ export function DashboardCharts() {
     return result;
   }, [businessId]);
 
-  const cardStyle = "rounded-[2rem] bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-6 border border-white/50 dark:border-gray-700/50 shadow-sm transition-all hover:shadow-md hover:border-indigo-500/20";
+  const cardStyle = "bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-sm transition-all hover:shadow-md";
 
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
       {/* Bar Chart */}
       <div className={cardStyle}>
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Atenciones Semanales
           </h3>
-          <div className="h-2 w-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+          <div className="h-2 w-2 rounded-full bg-teal-500 shadow-[0_0_8px_rgba(13,148,136,0.3)]" />
         </div>
 
         <div className="w-full h-[250px]">
@@ -117,8 +117,8 @@ export function DashboardCharts() {
               <BarChart data={attentionsData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                 <defs>
                   <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.8} />
+                    <stop offset="0%" stopColor="#0d9488" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#0f766e" stopOpacity={0.8} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(0,0,0,0.03)" />
@@ -126,13 +126,13 @@ export function DashboardCharts() {
                   dataKey="day"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: '#64748b', fontWeight: 800 }}
+                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                 />
                 <YAxis
                   allowDecimals={false}
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 10, fill: '#64748b', fontWeight: 800 }}
+                  tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 600 }}
                 />
                 <Tooltip
                   cursor={{ fill: 'rgba(99, 102, 241, 0.03)', radius: 8 }}
@@ -166,10 +166,10 @@ export function DashboardCharts() {
       {/* Pie Chart */}
       <div className={cardStyle}>
         <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
-            Stock Distribuido
+          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Salida de Medicamentos
           </h3>
-          <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+          <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
         </div>
 
         <div className="relative w-full h-[250px]">
@@ -198,13 +198,12 @@ export function DashboardCharts() {
                 </Pie>
                 <Tooltip
                   contentStyle={{
-                    borderRadius: "20px",
-                    border: "none",
-                    background: "rgba(255, 255, 255, 0.95)",
-                    backdropFilter: "blur(10px)",
-                    boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.1)",
+                    borderRadius: "12px",
+                    border: "1px solid #e2e8f0",
+                    background: "rgba(255, 255, 255, 0.98)",
+                    boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
                     fontSize: '12px',
-                    fontWeight: '900',
+                    fontWeight: '600',
                     color: '#1e293b'
                   }}
                 />
@@ -217,8 +216,8 @@ export function DashboardCharts() {
           {/* Center text for Donut chart */}
           {medicineData && (
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</span>
-              <span className="text-3xl font-black text-slate-900 dark:text-white mt-1">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Despachos</span>
+              <span className="text-3xl font-bold text-slate-900 dark:text-white mt-1">
                 {medicineData.reduce((acc, curr) => acc + curr.value, 0)}
               </span>
             </div>

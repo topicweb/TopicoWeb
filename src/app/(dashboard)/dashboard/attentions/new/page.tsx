@@ -119,22 +119,22 @@ export default function NewAttentionPage() {
       animate="show"
       className="mx-auto max-w-3xl space-y-6 pb-12"
     >
-      <div className="flex items-center gap-4 border-b border-gray-100 dark:border-gray-800 pb-5 mb-8">
+      <div className="flex items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-5 mb-8">
         <Link
           href="/dashboard/attentions"
-          className="h-10 w-10 flex items-center justify-center rounded-2xl bg-white dark:bg-gray-800 shadow-sm border border-gray-100 dark:border-gray-700 text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+          className="h-9 w-9 flex items-center justify-center rounded-xl bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-teal-600 transition-all"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
             Nueva Atención
           </h1>
-          <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mt-1">Registro de Consulta Médica</p>
+          <p className="text-sm text-slate-500 mt-1">Registro de consulta médica</p>
         </div>
       </div>
 
-      <div className="rounded-[2.5rem] bg-white/70 dark:bg-gray-800/70 backdrop-blur-2xl p-8 border border-white/50 dark:border-gray-700/50 shadow-sm relative overflow-hidden group">
+      <div className="rounded-2xl bg-white p-8 border border-slate-200 shadow-sm relative overflow-hidden group dark:bg-slate-900 dark:border-slate-800">
         <div className="absolute top-0 right-0 p-8 opacity-[0.02] pointer-events-none">
           <ClipboardList size={180} className="text-indigo-500 transform rotate-12" />
         </div>
@@ -143,8 +143,8 @@ export default function NewAttentionPage() {
           {/* Patient Selection */}
           <motion.div variants={item} className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
-               <User size={16} className="text-indigo-500" />
-               <h2 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Paciente</h2>
+               <User size={16} className="text-teal-600" />
+               <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">Paciente</h2>
             </div>
             
             {!selectedPatient ? (
@@ -152,8 +152,8 @@ export default function NewAttentionPage() {
                 <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar paciente por DNI o nombre..."
-                  className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 py-4 pl-12 pr-4 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                  placeholder="Buscar por DNI o nombre..."
+                  className="w-full rounded-xl bg-slate-50 border border-slate-200 py-3 pl-11 pr-4 text-sm font-medium text-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:bg-slate-800/50 dark:border-slate-700 dark:text-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -177,10 +177,10 @@ export default function NewAttentionPage() {
                         >
                           <div className="flex justify-between items-center">
                             <div>
-                                <span className="font-black text-slate-800 dark:text-white block">
+                                <span className="font-bold text-slate-800 dark:text-white block">
                                   {p.nombres} {p.apellidos}
                                 </span>
-                                <span className="text-[10px] font-black uppercase text-indigo-500 tracking-tighter">
+                                <span className="text-xs text-slate-500">
                                   {p.categoria} • {p.dni}
                                 </span>
                             </div>
@@ -208,10 +208,10 @@ export default function NewAttentionPage() {
                     <User size={24} />
                   </div>
                   <div>
-                    <p className="font-black text-indigo-900 dark:text-indigo-100 text-lg">
+                    <p className="font-bold text-slate-800 dark:text-white text-lg">
                       {selectedPatient.nombres} {selectedPatient.apellidos}
                     </p>
-                    <p className="text-[10px] font-black uppercase text-indigo-500 tracking-widest">
+                    <p className="text-xs text-slate-500">
                       {selectedPatient.categoria} • {selectedPatient.dni}
                     </p>
                   </div>
@@ -230,12 +230,12 @@ export default function NewAttentionPage() {
           {/* Motivo & Observaciones */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <motion.div variants={item} className="space-y-2">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                 Motivo de Consulta
               </label>
               <textarea
                 required
-                className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-4 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all h-32 resize-none"
+                className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-4 text-sm font-bold text-slate-800 dark:text-white input-premium transition-all h-32 resize-none"
                 value={formData.motivo}
                 onChange={(e) =>
                   setFormData({ ...formData, motivo: e.target.value })
@@ -245,11 +245,11 @@ export default function NewAttentionPage() {
             </motion.div>
 
             <motion.div variants={item} className="space-y-2">
-              <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1">
                 Tratamiento / Observación
               </label>
               <textarea
-                className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-4 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all h-32 resize-none"
+                className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-4 text-sm font-bold text-slate-800 dark:text-white input-premium transition-all h-32 resize-none"
                 value={formData.observacion}
                 onChange={(e) =>
                   setFormData({ ...formData, observacion: e.target.value })
@@ -273,7 +273,7 @@ export default function NewAttentionPage() {
 
             <div className="relative">
               <select
-                className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-4 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all appearance-none cursor-pointer"
+                className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-4 text-sm font-bold text-slate-800 dark:text-white input-premium appearance-none cursor-pointer"
                 onChange={(e) => {
                   const med = medicamentos?.find(
                     (m: Medicamento) => m.id === e.target.value,

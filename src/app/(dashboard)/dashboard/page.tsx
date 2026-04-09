@@ -64,27 +64,27 @@ export default function DashboardPage() {
 
     return [
       {
-        label: "Pacientes",
+        label: "Pacientes Registrados",
         value: patients,
         icon: Users,
-        gradient: "from-blue-500 to-indigo-600",
-        shadow: "shadow-blue-200 dark:shadow-blue-900/20",
+        gradient: "from-teal-500 to-teal-600",
+        shadow: "shadow-teal-200/20 dark:shadow-teal-900/10",
         href: "/dashboard/patients",
       },
       {
-        label: "Atenciones Hoy",
+        label: "Consultas de Hoy",
         value: attentionsToday,
         icon: ClipboardList,
-        gradient: "from-emerald-500 to-teal-600",
-        shadow: "shadow-emerald-200 dark:shadow-emerald-900/20",
+        gradient: "from-emerald-500 to-emerald-600",
+        shadow: "shadow-emerald-200/20 dark:shadow-emerald-900/10",
         href: "/dashboard/attentions",
       },
       {
-        label: "Stock Bajo",
+        label: "Stock Bajo / Alertas",
         value: lowStock,
         icon: Pill,
-        gradient: "from-orange-500 to-amber-600",
-        shadow: "shadow-orange-200 dark:shadow-orange-900/20",
+        gradient: "from-rose-500 to-rose-600",
+        shadow: "shadow-rose-200/20 dark:shadow-rose-900/10",
         href: "/dashboard/inventory",
       },
     ];
@@ -130,33 +130,33 @@ export default function DashboardPage() {
       animate="show"
     >
       {/* Header Section */}
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between border-b border-gray-100 dark:border-gray-800 pb-5">
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b border-slate-100 dark:border-slate-800 pb-5">
         <div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white md:text-3xl">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white md:text-3xl">
             Panel Principal
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Bienvenido, <span className="font-semibold text-indigo-600 dark:text-indigo-400">{user?.email?.split('@')[0]}</span>
+          <p className="text-base text-slate-500 dark:text-slate-400 mt-1">
+            Bienvenido, <span className="font-semibold text-teal-600 dark:text-teal-400">{user?.email?.split('@')[0]}</span>
           </p>
         </div>
         
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => user?.email && user?.id && seedDatabase(user.email, user.id)}
-            className="flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 hover:bg-indigo-100 transition-all dark:bg-indigo-900/30 dark:text-indigo-300"
+            className="flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-100 transition-all dark:bg-indigo-900/30 dark:text-indigo-300"
           >
-            <DatabaseZap size={14} />
+            <DatabaseZap size={16} />
             Semilla
           </button>
 
           <div
-            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold shadow-sm ${
+            className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold shadow-sm ${
               isOnline 
                 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" 
                 : "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
             }`}
           >
-            {isOnline ? <Wifi size={14} className="animate-pulse" /> : <WifiOff size={14} />}
+            {isOnline ? <Wifi size={16} className="animate-pulse" /> : <WifiOff size={16} />}
             {isOnline ? "Online" : "Offline"}
           </div>
         </div>
@@ -180,28 +180,24 @@ export default function DashboardPage() {
                 >
                   <div className="flex items-center justify-between relative z-10">
                     <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.25em] text-gray-400 dark:text-gray-500 mb-2">
+                      <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-1">
                         {stat.label}
                       </p>
                       <div className="flex items-baseline gap-2">
-                        <p className="text-5xl font-black text-slate-900 dark:text-white tabular-nums tracking-tighter">
+                        <p className="text-4xl font-bold text-slate-900 dark:text-white tabular-nums tracking-tight">
                           {stat.value}
                         </p>
-                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0">
-                          EXPLORAR →
-                        </span>
                       </div>
                     </div>
                     <div
-                      className={`flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-2xl shadow-indigo-500/20 transform group-hover:rotate-12 transition-all duration-500 ${stat.gradient}`}
+                      className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg transform group-hover:scale-110 transition-all duration-300 ${stat.gradient}`}
                     >
-                      <stat.icon className="h-8 w-8" />
+                      <stat.icon size={24} />
                     </div>
                   </div>
                   
-                  {/* Decorative Glass Elements */}
-                  <div className={`absolute -right-8 -bottom-8 h-40 w-40 rounded-full bg-gradient-to-br ${stat.gradient} opacity-[0.08] dark:opacity-[0.15] blur-3xl group-hover:opacity-30 transition-opacity`} />
-                  <div className="absolute top-0 right-0 h-1.5 w-full bg-gradient-to-r from-transparent via-white/30 to-white/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  {/* Decorative Elements */}
+                  <div className={`absolute -right-8 -bottom-8 h-32 w-32 rounded-full bg-gradient-to-br ${stat.gradient} opacity-[0.05] blur-2xl`} />
                 </motion.div>
               </Link>
             ))
@@ -237,15 +233,15 @@ export default function DashboardPage() {
             <Activity size={180} className="text-indigo-500 transform rotate-12" />
           </div>
 
-          <div className="flex items-center justify-between mb-10 relative z-10">
+          <div className="flex items-center justify-between mb-8 relative z-10">
             <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2 tracking-tight">
-                Actividad Viva
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Actividad Reciente
               </h2>
-              <p className="text-[10px] font-black text-indigo-500/60 uppercase tracking-[0.2em] mt-1">Monitoreo en tiempo real</p>
+              <p className="text-sm text-slate-500 mt-1">Últimas consultas registradas</p>
             </div>
-            <div className="h-10 w-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-500 shadow-inner group-hover:scale-110 transition-transform">
-               <Activity size={20} />
+            <div className="h-9 w-9 rounded-xl bg-teal-500/10 flex items-center justify-center text-teal-600">
+               <Activity size={18} />
             </div>
           </div>
           
@@ -257,19 +253,19 @@ export default function DashboardPage() {
                 </div>
                 <div className="transform group-hover/act:translate-x-1 transition-transform">
                   <div className="flex items-center justify-between">
-                    <p className="text-[10px] font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
+                    <p className="text-xs font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
                       Nueva atención
                     </p>
-                    <p className="text-[10px] text-slate-400 font-extrabold bg-slate-100/50 dark:bg-slate-800/50 px-3 py-1 rounded-full">
+                    <p className="text-xs text-slate-400 font-bold bg-slate-100/50 dark:bg-slate-800/50 px-3 py-1 rounded-full">
                       {new Date(act.fecha_atencion).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  <p className="font-black text-slate-800 dark:text-slate-100 text-base mt-1 leading-tight group-hover/act:text-indigo-600 dark:group-hover/act:text-indigo-400 transition-colors">
+                  <p className="font-bold text-slate-800 dark:text-slate-100 text-lg mt-1 leading-tight group-hover/act:text-indigo-600 dark:group-hover/act:text-indigo-400 transition-colors">
                     {act.pacienteNombre}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                      <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">
+                     <p className="text-xs text-slate-400 font-bold uppercase tracking-tight">
                         Registro completado con éxito
                      </p>
                   </div>

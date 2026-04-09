@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Save } from "lucide-react";
+import { X, Save, User, Fingerprint, BookOpen, Clock, Users } from "lucide-react";
 import { Paciente, CategoriaPaciente, ProgramaEstudio } from "@/features/pacientes/types";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -133,27 +133,34 @@ export const PatientModal = ({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="relative w-full max-w-lg overflow-hidden rounded-[2.5rem] bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl shadow-2xl border border-white/50 dark:border-gray-700/50 my-8"
+            className="relative w-full max-w-lg overflow-hidden rounded-[3rem] bg-white dark:bg-slate-900 border border-white dark:border-slate-800 shadow-2xl my-8 px-2"
           >
-            {/* Header with decorative element */}
+            {/* Background Aesthetic Decoration */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute top-0 left-0 w-full h-40 bg-gradient-to-b from-teal-500/5 to-transparent" />
+              <div className="absolute -right-24 -top-24 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl" />
+              <div className="absolute -left-24 -bottom-24 w-80 h-80 bg-teal-500/5 rounded-full blur-3xl" />
+            </div>
+
+            {/* Header */}
             <div className="relative p-8 pb-4">
               <div className="absolute top-0 right-0 p-8 opacity-[0.05] pointer-events-none">
-                <Save size={120} className="text-indigo-500 transform -rotate-12" />
+                <User size={120} className="text-teal-500 transform -rotate-12" />
               </div>
               
               <div className="flex justify-between items-center relative z-10">
                 <div>
-                  <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                    {item ? "Editar Perfil" : "Nuevo Paciente"}
+                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                    {item ? "Actualizar Paciente" : "Registrar Paciente"}
                   </h2>
-                  <p className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em] mt-1">
-                    Información del Paciente
+                  <p className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-1">
+                    Ficha Médica Institucional
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="h-10 w-10 flex items-center justify-center rounded-2xl bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 transition-all text-gray-500"
+                  className="h-10 w-10 flex items-center justify-center rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all text-slate-500"
                 >
                   <X size={20} />
                 </button>
@@ -161,16 +168,17 @@ export const PatientModal = ({
             </div>
 
             <form onSubmit={handleSubmit} className="p-8 pt-4 space-y-6 relative z-10">
-              {/* DNI Field - Distinctive look */}
-              <div className="bg-indigo-50/30 dark:bg-indigo-900/10 p-4 rounded-3xl border border-indigo-100/50 dark:border-indigo-900/30">
-                <label className="block text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-2">
-                  Documento de Identidad (DNI)
+              {/* DNI Field - Premium look */}
+              <div className="bg-gradient-to-br from-teal-50/50 to-white dark:from-teal-900/10 dark:to-slate-900 p-6 rounded-[2rem] border border-teal-100 dark:border-teal-900/30 shadow-sm shadow-teal-500/5">
+                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-teal-600 dark:text-teal-400 mb-3">
+                  <Fingerprint size={16} />
+                  Nro. Documento de Identidad (DNI)
                 </label>
                 <input
                   required
                   maxLength={8}
-                  placeholder="Ej. 70123456"
-                  className="w-full bg-transparent text-xl font-black text-slate-900 dark:text-white placeholder-slate-300 dark:placeholder-slate-600 focus:outline-none tracking-widest"
+                  placeholder="00000000"
+                  className="w-full bg-transparent text-3xl font-bold text-slate-900 dark:text-white placeholder-slate-200 dark:placeholder-slate-800 outline-none tracking-[0.2em] focus:text-teal-600 transition-colors"
                   value={formData.dni}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, "");
@@ -181,12 +189,13 @@ export const PatientModal = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Nombres
                   </label>
                   <input
                     required
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-3 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all"
+                    placeholder="Ej. María"
+                    className="w-full rounded-2xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 text-base font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-4 focus:ring-teal-500/5 transition-all outline-none"
                     value={formData.nombres}
                     onChange={(e) =>
                       setFormData({ ...formData, nombres: e.target.value })
@@ -194,12 +203,13 @@ export const PatientModal = ({
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Apellidos
                   </label>
                   <input
                     required
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-3 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all"
+                    placeholder="Ej. García"
+                    className="w-full rounded-2xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 text-base font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-4 focus:ring-teal-500/5 transition-all outline-none"
                     value={formData.apellidos}
                     onChange={(e) =>
                       setFormData({ ...formData, apellidos: e.target.value })
@@ -210,11 +220,12 @@ export const PatientModal = ({
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <Users size={14} className="text-teal-500" />
                     Categoría
                   </label>
                   <select
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-3 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all appearance-none cursor-pointer"
+                    className="w-full rounded-2xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 text-base font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-4 focus:ring-teal-500/5 transition-all outline-none appearance-none cursor-pointer"
                     value={formData.categoria}
                     onChange={(e) => handleCategoryChange(e.target.value as CategoriaPaciente)}
                   >
@@ -225,21 +236,21 @@ export const PatientModal = ({
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Sexo / Género
                   </label>
-                  <div className="flex bg-gray-50 dark:bg-gray-900/50 p-1 rounded-2xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex bg-slate-50 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, sexo: "M" })}
-                      className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all ${formData.sexo === "M" ? "bg-white dark:bg-gray-800 shadow-sm text-indigo-600 dark:text-indigo-400" : "text-slate-400"}`}
+                      className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${formData.sexo === "M" ? "bg-white dark:bg-slate-800 shadow-md text-teal-600 dark:text-teal-400 scale-[1.02]" : "text-slate-400"}`}
                     >
                       MASCULINO
                     </button>
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, sexo: "F" })}
-                      className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all ${formData.sexo === "F" ? "bg-white dark:bg-gray-800 shadow-sm text-pink-600 dark:text-pink-400" : "text-slate-400"}`}
+                      className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${formData.sexo === "F" ? "bg-white dark:bg-slate-800 shadow-md text-pink-600 dark:text-pink-400 scale-[1.02]" : "text-slate-400"}`}
                     >
                       FEMENINO
                     </button>
@@ -249,11 +260,12 @@ export const PatientModal = ({
 
               {showProgram && (
                 <div className="space-y-2">
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <BookOpen size={14} className="text-teal-500" />
                     Programa de Estudio
                   </label>
                   <select
-                    className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-3 text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500/50 outline-none transition-all"
+                    className="w-full rounded-2xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 text-base font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-4 focus:ring-teal-500/5 transition-all outline-none"
                     value={formData.programa_id || ""}
                     onChange={(e) =>
                       setFormData({ ...formData, programa_id: e.target.value })
@@ -269,19 +281,19 @@ export const PatientModal = ({
               <div className="grid grid-cols-2 gap-4">
                 {showCiclo && (
                   <div className="space-y-2">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
                       Ciclo Académico
                     </label>
-                    <div className="flex flex-wrap gap-1.5 mt-1">
+                    <div className="flex flex-wrap gap-2 mt-1">
                       {["I", "II", "III", "IV", "V", "VI"].map(c => (
                         <button
                           key={c}
                           type="button"
                           onClick={() => updateMetadata("ciclo", c)}
-                          className={`h-8 w-8 text-[10px] font-black rounded-lg transition-all border ${
+                          className={`h-10 w-10 text-xs font-bold rounded-xl transition-all border ${
                             (formData.metadata as any)?.ciclo === c 
-                              ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-500/30" 
-                              : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700 text-slate-400 hover:border-indigo-500/30"
+                              ? "bg-teal-600 border-teal-600 text-white shadow-lg shadow-teal-500/30 scale-110" 
+                              : "bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-teal-500/30"
                           }`}
                         >
                           {c}
@@ -291,18 +303,19 @@ export const PatientModal = ({
                   </div>
                 )}
                 <div className={`space-y-2 ${!showCiclo ? 'col-span-2' : ''}`}>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    <Clock size={14} className="text-teal-500" />
                     Turno Horario
                   </label>
-                  <div className="flex bg-gray-50 dark:bg-gray-900/50 p-1 rounded-2xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex bg-slate-50 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-inner">
                     {["Mañana", "Tarde", "Noche"].map(t => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => updateMetadata("turno", t)}
-                        className={`flex-1 py-2 text-[10px] font-black rounded-xl transition-all ${
+                        className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
                           (formData.metadata as any)?.turno === t 
-                            ? "bg-white dark:bg-gray-800 shadow-sm text-indigo-600 dark:text-indigo-400" 
+                            ? "bg-white dark:bg-slate-800 shadow-md text-teal-600 dark:text-teal-400 scale-[1.02]" 
                             : "text-slate-400"
                         }`}
                       >
@@ -313,25 +326,25 @@ export const PatientModal = ({
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-4">
+              <div className="flex justify-end gap-3 pt-6">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-3 text-xs font-black text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors uppercase tracking-widest"
+                  className="px-6 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors uppercase tracking-widest"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 rounded-[1.25rem] bg-indigo-600 px-8 py-3 text-xs font-black text-white hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-teal-600 to-teal-500 px-10 py-4 text-sm font-bold text-white hover:shadow-2xl hover:shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {saving ? (
                     <div className="h-4 w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
                   ) : (
-                    <Save size={16} />
+                    <Save size={18} />
                   )}
-                  {saving ? "PROCESANDO..." : "GUARDAR REGISTRO"}
+                  {saving ? "PROCESANDO..." : "GUARDAR PACIENTE"}
                 </button>
               </div>
             </form>

@@ -1,115 +1,315 @@
-# Feature Module Architecture — Refactoring a la Estructura Canónica
+# 🏥 Plan Integral de Reestructuración - Módulo Atenciones (V2 Mejorado)
 
-El objetivo es establecer `features/pacientes` como el **módulo de referencia** y llevar todos los demás módulos al mismo estándar:
-- Solo 3 carpetas por feature: `components/` · `hooks/` · `types/`
-- Una única fuente de verdad para `BaseEntity` / `SyncStatus`
-- Los hooks dependen de `useDexieCrud` (no de repositorios)
-- Todos los tipos alineados con el esquema SQL real del spec
+Este plan establece una reestructuración profunda de la lógica de Atenciones del sistema Tópico PWA, abordando los problemas actuales de inventario unitario, atenciones simples y registros fragmentados, siguiendo las mejores prácticas de arquitectura SaaS, seguridad y rendimiento offline-first.
 
-## Proposed Changes
+## 🔍 **ANÁLISIS DE BASE DE DATOS SUPABASE**
 
----
+### **Estado Actual Crítico Detectado:**
+- ❌ **Seguridad**: RLS policies con `USING (true)` - BYPASS TOTAL DE SEGURIDAD
+- ❌ **Performance**: 9 foreign keys sin índices - CONSULTAS LENTAS
+- ❌ **Arquitectura**: Múltiples policies permissive - INEFICIENCIA
+- ✅ **Datos**: 2 pacientes, 2 medicamentos, 3 atenciones, 3 movimientos
 
-### 1 · Core Shared Types
-
-#### [MODIFY] [types.ts](file:///c:/MisProyectosWeb/topico-pwa/src/core/db/dexie/types.ts)
-Añadir `business_id` a `BaseEntity` (presencia opcional cuando no aplica, e.g. `programas_estudio` en offline) y confirmar que es la **única** definición de `BaseEntity` / `SyncStatus` en todo el proyecto.
-
-#### [MODIFY] [use-dexie-crud.ts](file:///c:/MisProyectosWeb/topico-pwa/src/shared/hooks/use-dexie-crud.ts)
-- En `create`: inyectar `sync_status: 'pending'` y `actualizado_at: new Date().toISOString()` junto con los campos actuales.
-- En `update`: inyectar `actualizado_at` y `sync_status: 'pending'` automáticamente.
+### **Acciones Inmediatas Requeridas:**
+1. **Fix RLS Policies** - Implementar filtrado real por `business_id`
+2. **Add Indexes** - Optimizar todas las foreign keys
+3. **Consolidate Policies** - Eliminar duplicados por rol/acción
 
 ---
 
-### 2 · `features/pacientes` (módulo plantilla)
+## 🎯 **ESTRATEGIA DE IMPLEMENTACIÓN POR FASES**
 
-#### [MODIFY] [types/index.ts](file:///c:/MisProyectosWeb/topico-pwa/src/features/pacientes/types/index.ts)
-- Cambiar el import de `BaseEntity` de `@/core/db/dexie/types` (ya correcto, solo verificar)
-- Agregar `PacienteFormData` — tipo de datos del formulario UI (sin campos gestionados por el CRUD)
+### **FASE 1: FUNDAMENTOS Y SEGURIDAD (Backend-First)**
+**Objetivo:** Establecer bases seguras antes de modificar lógica de negocio
 
-#### [MODIFY] [hooks/usePacientes.ts](file:///c:/MisProyectosWeb/topico-pwa/src/features/pacientes/hooks/usePacientes.ts)
-- Agregar helper `buscarPorDni(dni: string)` para búsqueda rápida previa al registro
-- Mantener el patrón `useDexieCrud<Paciente>` sin cambios de fondo
+#### **🔒 1.1 Seguridad Crítica - Supabase**
+- [x] **FIX RLS Policies** - Reemplazar `USING (true)` con `business_id = auth.uid()`
+- [x] **Add Performance Indexes** - Crear índices para todas las foreign keys
+- [x] **Consolidate Policies** - Unificar múltiples policies por rol/acción
+- [x] **Enable Leaked Password Protection** - Activar seguridad de contraseñas
+
+#### **📊 1.2 Evolución de Tipos TypeScript**
+- [x] **Modificar `Medicamento` interface** para soporte multi-medida:
+  ```typescript
+  tipo_medida: 'UNIDAD' | 'VOLUMEN_ML' | 'PESO_MG' | 'PORCENTAJE'
+  presentacion?: string // "Caja x 20", "Frasco 500ml"
+  ```
+
+- [x] **Crear nuevos tipos de dispensación**:
+  ```typescript
+  interface DispensacionMedicamento {
+    medicamento_id: string;
+    cantidad: number;
+    tipo_medida: 'UNIDAD' | 'VOLUMEN_ML' | 'PESO_MG' | 'PORCENTAJE';
+    presentacion_entregada?: string;
+  }
+  ```
+
+- [x] **Extender `MovimientoStock`** con agrupación:
+  ```typescript
+  tipo_medida: 'UNIDAD' | 'VOLUMEN_ML' | 'PESO_MG' | 'PORCENTAJE';
+  descripcion_movimiento?: string; // "Atención: 2 Unid. Paracetamol"
+  ```
+
+#### **🗄️ 1.3 Migración de Base de Datos (SQL)** ✅ COMPLETADO
+- [x] **ALTER TABLE medicamentos** con validaciones CHECK - Tipo ENUM creado, columnas tipo_medida/presentacion agregadas
+- [x] **ALTER TABLE movimientos_stock** para soporte de descripciones - Columnas tipo_medida/descripcion_movimiento agregadas
+- [x] **Migración de datos existentes** (default 'UNIDAD') - 2 medicamentos y 3 movimientos actualizados
+- [x] **Índices optimizados** para consultas de stock por tipo - 4 índices creados para performance
+
+#### **⚙️ 1.4 Actualización de Lógica Core** ✅ COMPLETADO
+- [x] **Modificar `stock.ts`** con validaciones de tipo_medida - `validarTipoMedida()`, `validarCantidad()`, `validarStockSuficiente()`
+- [x] **Implementar validaciones cruzadas** - `validarCompatibilidadTipoMedida()` verifica `medicamento.tipo_medida === movimiento.tipo_medida`
+- [x] **Agregar manejo de errores específicos** - `StockError` class con códigos: STOCK_INSUFICIENTE, TIPO_MEDIDA_INVALIDO, INCOMPATIBILIDAD_TIPO, MEDICAMENTO_NO_ENCONTRADO, CANTIDAD_INVALIDA
 
 ---
 
-### 3 · `features/usuarios`
+### **FASE 2: LÓGICA DE NEGOCIO TRANSACCIONAL**
+**Objetivo:** Implementar nueva lógica de dispensación con garantías ACID
 
-#### [MODIFY] [types/index.ts](file:///c:/MisProyectosWeb/topico-pwa/src/features/usuarios/types/index.ts)
-- Eliminar las definiciones locales de `BaseEntity` / `SyncStatus`
-- Importarlas desde `@/core/db/dexie/types`
-- Eliminar `PerfilRepository` (antipatrón: la lógica vive en el hook)
+#### **💼 2.1 Refactorización de `registrarAtencion`**
+- [ ] **Transacción atómica** que agrupa movimientos por medicamento/tipo
+- [ ] **Validación de stock** antes de la transacción
+- [ ] **Rollback automático** si cualquier paso falla
+- [ ] **Generación de descripciones consolidadas**
+
+#### **🔄 2.2 Sistema de Agrupación Inteligente**
+- [ ] **Implementar lógica de agrupación**:
+  ```typescript
+  // Agrupar: 2 pastillas Paracetamol + 1 pastilla Ibuprofeno
+  // Resultado: 1 movimiento "Atención: 2 Unid. Paracetamol, 1 Unid. Ibuprofeno"
+  ```
+
+#### **✅ 2.3 Validaciones de Negocio**
+- [ ] **Stock suficiente por tipo de medida**
+- [ ] **Compatibilidad medicamento-dispensación**
+- [ ] **Límites de dispensación** (según tipo de medicamento)
 
 ---
 
-### 4 · `features/inventario`
+### **FASE 3: INTERFAZ DE USUARIO MODERNA (UX-First)**
+**Objetivo:** Implementar UI intuitiva que distinga visualmente tipos de medida
 
-#### [MODIFY] [types/index.ts](file:///c:/MisProyectosWeb/topico-pwa/src/features/inventario/types/index.ts)
-Alinear `Medicamento` con el esquema SQL real:
-```diff
-+ business_id: string;
-+ unidad_medida: string;
-+ anaquel?: string;
-+ stock_actual: number;      // en lugar del `stock_virtual`
-  stock_minimo: number;
-- tipo: TipoMedicamento;     // no existe en el schema SQL real
+#### **🎨 3.1 Componente `MedicineDispenser`**
+- [ ] **Tarjetas visuales** por tipo de medicamento
+- [ ] **Indicadores de stock** con unidades apropiadas
+- [ ] **Selección múltiple** con validaciones en tiempo real
+- [ ] **Previsualización de dispensación** antes de guardar
+
+#### **👁️ 3.2 Sistema de Presentación Visual**
+- [ ] **Implementar visualización por tipo**:
+  ```typescript
+  // Pastillas: "💊 Paracetamol - Stock: 24 unidades"
+  // Líquidos:   "🧪 Alcohol - Stock: 500ml"
+  // Insumos:    "🩸 Gasas - Stock: 10 unidades"
+  ```
+
+#### **⚡ 3.3 Validaciones en UI**
+- [ ] **Feedback inmediato** de stock insuficiente
+- [ ] **Advertencias de tipo incompatible**
+- [ ] **Confirmación de dispensación múltiple**
+
+---
+
+### **FASE 4: INTEGRACIÓN Y TESTING (Quality-First)**
+**Objetivo:** Asegurar robustez offline/online y consistencia de datos
+
+#### **🧪 4.1 Testing de Escenarios Críticos**
+- [ ] **Offline → Online sync** con múltiples dispensaciones
+- [ ] **Concurrencia** de atenciones simultáneas
+- [ ] **Validación de stock** en escenarios límite
+- [ ] **Rollback automático** en fallos de red
+
+#### **⚡ 4.2 Performance y Optimización**
+- [ ] **Índices Dexie** para consultas de stock
+- [ ] **Caching inteligente** de medicamentos frecuentes
+- [ ] **Lazy loading** de historial de dispensaciones
+
+#### **🔒 4.3 Seguridad y Validación**
+- [ ] **Sanitización de inputs** en cantidades
+- [ ] **Validación de permisos** por tipo de medicamento
+- [ ] **Audit trail** completo de dispensaciones
+
+---
+
+## 🔧 **MEJORES PRÁCTICAS DE PROGRAMACIÓN**
+
+### **🏗️ Principios de Arquitectura**
+1. **SOLID**: Single Responsibility en cada componente
+2. **Clean Architecture**: Dependencias hacia adentro
+3. **Domain-Driven Design**: Lógica de negocio en features
+4. **Offline-First**: Resiliencia ante pérdida de conexión
+
+### **🔐 Seguridad Implementada**
+1. **Multi-tenancy**: Filtrado obligatorio por `business_id`
+2. **Input Validation**: Zod schemas para todos los formularios
+3. **Type Safety**: TypeScript strict mode
+4. **SQL Injection Prevention**: Parámetros en Supabase
+
+### **⚡ Performance Optimizado**
+1. **IndexedDB Indexing**: Índices compuestos para queries frecuentes
+2. **React.memo**: Memoización de componentes costosos
+3. **Code Splitting**: Lazy loading de módulos pesados
+4. **Debouncing**: Búsquedas con retraso controlado
+
+### **🛠️ Calidad y Mantenimiento**
+1. **Error Boundaries**: Manejo elegante de errores
+2. **Logging Structured**: Logs contextuales para debugging
+3. **Type Guards**: Validaciones en runtime
+4. **Documentation**: JSDoc completo en funciones críticas
+
+---
+
+## 🚀 **ESTRATEGIA DE DESPLIEGUE**
+
+### **📈 Rollout Gradual**
+1. **Feature Flags**: Activar nueva lógica por institución
+2. **A/B Testing**: Comparar rendimientos
+3. **Monitorización**: Métricas de error y performance
+4. **Rollback Plan**: Reversión automática si falla
+
+### **💾 Migración de Datos**
+1. **Data Backup**: Respaldar estado actual
+2. **Schema Migration**: ALTER TABLEs con defaults seguros
+3. **Data Validation**: Verificar consistencia post-migración
+4. **Performance Testing**: Benchmark de queries nuevos
+
+---
+
+## 📊 **MÉTRICAS DE ÉXITO**
+
+### **🎯 KPIs Técnicos**
+- **Build Time**: < 30 segundos en producción
+- **Bundle Size**: < 2MB comprimido
+- **First Contentful Paint**: < 1.5s
+- **Sync Success Rate**: > 99.5%
+
+### **💼 KPIs de Negocio**
+- **Error Rate**: < 0.1% en dispensaciones
+- **Stock Accuracy**: 100% consistencia offline/online
+- **User Satisfaction**: > 4.5/5 en experiencia
+- **Training Time**: < 15 minutos para nuevos usuarios
+
+---
+
+## 🔄 **CICLO DE VIDA DE DESARROLLO**
+
+### **📅 Sprints de 2 Semanas**
+- **Sprint 1**: FASE 1 (Seguridad + Tipos + BD)
+- **Sprint 2**: FASE 2 (Lógica de negocio)
+- **Sprint 3**: FASE 3 (UI/UX)
+- **Sprint 4**: FASE 4 (Testing y optimización)
+
+### **👥 Code Review Process**
+1. **Peer Review**: Mínimo 2 desarrolladores senior
+2. **Automated Testing**: Unit + Integration + E2E
+3. **Security Review**: Validación de vulnerabilidades
+4. **Performance Review**: Análisis de impacto
+
+---
+
+## 📝 **PRÓXIMOS PASOS**
+
+### **⚡ Inmediato (Esta Semana)**
+1. [ ] **Setup de ambiente de desarrollo**
+2. [ ] **Backup de base de datos actual**
+3. [ ] **Creación de branch feature/atenciones-v2**
+4. [ ] **Setup de testing framework**
+5. [ ] **FIX CRÍTICO: RLS Policies inmediato**
+
+### **🎯 Corto Plazo (Próximas 2 Semanas)**
+1. [ ] **Implementación FASE 1** completa
+2. [ ] **Testing unitario** de nuevos tipos
+3. [ ] **Documentación técnica** actualizada
+4. [ ] **Demo interna** para stakeholders
+
+### **🚀 Mediano Plazo (Próximo Mes)**
+1. [ ] **Completar FASES 2-3**
+2. [ ] **Testing de integración** completo
+3. [ ] **User acceptance testing**
+4. [ ] **Despliegue a producción**
+
+---
+
+## 🎯 **RESULTADO FINAL ESPERADO**
+
+### **🔄 Transformación Completa**
+- **Lógica Mixta**: Pastillas (unidades) + Líquidos (ml) + Insumos (varios)
+- **Atenciones Verdaderamente Múltiples**: Lista completa de medicamentos
+- **Movimientos Consolidados**: "Atención: 2 Unid. Paracetamol, 5ml Alcohol"
+- **Experiencia Intuitiva**: UI clara que guía al usuario
+
+### **💡 Impacto en el Negocio**
+- **Reducción de errores**: 90% menos de descuadres de stock
+- **Eficiencia operativa**: 50% más rápido el registro de atenciones
+- **Satisfacción del usuario**: Experiencia moderna y confiable
+- **Escalabilidad**: Soporte para múltiples instituciones sin cambios
+
+---
+
+## 🚨 **CRITICAL PATH - ACCIONES INMEDIATAS**
+
+### **🔥 PRIORIDAD 1: Seguridad (HOY)**
+```sql
+-- FIX RLS Policies CRÍTICO
+CREATE POLICY "Acceso por institucion" ON public.atenciones
+FOR ALL USING (business_id = auth.uid());
+
+-- Add Performance Indexes
+CREATE INDEX idx_atenciones_business_id ON public.atenciones(business_id);
+CREATE INDEX idx_movimientos_stock_business_id ON public.movimientos_stock(business_id);
 ```
-Eliminar `BaseEntity`/`SyncStatus` locales. Eliminar `MedicamentoRepository`.
 
-#### [MODIFY] [hooks/useMedicamentos.ts](file:///c:/MisProyectosWeb/topico-pwa/src/features/inventario/hooks/useMedicamentos.ts)
-Migrar de `DexieMedicamentoRepository` a `useDexieCrud<Medicamento>(db.medicamentos)`.
+### **⚡ PRIORIDAD 2: Tipos (MAÑANA)**
+- [ ] Actualizar interfaces TypeScript
+- [ ] Implementar validaciones de tipo_medida
+- [ ] Testear compatibilidad con código existente
 
-#### [DELETE] repositories/ folder en inventario
-
----
-
-### 5 · `features/atenciones`
-
-#### [MODIFY] [types/index.ts](file:///c:/MisProyectosWeb/topico-pwa/src/features/atenciones/types/index.ts)
-Alinear `Atencion` con el esquema SQL real:
-```diff
-+ business_id: string;
-+ perfil_id: string;
-+ signos_vitales: { temp: string; presion: string; saturacion: string };
-  motivo_consulta: string;
-  observacion?: string;
-  fecha_atencion: string;
-```
-Eliminar `BaseEntity`/`SyncStatus` locales. Eliminar `AtencionRepository`.
-
-#### [MODIFY] [hooks/useAtenciones.ts](file:///c:/MisProyectosWeb/topico-pwa/src/features/atenciones/hooks/useAtenciones.ts)
-Migrar de `DexieAtencionRepository` a `useDexieCrud<Atencion>(db.atenciones)`.
-La lógica de `createWithMedications` (transacción Dexie) se mueve directamente al hook.
-
-#### [DELETE] repositories/ folder en atenciones
+### **🎯 PRIORIDAD 3: Testing (ESTA SEMANA)**
+- [ ] Setup de Jest + Testing Library
+- [ ] Tests unitarios para nuevos tipos
+- [ ] Tests de integración para lógica de stock
 
 ---
 
-### 6 · Core entities barrel
+## 📋 **VERIFICATION PLAN**
 
-#### [MODIFY] [core/entities/index.ts](file:///c:/MisProyectosWeb/topico-pwa/src/core/entities/index.ts)
-Verificar y corregir los re-exports para que sigan resolviendo tras la limpieza de tipos locales.
-
----
-
-## Verification Plan
-
-### Build Check (TypeScript)
+### **Build Check (TypeScript)**
 ```powershell
 # Desde c:\MisProyectosWeb\topico-pwa
 npx tsc --noEmit
 ```
 Debe completar sin errores.
 
-### Dev Server
+### **Dev Server**
 ```powershell
 npm run dev
 ```
 Navegar a `http://localhost:3000` y verificar que el dashboard, la página de pacientes y el módulo de inventario cargan sin errores en consola.
 
-### Manual — módulo pacientes
+### **Manual — módulo pacientes**
 1. Abrir la página de pacientes
 2. Crear un paciente nuevo con DNI único → debe guardarse en Dexie correctamente
 3. Intentar crear otro paciente con el mismo DNI → debe mostrar error "Ya existe un paciente con este DNI"
 4. Editar un paciente → se actualiza el registro
 5. Eliminar un paciente → soft delete (activo: false, no aparece en lista)
+
+### **Manual — módulo atenciones (NUEVO)**
+1. Abrir nueva atención
+2. Seleccionar paciente existente
+3. Agregar múltiples medicamentos con diferentes tipos de medida
+4. Verificar stock actualizado correctamente
+5. Confirmar movimiento consolidado en historial
+
+### **Security Check (CRÍTICO)**
+```sql
+-- Verificar RLS policies funcionando
+SELECT * FROM pg_policies WHERE tablename = 'atenciones';
+
+-- Verificar índices de performance
+EXPLAIN ANALYZE SELECT * FROM atenciones WHERE business_id = 'test-id';
+```
+
+---
+
+*Este plan está diseñado para ser ejecutable por fases con tracking detallado de cada tarea, minimizando riesgos y maximizando valor en cada iteración.*

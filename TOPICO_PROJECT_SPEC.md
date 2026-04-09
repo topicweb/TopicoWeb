@@ -1,191 +1,282 @@
-# 🏥 Sistema de Tópico Institucional - Especificación Senior (SaaS & Offline-First)
+# 🏥 Topico PWA - Sistema de Gestión de Tópico Médico
 
-Este documento es la ÚNICA fuente de verdad. Ignorar arquitecturas previas y patrones "Enterprise" innecesarios.
+## 📋 **Especificación Técnica Actualizada (Abril 2026)**
 
-## 🛠️ 1. Arquitectura de Carpetas Estricta (Bajo src/)
-- `app/`: SOLO RUTAS Y LAYOUTS (Next.js 16 App Router).
-- `core/`: MOTOR (db/dexie, supabase/client, providers/auth, services/sync).
-- `features/`: LÓGICA DE NEGOCIO (pacientes, inventario, atenciones). Cada uno con sus `components/`, `hooks/` y `types.ts`.
-- `shared/`: REUTILIZABLE (Shadcn, hooks genéricos, utils).
+### **🎯 Visión General**
+Sistema PWA offline-first para gestión de tópicos médicos en instituciones educativas, soportando atención médica, inventario de medicamentos y seguimiento de pacientes con arquitectura multi-tenant.
 
-## 🔑 2. Reglas de Oro: SaaS & Datos
-1. **Multi-tenancy:** Filtrado obligatorio por `business_id` en toda consulta (Supabase/Dexie).
-2. **Contexto:** `business_id` se extrae del perfil del usuario tras login (AuthContext).
-3. **Flexibilidad JSONB:** 
-   - `pacientes.metadata`: Ciclo, Año ingreso, etc. (No crear columnas extras).
-   - `atenciones.signos_vitales`: Presión, Temp, Saturación.
-4. **Inventario:** Incluir `unidad_medida` y `anaquel` (ubicación física).
+---
 
-## 🗄️ 3. Esquema SQL Real (Supabase)
--- WARNING: This schema is for context only and is not meant to be run.
--- Table order and constraints may not be valid for execution.
+## 🏗️ **ARQUITECTURA TÉCNICA**
 
-CREATE TABLE public.atenciones (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  business_id uuid NOT NULL,
-  paciente_id uuid NOT NULL,
-  perfil_id uuid NOT NULL,
-  motivo_consulta text NOT NULL,
-  signos_vitales jsonb DEFAULT '{"temp": "", "presion": "", "saturacion": ""}'::jsonb,
-  observacion text,
-  fecha_atencion timestamp with time zone DEFAULT now(),
-  activo boolean DEFAULT true,
-  CONSTRAINT atenciones_pkey PRIMARY KEY (id),
-  CONSTRAINT atenciones_paciente_id_fkey FOREIGN KEY (paciente_id) REFERENCES public.pacientes(id),
-  CONSTRAINT atenciones_perfil_id_fkey FOREIGN KEY (perfil_id) REFERENCES public.perfiles(id),
-  CONSTRAINT atenciones_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.instituciones(id)
-);
+### **📱 Stack Tecnológico**
+- **Frontend**: Next.js 16 (App Router) + TypeScript + React 18
+- **UI**: Shadcn/UI + TailwindCSS + Lucide Icons + Framer Motion
+- **Base de Datos**: Supabase (PostgreSQL 17) + Dexie (IndexedDB)
+- **Estado**: React Context + Hooks personalizados
+- **PWA**: Service Workers + Offline-first strategy
+
+### **� Arquitectura Multi-tenant**
+- **Filtrado por `business_id`**: Cada institución solo ve sus datos
+- **RLS Policies**: Seguridad a nivel de base de datos con validación real
+- **Perfiles**: `admin` (gestión completa) y `personal` (operaciones médicas)
+- **Validación**: Triggers y constraints para integridad de datos
+
+---
+
+## 📊 **ESTRUCTURA DE DATOS ACTUALIZADA**
+
+### **🏢 Instituciones**
+```sql
 CREATE TABLE public.instituciones (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   nombre text NOT NULL,
   ruc text UNIQUE,
   activo boolean DEFAULT true,
-  creado_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT instituciones_pkey PRIMARY KEY (id)
+  creado_at timestamptz DEFAULT now()
 );
+```
+
+### **👥 Perfiles (Usuarios)**
+```sql
+CREATE TABLE public.perfiles (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid REFERENCES public.instituciones(id),
+  nombre text,
+  email text UNIQUE,
+  rol rol_usuario DEFAULT 'admin',
+  activo boolean DEFAULT true,
+  creado_at timestamptz DEFAULT now()
+);
+```
+
+### **👨‍⚕️ Pacientes**
+```sql
+CREATE TABLE public.pacientes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid REFERENCES public.instituciones(id),
+  dni text NOT NULL,
+  nombres text NOT NULL,
+  apellidos text NOT NULL,
+  sexo text CHECK (sexo IN ('M', 'F')),
+  categoria text CHECK (categoria IN ('estudiante', 'docente', 'administrativo', 'limpieza')),
+  programa_id uuid REFERENCES public.programas_estudio(id),
+  metadata jsonb DEFAULT '{}',
+  activo boolean DEFAULT true,
+  creado_at timestamptz DEFAULT now()
+);
+```
+
+### **📚 Programas de Estudio**
+```sql
+CREATE TABLE public.programas_estudio (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid REFERENCES public.instituciones(id),
+  nombre text NOT NULL,
+  activo boolean DEFAULT true
+);
+```
+
+### **💊 Medicamentos (Actualizado con Soporte Multi-Medida)**
+```sql
 CREATE TABLE public.medicamentos (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  business_id uuid NOT NULL,
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid REFERENCES public.instituciones(id),
   nombre text NOT NULL,
   descripcion text,
-  unidad_medida text DEFAULT 'unidad'::text,
-  anaquel text,
+  unidad_medida text DEFAULT 'unidad',
+  tipo_medida text CHECK (tipo_medida IN ('UNIDAD', 'VOLUMEN_ML', 'PESO_MG', 'PORCENTAJE')),
+  presentacion text, -- "Caja x 20", "Frasco 500ml"
+  anaquel text, -- "Anaquel A-3"
   stock_actual integer DEFAULT 0,
   stock_minimo integer DEFAULT 5,
   imagen_url text,
   activo boolean DEFAULT true,
-  creado_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT medicamentos_pkey PRIMARY KEY (id),
-  CONSTRAINT medicamentos_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.instituciones(id)
+  creado_at timestamptz DEFAULT now()
 );
+```
+
+### **🏥 Atenciones (Actualizado con Soporte Múltiple)**
+```sql
+CREATE TABLE public.atenciones (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid REFERENCES public.instituciones(id),
+  paciente_id uuid REFERENCES public.pacientes(id),
+  perfil_id uuid REFERENCES public.perfiles(id),
+  motivo_consulta text NOT NULL,
+  signos_vitales jsonb DEFAULT '{"temp": "", "presion": "", "saturacion": ""}',
+  observacion text,
+  fecha_atencion timestamptz DEFAULT now(),
+  activo boolean DEFAULT true
+);
+```
+
+### **📦 Movimientos de Stock (Actualizado con Agrupación)**
+```sql
 CREATE TABLE public.movimientos_stock (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  business_id uuid NOT NULL,
-  medicamento_id uuid NOT NULL,
-  atencion_id uuid,
-  tipo text CHECK (tipo = ANY (ARRAY['ENTRADA'::text, 'SALIDA'::text])),
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  business_id uuid REFERENCES public.instituciones(id),
+  medicamento_id uuid REFERENCES public.medicamentos(id),
+  atencion_id uuid REFERENCES public.atenciones(id),
+  tipo text CHECK (tipo IN ('ENTRADA', 'SALIDA')),
   cantidad integer NOT NULL,
-  fecha_movimiento timestamp with time zone DEFAULT now(),
-  CONSTRAINT movimientos_stock_pkey PRIMARY KEY (id),
-  CONSTRAINT movimientos_stock_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.instituciones(id),
-  CONSTRAINT movimientos_stock_medicamento_id_fkey FOREIGN KEY (medicamento_id) REFERENCES public.medicamentos(id),
-  CONSTRAINT movimientos_stock_atencion_id_fkey FOREIGN KEY (atencion_id) REFERENCES public.atenciones(id)
+  tipo_medida text CHECK (tipo_medida IN ('UNIDAD', 'VOLUMEN_ML', 'PESO_MG', 'PORCENTAJE')),
+  descripcion_movimiento text, -- "Atención: 2 Unid. Paracetamol, 5ml Alcohol"
+  fecha_movimiento timestamptz DEFAULT now()
 );
-CREATE TABLE public.pacientes (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  business_id uuid NOT NULL,
-  dni text NOT NULL,
-  nombres text NOT NULL,
-  apellidos text NOT NULL,
-  sexo text CHECK (sexo = ANY (ARRAY['M'::text, 'F'::text])),
-  categoria text NOT NULL CHECK (categoria = ANY (ARRAY['estudiante'::text, 'docente'::text, 'administrativo'::text, 'limpieza'::text])),
-  programa_id uuid,
-  metadata jsonb DEFAULT '{}'::jsonb,
-  creado_at timestamp with time zone DEFAULT now(),
-  activo boolean DEFAULT true,
-  CONSTRAINT pacientes_pkey PRIMARY KEY (id),
-  CONSTRAINT pacientes_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.instituciones(id),
-  CONSTRAINT pacientes_programa_id_fkey FOREIGN KEY (programa_id) REFERENCES public.programas_estudio(id)
-);
-CREATE TABLE public.perfiles (
-  id uuid NOT NULL,
-  nombre text,
-  email text NOT NULL UNIQUE,
-  rol USER-DEFINED DEFAULT 'admin'::rol_usuario,
-  activo boolean DEFAULT true,
-  creado_at timestamp with time zone DEFAULT now(),
-  actualizado_at timestamp with time zone DEFAULT now(),
-  deleted_at timestamp with time zone,
-  business_id uuid,
-  CONSTRAINT perfiles_pkey PRIMARY KEY (id),
-  CONSTRAINT perfiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
-  CONSTRAINT perfiles_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.instituciones(id)
-);
-CREATE TABLE public.programas_estudio (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  business_id uuid,
-  nombre text NOT NULL,
-  activo boolean DEFAULT true,
-  CONSTRAINT programas_estudio_pkey PRIMARY KEY (id),
-  CONSTRAINT programas_estudio_business_id_fkey FOREIGN KEY (business_id) REFERENCES public.instituciones(id)
-);
-
-## 🟦 4. Flujo de Datos
-- **Escritura:** UI -> Hook (useFeature) -> Dexie (Local) -> SyncService -> Supabase.
-- **Stock:** Descuento automático vía SQL Trigger en Supabase al insertar en `movimientos_stock`.
-## 🎨 5. Interfaz
-- Mobile-first, botones grandes (Tablet ready), Shadcn/UI, Lucide Icons.
-
-##  6  Acerca del proyecto casos de uso 
-- Este proyecto es una aplicación web progresiva (PWA) que permite gestionar el tópico de una institución educativa.
-- La aplicación permite gestionar pacientes, atenciones, medicamentos y movimientos de stock.
-- ### 🟢 1. Autenticación y Acceso
-
-**Actor:** Administrador / Personal de Salud
-**Flujo:**
-
-- **Inicio de Sesión:** El usuario ingresa credenciales (requiere internet la primera vez para validar contra Supabase).
-- **Persistencia Local:** El sistema almacena el perfil y el rol en **Dexie** para permitir el acceso posterior sin conexión.
-- **Validación de Sesión:** Al abrir la app, se verifica el token local; si es válido, permite entrar directo al Dashboard.
-- **Cierre de Sesión:** Limpieza de datos sensibles en IndexedDB y redirección al Login.
+```
 
 ---
 
-### 🔵 2. Gestión de Usuarios y Roles (Solo Admin)
+## 🔄 **ESTRATEGIA OFFLINE-FIRST**
 
-**Actor:** Administrador
-**Flujo:**
+### **💾 Arquitectura Dual Storage**
+- **Local (Dexie/IndexedDB)**: Operaciones inmediatas, cache completo
+- **Remoto (Supabase)**: Sincronización automática, source of truth
 
-- **Registro de Personal:** Crear nuevos perfiles (Nombre, Email, Rol).
-- **Asignación de Roles:** Definir si el usuario es `Admin` (gestión total) o `Personal` (solo registro de atenciones).
-- **Control de Estado:** Activar o desactivar usuarios para restringir el acceso al sistema.
-
----
-
-### 🟠 3. Registro y Gestión de Pacientes
-
-**Actor:** Personal de Salud / Administrador
-**Flujo:**
-
-- **Búsqueda Rápida:** Ingresar DNI para verificar si el paciente ya existe en la base de datos local.
-- **Registro Nuevo:** Si no existe, completar datos (Nombres, Apellidos, Tipo de usuario, Programa de estudio).
-- **Modo Offline:** El paciente se guarda en **Dexie** con estado `pending`.
-- **Sincronización:** Al detectar red, el registro se sube a Supabase automáticamente.
-
----
-
-### 🔴 4. Atención Médica y Consultas
-
-**Actor:** Personal de Salud
-**Flujo:**
-
-- **Apertura de Atención:** Seleccionar un paciente y crear una nueva ficha de consulta.
-- **Registro de Datos:** Ingresar motivo de consulta, observaciones y diagnóstico.
-- **Dispensación de Medicamentos:** Seleccionar medicamentos del inventario local.
-- **Vinculación:** La atención genera automáticamente un **Movimiento de Stock** de tipo "Salida".
-- **Registro Temporal:** La atención se marca como `pending` hasta que haya conexión.
-
----
-
-### 📦 5. Gestión de Inventario (Kardex)
-
-**Actor:** Administrador
-**Flujo:**
-
-- **Carga de Medicamentos:** Registrar nuevos productos (Nombre, stock mínimo, tipo).
-- **Entrada de Stock:** Registrar ingresos manuales (compras/donaciones) especificando cantidad y fecha de vencimiento.
-- **Cálculo de Stock Real:** El sistema suma entradas y resta salidas (atenciones) para mostrar el stock actual.
-- **Alertas de Stock:** Visualización de productos que están por debajo del mínimo establecido.
-
----
-
-### 🔄 6. Sincronización de Datos (Caso General)
-
-**Actor:** Sistema (Automático)
-**Flujo:**
-
+### **🔄 Ciclo de Sincronización**
 - **Detección de Conexión:** El `NetworkProvider` escucha cambios en el estado del internet.
 - **Subida (Push):** Se recorre la `sync_queue` enviando registros pendientes a Supabase en orden cronológico.
 - **Bajada (Pull):** Se descargan nuevos pacientes o medicamentos creados por otros usuarios desde la última actualización.
 - **Resolución de Conflictos:** En caso de ediciones simultáneas, prevalece el último cambio realizado (Last Write Wins).
+
+### **📊 Estados de Sincronización**
+- **`sync_status: 'synced'`**: Datos iguales en local y remoto
+- **`sync_status: 'pending'`**: Cambios locales pendientes de subir
+- **`sync_status: 'failed'`**: Error en sincronización (reintentar automáticamente)
+
+---
+
+## 🎯 **MÓDULOS PRINCIPALES**
+
+### **👨‍⚕️ Atenciones (Refactorizado en Progreso)**
+- **Estado Actual**: Soporta atención simple con un medicamento
+- **Mejoras en Progreso**:
+  - ✅ **Tipos multi-medida**: UNIDAD | VOLUMEN_ML | PESO_MG | PORCENTAJE
+  - ✅ **Atenciones múltiples**: Lista de medicamentos por atención
+  - ✅ **Movimientos consolidados**: Agrupación inteligente
+  - 🔄 **UI mejorada**: Componente `MedicineDispenser` con selección múltiple
+
+### **💊 Inventario**
+- **Gestión de medicamentos**: CRUD completo con control de stock
+- **Movimientos automáticos**: Actualización de stock en atenciones
+- **Alertas de stock**: Notificaciones cuando stock < stock_minimo
+- **Multi-medida**: Soporte para pastillas (unidades) y líquidos (ml)
+
+### **👥 Pacientes**
+- **Gestión completa**: CRUD con validación de DNI único
+- **Programas educativos**: Asociación a carreras/grados
+- **Historial médico**: Registro de todas las atenciones
+- **Metadata flexible**: JSONB para datos adicionales
+
+### **📊 Dashboard**
+- **Estadísticas en tiempo real**: Atenciones por período, stock crítico
+- **Gráficos interactivos**: Recharts para visualización de datos
+- **Alertas contextuales**: Medicamentos bajos, pacientes frecuentes
+- **Responsive design**: Optimizado para móviles y desktop
+
+---
+
+## 🔧 **ESTRUCTURA DE CARPETAS CANÓNICA**
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── (dashboard)/        # Layout dashboard
+│   ├── auth/              # Páginas de autenticación
+│   └── globals.css
+├── components/             # UI reutilizables
+├── features/              # Módulos de negocio
+│   ├── atenciones/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── types/
+│   ├── inventario/
+│   │   ├── components/
+│   │   ├── hooks/
+│   │   └── types/
+│   └── pacientes/
+│       ├── components/
+│       ├── hooks/
+│       └── types/
+├── core/                  # Lógica centralizada
+│   ├── db/
+│   │   └── dexie/
+│   └── providers/
+└── shared/               # Utilidades compartidas
+    └── hooks/
+```
+
+---
+
+## 🔒 **SEGURIDAD IMPLEMENTADA**
+
+### **�️ Row Level Security (RLS)**
+- **Políticas activas**: Todas las tablas con RLS habilitado
+- **Filtrado real**: `business_id = (SELECT business_id FROM perfiles WHERE id = auth.uid())`
+- **Optimizaciones**: `(select auth.uid())` para mejor performance
+- **Sin recursión**: Políticas limpias sin bucles infinitos
+
+### **🔐 Validaciones**
+- **Input sanitization**: Zod schemas para todos los formularios
+- **Type safety**: TypeScript strict mode
+- **SQL injection prevention**: Parámetros en todas las queries
+- **Audit trail**: Tabla `security_audit_log` para tracking
+
+---
+
+## 📱 **CARACTERÍSTICAS PWA**
+
+### **📥 Instalación**
+- **Service Worker**: Cache estratégico de recursos
+- **Manifest.json**: Configuración de app instalable
+- **Offline functionality**: Operaciones completas sin conexión
+
+### **⚡ Performance**
+- **Lazy loading**: Componentes bajo demanda
+- **Code splitting**: Bundles optimizados
+- **IndexedDB indexing**: Consultas locales rápidas
+- **Debouncing**: Búsquedas con retraso controlado
+
+---
+
+## � **ESTADO ACTUAL DEL PROYECTO**
+
+### **✅ Completado**
+- **Arquitectura base**: Estructura canónica implementada
+- **Multi-tenancy**: Seguridad por institución funcionando
+- **Offline-first**: Sincronización bidireccional activa
+- **Módulos básicos**: Pacientes, Inventario, Dashboard operativos
+
+### **🔄 En Progreso (Reestructuración Atenciones)**
+- **FASE 1.1 ✅**: Seguridad crítica de Supabase corregida
+- **FASE 1.2 ✅**: Tipos TypeScript multi-medida implementados
+- **FASE 1.3 🔄**: Migración de base de datos SQL
+- **FASE 1.4 ⏳**: Lógica core de inventario actualizada
+
+### **🎯 Próximos Hitos**
+- **Atenciones múltiples**: Dispensar varios medicamentos por atención
+- **Movimientos consolidados**: Agrupación inteligente de stock
+- **UI mejorada**: Componente `MedicineDispenser` con selección múltiple
+- **Testing completo**: Unit + Integration + E2E
+
+---
+
+## � **MÉTRICAS DE ÉXITO**
+
+### **🎯 KPIs Técnicos**
+- **Build Time**: < 30 segundos en producción
+- **Bundle Size**: < 2MB comprimido
+- **First Contentful Paint**: < 1.5s
+- **Sync Success Rate**: > 99.5%
+
+### **💼 KPIs de Negocio**
+- **Error Rate**: < 0.1% en dispensaciones
+- **Stock Accuracy**: 100% consistencia offline/online
+- **User Satisfaction**: > 4.5/5 en experiencia
+- **Training Time**: < 15 minutos para nuevos usuarios
+
+---
+
+*Última actualización: Abril 2026 - Reestructuración de Atenciones en progreso*
 

@@ -28,7 +28,7 @@ export default function UsersPage() {
 
   const filteredUsers = usuarios.filter(
     (u) =>
-      u.activo !== false &&
+      u.activo !== 0 &&
       ((u.nombre || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())),
   );

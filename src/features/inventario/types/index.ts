@@ -33,6 +33,10 @@ export interface Medicamento extends BaseEntity {
   descripcion?: string;
   /** Unidad de medida: 'unidad', 'ml', 'mg', 'comprimido', etc. */
   unidad_medida: string;
+  /** Tipo de medida para lógica de inventario mixto */
+  tipo_medida: 'UNIDAD' | 'VOLUMEN_ML' | 'PESO_MG' | 'PORCENTAJE';
+  /** Presentación comercial: "Caja x 20", "Frasco 500ml" */
+  presentacion?: string;
   /** Ubicación física en el tópico: p.ej. "Anaquel A-3" */
   anaquel?: string;
   /** Stock real calculado (suma entradas − salidas) */
@@ -58,6 +62,10 @@ export interface MovimientoStock extends BaseEntity {
   atencion_id?: string | null;
   tipo: TipoMovimiento;
   cantidad: number;
+  /** Tipo de medida para compatibilidad con medicamento.tipo_medida */
+  tipo_medida?: 'UNIDAD' | 'VOLUMEN_ML' | 'PESO_MG' | 'PORCENTAJE';
+  /** Descripción generada automáticamente para movimientos consolidados */
+  descripcion_movimiento?: string;
   fecha_movimiento: string; // ISO string
 }
 
@@ -78,3 +86,72 @@ export type MovimientoFormData = Omit<
   MovimientoStock,
   'id' | 'business_id' | 'creado_at' | 'sync_status' | 'actualizado_at' | 'deleted_at'
 >;
+
+// ── Tipos de Dispensación (Nuevos para Atenciones Múltiples) ───────────────────
+
+/**
+ * Tipo de medida para lógica de inventario mixta.
+ * Permite distinguir entre pastillas (unidades) y líquidos (volúmenes).
+ */
+export type TipoMedida = 'UNIDAD' | 'VOLUMEN_ML' | 'PESO_MG' | 'PORCENTAJE';
+
+/**
+ * Dispensación de medicamento en una atención.
+ * Usado para representar cada medicamento dispensado en una atención múltiple.
+ */
+export interface DispensacionMedicamento {
+  /** FK al medicamento */
+  medicamento_id: string;
+  /** Cantidad dispensada */
+  cantidad: number;
+  /** Tipo de medida (debe coincidir con medicamento.tipo_medida) */
+  tipo_medida: TipoMedida;
+  /** Descripción de cómo se entregó: "2 pastillas", "5ml en vasito" */
+  presentacion_entregada?: string;
+}
+
+/**
+ * Configuración de visualización por tipo de medida.
+ * Para UI que muestra unidades apropiadas según el tipo.
+ */
+export interface ConfiguracionMedida {
+  tipo: TipoMedida;
+  etiqueta: string;
+  unidad: string;
+  icono: string;
+  ejemplos: string[];
+}
+
+/**
+ * Configuraciones predefinidas para cada tipo de medida.
+ */
+export const CONFIGURACIONES_MEDIDA: Record<TipoMedida, ConfiguracionMedida> = {
+  UNIDAD: {
+    tipo: 'UNIDAD',
+    etiqueta: 'Unidades',
+    unidad: 'unid.',
+    icono: '💊',
+    ejemplos: ['pastillas', 'cápsulas', 'comprimidos', 'tabletas']
+  },
+  VOLUMEN_ML: {
+    tipo: 'VOLUMEN_ML',
+    etiqueta: 'Volumen',
+    unidad: 'ml',
+    icono: '🧪',
+    ejemplos: ['jarabe', 'solución', 'inyectable', 'gotas']
+  },
+  PESO_MG: {
+    tipo: 'PESO_MG',
+    etiqueta: 'Peso',
+    unidad: 'mg',
+    icono: '⚖️',
+    ejemplos: ['polvo', 'gránulos', 'crema tópica']
+  },
+  PORCENTAJE: {
+    tipo: 'PORCENTAJE',
+    etiqueta: 'Porcentaje',
+    unidad: '%',
+    icono: '📊',
+    ejemplos: ['alcohol', 'antiséptico', 'solución concentrada']
+  }
+};

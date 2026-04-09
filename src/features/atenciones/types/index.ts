@@ -6,6 +6,7 @@
  * BaseEntity y SyncStatus se importan desde el núcleo — NO redefinir aquí.
  */
 import { BaseEntity } from '@/core/db/dexie/types';
+import type { DispensacionMedicamento as DispensacionMedicamentoType } from '@/features/inventario/types';
 
 // Re-exportar desde core para compatibilidad con importadores existentes.
 export type { BaseEntity, SyncStatus } from '@/core/db/dexie/types';
@@ -63,3 +64,50 @@ export type AtencionFormData = Omit<
   | 'actualizado_at'
   | 'deleted_at'
 >;
+
+// ── Tipos de Dispensación Múltiple (Nuevos) ─────────────────────────────────────
+
+/**
+ * Atención extendida con lista de dispensaciones múltiples.
+ * Usada para el registro de atenciones con varios medicamentos.
+ */
+export interface AtencionExtendida extends Atencion {
+  /** Lista de medicamentos dispensados en esta atención */
+  dispensaciones: DispensacionMedicamento[];
+}
+
+/**
+ * Dispensación de medicamento en una atención.
+ * Re-exportado desde inventario para mantener consistencia.
+ */
+export type DispensacionMedicamento = DispensacionMedicamentoType;
+
+/**
+ * Resultado de una atención con movimientos consolidados.
+ * Representa el estado final después de agrupar dispensaciones.
+ */
+export interface AtencionProcesada {
+  /** Datos básicos de la atención */
+  atencion: Atencion;
+  /** Movimientos de stock consolidados generados */
+  movimientos_generados: {
+    medicamento_id: string;
+    medicamento_nombre: string;
+    cantidad_total: number;
+    tipo_medida: string;
+    descripcion_movimiento: string;
+  }[];
+}
+
+/**
+ * Configuración para la agrupación de movimientos.
+ * Define cómo se combinan las dispensaciones en movimientos consolidados.
+ */
+export interface ConfiguracionAgrupacion {
+  /** Agrupar por medicamento (default) */
+  por_medicamento: boolean;
+  /** Agrupar por tipo de medida */
+  por_tipo_medida: boolean;
+  /** Generar descripciones automáticas */
+  generar_descripciones: boolean;
+}

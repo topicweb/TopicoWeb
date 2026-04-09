@@ -31,33 +31,36 @@ export default function MovementsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-          Historial de Movimientos
-        </h1>
+      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center border-b border-slate-100 dark:border-slate-800 pb-5">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+            Historial de Movimientos
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Kardex de entradas y salidas</p>
+        </div>
       </div>
 
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
-          placeholder="Buscar por medicamento..."
+          placeholder="Buscar por insumo..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 bg-white py-2 pl-10 pr-4 focus:border-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-white"
+          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-white"
         />
       </div>
 
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
-            <thead className="bg-gray-50 text-xs uppercase text-gray-700 dark:bg-gray-700 dark:text-gray-400">
+          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
+            <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
               <tr>
-                <th className="px-6 py-3">Fecha</th>
-                <th className="px-6 py-3">Medicamento</th>
-                <th className="px-6 py-3">Tipo</th>
-                <th className="px-6 py-3">Cantidad</th>
-                <th className="px-6 py-3">Referencia</th>
+                <th className="px-6 py-4">Fecha</th>
+                <th className="px-6 py-4">Insumo</th>
+                <th className="px-6 py-4">Operación</th>
+                <th className="px-6 py-4">Cantidad</th>
+                <th className="px-6 py-4">Detalle</th>
               </tr>
             </thead>
             <tbody>

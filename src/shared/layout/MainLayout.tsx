@@ -4,7 +4,8 @@ import React, { useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { usePathname } from "next/navigation";
-import { syncService } from "@/core/services/syncService";
+
+import { SyncMonitor } from "@/shared/components/SyncMonitor";
 
 export default function MainLayout({
   children,
@@ -12,34 +13,7 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
   const pathname = usePathname();
-
-  // Detectar estado de conexión para la PWA
-  useEffect(() => {
-    setIsOnline(navigator.onLine);
-
-    // Sincronización inicial si hay conexión
-    if (navigator.onLine) {
-      syncService.sync();
-      syncService.listenToChanges();
-    }
-
-    const handleOnline = () => {
-      setIsOnline(true);
-      syncService.sync();
-      syncService.listenToChanges();
-    };
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
 
   // Cerrar sidebar automáticamente en móvil al cambiar de ruta
   useEffect(() => {
@@ -56,20 +30,23 @@ export default function MainLayout({
   }, []);
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden dark:bg-gray-900">
+    <div className="flex h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
         <Header
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
-          isOnline={isOnline}
         />
 
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 scroll-smooth">
-          {children}
+        <main className="flex-1 overflow-y-auto p-4 md:p-8 scroll-smooth">
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
         </main>
       </div>
+
+      <SyncMonitor />
     </div>
   );
 }
