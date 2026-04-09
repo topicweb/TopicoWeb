@@ -112,17 +112,21 @@ Este plan establece una reestructuración profunda de la lógica de Atenciones d
 ### **FASE 4: INTEGRACIÓN Y TESTING (Quality-First)**
 **Objetivo:** Asegurar robustez offline/online y consistencia de datos
 
-#### **🧪 4.1 Testing de Escenarios Críticos** ✅ COMPLETADO
-- [x] **Suite de tests unitarios** - `stock.test.ts` con 15+ tests cubriendo:
-  - Validación de tipos de medida (UNIDAD, VOLUMEN_ML, PESO_MG, PORCENTAJE)
-  - Validación de cantidades (positivas, cero, negativas, NaN, Infinity)
-  - Compatibilidad cruzada medicamento-dispensación
-  - Stock suficiente vs insuficiente
-  - Límites de dispensación por tipo (50, 500, 1000, 100)
-  - Agrupación inteligente por medicamento y por tipo
-  - Generación de descripciones consolidadas
-- [x] **Configuración Vitest** - `vitest.config.ts` con soporte para coverage y jsdom
+#### **🧪 4.1 Testing de Escenarios Críticos** ✅ COMPLETADO - **32 TESTS PASANDO**
+- [x] **Suite de tests unitarios** - `stock.test.ts` con **32 tests** cubriendo:
+  - ✅ Validación de tipos de medida (4 tipos válidos, 1 inválido)
+  - ✅ Validación de cantidades (positivas, cero, negativas, NaN, Infinity)
+  - ✅ Compatibilidad cruzada medicamento-dispensación (8 escenarios)
+  - ✅ Stock suficiente vs insuficiente (ENTRADA vs SALIDA)
+  - ✅ Límites de dispensación por tipo (50, 500, 1000, 100) + personalizados
+  - ✅ Agrupación inteligente por medicamento (suma cantidades)
+  - ✅ Agrupación por tipo de medida (4 categorías)
+  - ✅ Generación de descripciones consolidadas (con/sin duplicados)
+  - ✅ Generación de resúmenes por tipo
+  - ✅ Escenarios críticos: múltiples dispensaciones, tipos mixtos, validación en cascada
+- [x] **Configuración Vitest** - `vitest.config.ts` con coverage y jsdom
 - [x] **Scripts de testing** - `npm test`, `npm run test:coverage`, `npm run test:ui`
+- [x] **Resultado**: `Test Files 1 passed (1) | Tests 32 passed (32) | Duration 1.65s`
 
 #### **⚡ 4.2 Performance y Optimización**
 - [ ] **Índices Dexie** para consultas de stock
