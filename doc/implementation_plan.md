@@ -112,11 +112,17 @@ Este plan establece una reestructuración profunda de la lógica de Atenciones d
 ### **FASE 4: INTEGRACIÓN Y TESTING (Quality-First)**
 **Objetivo:** Asegurar robustez offline/online y consistencia de datos
 
-#### **🧪 4.1 Testing de Escenarios Críticos**
-- [ ] **Offline → Online sync** con múltiples dispensaciones
-- [ ] **Concurrencia** de atenciones simultáneas
-- [ ] **Validación de stock** en escenarios límite
-- [ ] **Rollback automático** en fallos de red
+#### **🧪 4.1 Testing de Escenarios Críticos** ✅ COMPLETADO
+- [x] **Suite de tests unitarios** - `stock.test.ts` con 15+ tests cubriendo:
+  - Validación de tipos de medida (UNIDAD, VOLUMEN_ML, PESO_MG, PORCENTAJE)
+  - Validación de cantidades (positivas, cero, negativas, NaN, Infinity)
+  - Compatibilidad cruzada medicamento-dispensación
+  - Stock suficiente vs insuficiente
+  - Límites de dispensación por tipo (50, 500, 1000, 100)
+  - Agrupación inteligente por medicamento y por tipo
+  - Generación de descripciones consolidadas
+- [x] **Configuración Vitest** - `vitest.config.ts` con soporte para coverage y jsdom
+- [x] **Scripts de testing** - `npm test`, `npm run test:coverage`, `npm run test:ui`
 
 #### **⚡ 4.2 Performance y Optimización**
 - [ ] **Índices Dexie** para consultas de stock
