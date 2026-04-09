@@ -7,11 +7,12 @@ import Dexie, { Table } from 'dexie';
 const TABLES_CONFIG: Record<string, { timestampCol?: string, omitCols: string[] }> = {
     'instituciones': { timestampCol: 'creado_at', omitCols: ['sync_status', 'deleted_at', 'activo'] },
     'perfiles': { timestampCol: 'actualizado_at', omitCols: ['sync_status', 'deleted_at'] },
-    'programas_estudio': { timestampCol: null as any, omitCols: ['sync_status', 'deleted_at', 'creado_at', 'actualizado_at'] }, // business_id ya no se omite
+    'programas_estudio': { timestampCol: null as any, omitCols: ['sync_status', 'deleted_at', 'creado_at', 'actualizado_at'] },
     'pacientes': { timestampCol: 'creado_at', omitCols: ['sync_status', 'deleted_at', 'actualizado_at'] },
     'medicamentos': { timestampCol: 'creado_at', omitCols: ['sync_status', 'deleted_at', 'actualizado_at', 'stock_actual'] },
     'atenciones': { timestampCol: 'fecha_atencion', omitCols: ['sync_status', 'deleted_at', 'creado_at', 'actualizado_at'] },
     'movimientos_stock': { timestampCol: 'fecha_movimiento', omitCols: ['sync_status', 'deleted_at', 'creado_at', 'actualizado_at'] },
+    'security_audit_log': { timestampCol: 'timestamp', omitCols: ['sync_status'] }, // FASE 4.3: Audit trail
 };
 
 // El orden de las tablas es CRÍTICO para evitar errores de Foreign Key en Supabase
@@ -22,7 +23,8 @@ const TABLES = [
     'pacientes',
     'medicamentos',
     'atenciones',
-    'movimientos_stock'
+    'movimientos_stock',
+    'security_audit_log' // FASE 4.3: Audit trail se sincroniza al final
 ];
 
 export class SyncService {
@@ -58,7 +60,7 @@ export class SyncService {
 
             if (pendingItems.length > 0) {
                 console.log(`Found ${pendingItems.length} pending items in ${tableName}.`);
-                
+
                 // Prepara los datos para el upsert, removiendo metadatos dev/locales omitCols
                 const remoteData = pendingItems.map(item => {
                     const cleanItem = { ...item };
@@ -101,7 +103,7 @@ export class SyncService {
 
         for (const tableName of TABLES) {
             let query = supabase.from(tableName).select('*');
-            
+
             const config = TABLES_CONFIG[tableName];
             if (lastSync && config.timestampCol) {
                 query = query.gt(config.timestampCol, lastSync);
@@ -117,7 +119,7 @@ export class SyncService {
             if (data && data.length > 0) {
                 console.log(`Pulled ${data.length} items for ${tableName} from Supabase.`);
                 const table: Table<any, any> = (db as any)[tableName];
-                
+
                 // Procesamiento por lotes (batching) para no bloquear el hilo principal
                 const BATCH_SIZE = 50;
                 for (let i = 0; i < data.length; i += BATCH_SIZE) {
@@ -129,7 +131,7 @@ export class SyncService {
                         }
                         return localItem;
                     });
-                    
+
                     await table.bulkPut(dataToPut);
                     // Pequeño respiro para la UI si hay muchos datos
                     if (data.length > BATCH_SIZE) await new Promise(r => setTimeout(r, 10));
@@ -150,7 +152,7 @@ export class SyncService {
         const handleRealtimeChange = (tableName: string) => async (payload: any) => {
             console.log(`Realtime change in ${tableName}:`, payload);
             const table: Table<any, any> = (db as any)[tableName];
-            
+
             if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
                 const localItem = { ...payload.new, sync_status: 'synced' };
                 if ('activo' in localItem && typeof localItem.activo === 'boolean') {

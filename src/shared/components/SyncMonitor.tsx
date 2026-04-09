@@ -9,16 +9,17 @@ import { Cloud, CloudOff, RefreshCw, CheckCircle2 } from "lucide-react";
 
 export const SyncMonitor = () => {
   const { isOnline } = useNetwork();
-  
+
   const pendingCount = useLiveQuery(async () => {
     // Sumamos todos los registros pendientes de todas las tablas principales
-    const [pacientes, atenciones, movimientos, medicamentos] = await Promise.all([
+    const [pacientes, atenciones, movimientos, medicamentos, audit] = await Promise.all([
       db.pacientes.where("sync_status").equals("pending").count(),
       db.atenciones.where("sync_status").equals("pending").count(),
       db.movimientos_stock.where("sync_status").equals("pending").count(),
       db.medicamentos.where("sync_status").equals("pending").count(),
+      db.security_audit_log.where("sync_status").equals("pending").count(), // FASE 4.3
     ]);
-    return pacientes + atenciones + movimientos + medicamentos;
+    return pacientes + atenciones + movimientos + medicamentos + audit;
   }, []);
 
   const hasPending = (pendingCount || 0) > 0;
@@ -27,9 +28,8 @@ export const SyncMonitor = () => {
     <div className="fixed bottom-6 right-6 z-[60]">
       <div className="glass-card rounded-2xl p-1.5 flex items-center gap-3 pr-4 shadow-xl border-white/20">
         {/* Connection Status Icon */}
-        <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-colors ${
-          isOnline ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
-        }`}>
+        <div className={`h-9 w-9 rounded-xl flex items-center justify-center transition-colors ${isOnline ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'
+          }`}>
           {isOnline ? <Cloud size={18} /> : <CloudOff size={18} />}
         </div>
 
@@ -40,7 +40,7 @@ export const SyncMonitor = () => {
             </span>
             <div className={`h-1.5 w-1.5 rounded-full animate-pulse ${isOnline ? 'bg-emerald-500' : 'bg-rose-500'}`} />
           </div>
-          
+
           <div className="flex items-center gap-2">
             {hasPending ? (
               <AnimatePresence mode="wait">
