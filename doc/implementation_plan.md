@@ -128,10 +128,21 @@ Este plan establece una reestructuración profunda de la lógica de Atenciones d
 - [x] **Scripts de testing** - `npm test`, `npm run test:coverage`, `npm run test:ui`
 - [x] **Resultado**: `Test Files 1 passed (1) | Tests 32 passed (32) | Duration 1.65s`
 
-#### **⚡ 4.2 Performance y Optimización**
-- [ ] **Índices Dexie** para consultas de stock
-- [ ] **Caching inteligente** de medicamentos frecuentes
-- [ ] **Lazy loading** de historial de dispensaciones
+#### **⚡ 4.2 Performance y Optimización** ✅ COMPLETADO
+- [x] **Índices Dexie** - `db.version(14)` con índices optimizados:
+  - `medicamentos`: `[business_id+tipo_medida]`, `[business_id+stock_actual]`
+  - `movimientos_stock`: `[business_id+medicamento_id]`, `[business_id+atencion_id]`, `[medicamento_id+fecha_movimiento]`
+- [x] **Caching inteligente** - `useMedicamentosCache.ts` con:
+  - LRU Cache en memoria (50 medicamentos, TTL 5 minutos)
+  - Persistencia de estadísticas en localStorage
+  - Precarga predictiva de medicamentos frecuentes
+  - Tracking de dispensaciones para análisis de uso
+  - **15 tests pasando** para el sistema de caché
+- [x] **Lazy loading** - `useLazyMovimientos.ts` con:
+  - Paginación automática (20 items/página)
+  - Caché de páginas visitadas (5 páginas)
+  - Scroll infinito con IntersectionObserver
+  - Filtrado por medicamento, atención, tipo y fechas
 
 #### **🔒 4.3 Seguridad y Validación**
 - [ ] **Sanitización de inputs** en cantidades

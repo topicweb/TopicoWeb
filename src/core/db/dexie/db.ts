@@ -17,14 +17,18 @@ const db = new Dexie('TopicoDatabase') as Dexie & {
 // v11: Agrega 'sync_status' a la tabla instituciones
 // v12: Migración masiva de activo: boolean -> activo: number (0/1) para evitar DataError
 // v13: Índice compuesto para optimizar "Atenciones Hoy"
-db.version(13).stores({
-  instituciones:     'id, nombre, activo, creado_at, sync_status',
-  perfiles:          'id, business_id, rol, email, sync_status, deleted_at, [business_id+activo]',
+// v14: FASE 4.2 - Índices optimizados para stock y tipo_medida
+
+db.version(14).stores({
+  instituciones: 'id, nombre, activo, creado_at, sync_status',
+  perfiles: 'id, business_id, rol, email, sync_status, deleted_at, [business_id+activo]',
   programas_estudio: 'id, business_id, nombre, sync_status, deleted_at, [business_id+activo]',
-  pacientes:         'id, business_id, dni, programa_id, sync_status, deleted_at, [business_id+activo]',
-  medicamentos:      'id, business_id, nombre, activo, sync_status, deleted_at, [business_id+activo]',
-  atenciones:        'id, business_id, paciente_id, perfil_id, fecha_atencion, creado_at, sync_status, deleted_at, [business_id+activo], [business_id+fecha_atencion]',
-  movimientos_stock: 'id, business_id, medicamento_id, atencion_id, tipo, fecha_movimiento, creado_at, sync_status, deleted_at',
+  pacientes: 'id, business_id, dni, programa_id, sync_status, deleted_at, [business_id+activo]',
+  // FASE 4.2: Índices para consultas de stock por tipo y stock bajo
+  medicamentos: 'id, business_id, nombre, activo, tipo_medida, stock_actual, sync_status, deleted_at, [business_id+activo], [business_id+tipo_medida], [business_id+stock_actual]',
+  atenciones: 'id, business_id, paciente_id, perfil_id, fecha_atencion, creado_at, sync_status, deleted_at, [business_id+activo], [business_id+fecha_atencion]',
+  // FASE 4.2: Índices para movimientos por medicamento y tipo (para lazy loading)
+  movimientos_stock: 'id, business_id, medicamento_id, atencion_id, tipo, tipo_medida, fecha_movimiento, creado_at, sync_status, deleted_at, [business_id+medicamento_id], [business_id+atencion_id], [medicamento_id+fecha_movimiento]',
 }).upgrade(async (tx) => {
   const tablesToMigrate = [
     'instituciones',
