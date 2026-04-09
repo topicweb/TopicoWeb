@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useRouter } from "next/navigation";
-import { Medicamento, DispensacionMedicamento } from "@/features/inventario/types";
+import { DispensacionMedicamento } from "@/features/inventario/types";
 import { Paciente } from "@/features/pacientes/types";
 import { useAtenciones } from "@/features/atenciones/hooks/useAtenciones";
 import { useMedicamentos } from "@/features/inventario/hooks/useMedicamentos";
 import { usePacientes } from "@/features/pacientes/hooks/usePacientes";
 import { useUsuarios } from "@/features/usuarios/hooks/useUsuarios";
-import { Search, Loader2, Plus, Trash2, Save, ArrowLeft, ClipboardList, Pill, User } from "lucide-react";
+import { MedicineDispenser } from "@/features/atenciones/components/MedicineDispenser";
+import { Search, Loader2, Save, ArrowLeft, ClipboardList, User, AlertCircle, Plus, Pill, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -31,7 +32,7 @@ export default function NewAttentionPage() {
   });
 
   const [dispensedMeds, setDispensedMeds] = useState<DispensacionMedicamento[]>([]);
-  const [medSearch, setMedSearch] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const filteredPacientes =
     searchTerm.length > 1
@@ -44,34 +45,6 @@ export default function NewAttentionPage() {
         )
         .slice(0, 5)
       : [];
-
-  const filteredMeds = medicamentos.filter((m: Medicamento) =>
-    m.nombre.toLowerCase().includes(medSearch.toLowerCase()),
-  );
-
-  const handleAddMed = (med: Medicamento) => {
-    if (dispensedMeds.find((d) => d.medicamento_id === med.id)) return;
-    setDispensedMeds([
-      ...dispensedMeds,
-      {
-        medicamento_id: med.id,
-        cantidad: 1,
-        tipo_medida: med.tipo_medida,
-        presentacion_entregada: med.presentacion,
-      },
-    ]);
-    setMedSearch("");
-  };
-
-  const updateMedQuantity = (index: number, quantity: number) => {
-    const newMeds = [...dispensedMeds];
-    newMeds[index].cantidad = Math.max(1, Math.floor(quantity));
-    setDispensedMeds(newMeds);
-  };
-
-  const removeMed = (index: number) => {
-    setDispensedMeds(dispensedMeds.filter((_, i) => i !== index));
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,99 +231,49 @@ export default function NewAttentionPage() {
             </motion.div>
           </div>
 
-          {/* Medicine Dispensing */}
+          {/* Medicine Dispensing - Componente MedicineDispenser FASE 3.1 */}
           <motion.div variants={item} className="pt-6 border-t border-gray-100 dark:border-gray-700/50 space-y-4">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Pill size={16} className="text-emerald-500" />
-                <h2 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Medicamentos</h2>
+                <h2 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">
+                  Medicamentos
+                </h2>
               </div>
               <span className="text-[10px] font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full">
                 ENTREGA DE STOCK
               </span>
             </div>
 
-            <div className="relative">
-              <select
-                className="w-full rounded-2xl bg-gray-50 dark:bg-gray-900/50 border border-gray-100 dark:border-gray-700 p-4 text-sm font-bold text-slate-800 dark:text-white input-premium appearance-none cursor-pointer"
-                onChange={(e) => {
-                  const med = medicamentos?.find(
-                    (m: Medicamento) => m.id === e.target.value,
-                  );
-                  if (med) handleAddMed(med);
-                }}
-                value=""
-              >
-                <option value="">Seleccionar medicamento para agregar...</option>
-                {filteredMeds
-                  .filter((m) => !dispensedMeds.find((d) => d.medicamento_id === m.id))
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre} (Stock: {m.stock_actual ?? 0} {m.unidad_medida})
-                    </option>
-                  ))}
-              </select>
-              <Plus className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
-            </div>
-
+            {/* Error display */}
             <AnimatePresence>
-              {dispensedMeds.length > 0 && (
+              {error && (
                 <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-3 mt-4"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 flex items-center gap-2 text-rose-700 dark:text-rose-300"
                 >
-                  {dispensedMeds.map((item, idx) => {
-                    const medInfo = medicamentos.find((m) => m.id === item.medicamento_id);
-                    return (
-                      <motion.div
-                        key={item.medicamento_id}
-                        layout
-                        initial={{ scale: 0.9, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className="flex items-center gap-4 rounded-2xl bg-emerald-50/30 dark:bg-emerald-900/10 p-4 border border-emerald-100/50 dark:border-emerald-900/30 group/med"
-                      >
-                        <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center text-emerald-500 shadow-sm group-hover/med:rotate-12 transition-transform">
-                          <Pill size={18} />
-                        </div>
-                        <div className="flex-1">
-                          <span className="font-bold text-slate-800 dark:text-white block">
-                            {medInfo?.nombre || 'Medicamento'}
-                          </span>
-                          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Disponible para entrega</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <input
-                            type="number"
-                            min="1"
-                            className="w-16 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-gray-800 p-2 text-center font-black text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                            value={item.cantidad}
-                            onChange={(e) =>
-                              updateMedQuantity(idx, parseInt(e.target.value))
-                            }
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeMed(idx)}
-                            className="h-10 w-10 flex items-center justify-center rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                  <AlertCircle size={18} />
+                  <span className="text-sm">{error}</span>
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Componente MedicineDispenser */}
+            <MedicineDispenser
+              medicamentos={medicamentos}
+              seleccionadas={dispensedMeds}
+              onChange={setDispensedMeds}
+              mostrarPreview={true}
+            />
           </motion.div>
 
           <motion.div variants={item} className="flex justify-end pt-6">
             <button
               type="submit"
               disabled={loading || !selectedPatient}
-              className="flex items-center gap-3 rounded-[1.5rem] bg-indigo-600 px-10 py-4 font-black text-white hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest text-xs"
+              className="flex items-center gap-3 rounded-3xl bg-indigo-600 px-10 py-4 font-black text-white hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 transition-all active:scale-95 disabled:opacity-50 uppercase tracking-widest text-xs"
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
               {loading ? "Registrando..." : "Guardar Atención Médica"}
