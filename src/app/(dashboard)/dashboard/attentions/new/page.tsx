@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useRouter } from "next/navigation";
-import { Medicamento } from "@/features/inventario/types";
+import { Medicamento, DispensacionMedicamento } from "@/features/inventario/types";
 import { Paciente } from "@/features/pacientes/types";
 import { useAtenciones } from "@/features/atenciones/hooks/useAtenciones";
 import { useMedicamentos } from "@/features/inventario/hooks/useMedicamentos";
@@ -30,21 +30,19 @@ export default function NewAttentionPage() {
     observacion: "",
   });
 
-  const [dispensedMeds, setDispensedMeds] = useState<
-    { medId: string; cantidad: number; medName: string }[]
-  >([]);
+  const [dispensedMeds, setDispensedMeds] = useState<DispensacionMedicamento[]>([]);
   const [medSearch, setMedSearch] = useState("");
 
   const filteredPacientes =
     searchTerm.length > 1
       ? pacientes
-          .filter(
-            (p: Paciente) =>
-              p.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              p.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
-              p.dni.includes(searchTerm),
-          )
-          .slice(0, 5)
+        .filter(
+          (p: Paciente) =>
+            p.nombres.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.apellidos.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.dni.includes(searchTerm),
+        )
+        .slice(0, 5)
       : [];
 
   const filteredMeds = medicamentos.filter((m: Medicamento) =>
@@ -52,13 +50,14 @@ export default function NewAttentionPage() {
   );
 
   const handleAddMed = (med: Medicamento) => {
-    if (dispensedMeds.find((d) => d.medId === med.id)) return;
+    if (dispensedMeds.find((d) => d.medicamento_id === med.id)) return;
     setDispensedMeds([
       ...dispensedMeds,
       {
-        medId: med.id,
+        medicamento_id: med.id,
         cantidad: 1,
-        medName: med.nombre,
+        tipo_medida: med.tipo_medida,
+        presentacion_entregada: med.presentacion,
       },
     ]);
     setMedSearch("");
@@ -66,12 +65,12 @@ export default function NewAttentionPage() {
 
   const updateMedQuantity = (index: number, quantity: number) => {
     const newMeds = [...dispensedMeds];
-    newMeds[index].cantidad = Math.max(1, quantity);
+    newMeds[index].cantidad = Math.max(1, Math.floor(quantity));
     setDispensedMeds(newMeds);
   };
 
   const removeMed = (index: number) => {
-    setDispensedMeds(dispensedMeds.filter((_, i: number) => i !== index));
+    setDispensedMeds(dispensedMeds.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -93,7 +92,7 @@ export default function NewAttentionPage() {
         observacion: formData.observacion,
         signos_vitales: { temp: "", presion: "", saturacion: "" },
       },
-      dispensedMeds,
+      dispensedMeds
     );
     router.push("/dashboard/attentions");
   };
@@ -113,7 +112,7 @@ export default function NewAttentionPage() {
   };
 
   return (
-    <motion.div 
+    <motion.div
       variants={container}
       initial="hidden"
       animate="show"
@@ -143,10 +142,10 @@ export default function NewAttentionPage() {
           {/* Patient Selection */}
           <motion.div variants={item} className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
-               <User size={16} className="text-teal-600" />
-               <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">Paciente</h2>
+              <User size={16} className="text-teal-600" />
+              <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300">Paciente</h2>
             </div>
-            
+
             {!selectedPatient ? (
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
@@ -159,7 +158,7 @@ export default function NewAttentionPage() {
                 />
                 <AnimatePresence>
                   {searchTerm.length > 1 && (
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 10 }}
@@ -177,12 +176,12 @@ export default function NewAttentionPage() {
                         >
                           <div className="flex justify-between items-center">
                             <div>
-                                <span className="font-bold text-slate-800 dark:text-white block">
-                                  {p.nombres} {p.apellidos}
-                                </span>
-                                <span className="text-xs text-slate-500">
-                                  {p.categoria} • {p.dni}
-                                </span>
+                              <span className="font-bold text-slate-800 dark:text-white block">
+                                {p.nombres} {p.apellidos}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {p.categoria} • {p.dni}
+                              </span>
                             </div>
                             <Plus size={16} className="text-indigo-400" />
                           </div>
@@ -198,7 +197,7 @@ export default function NewAttentionPage() {
                 </AnimatePresence>
               </div>
             ) : (
-              <motion.div 
+              <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="flex items-center justify-between rounded-3xl bg-indigo-50/50 dark:bg-indigo-900/20 p-6 border border-indigo-100/50 dark:border-indigo-900/30"
@@ -262,13 +261,13 @@ export default function NewAttentionPage() {
           {/* Medicine Dispensing */}
           <motion.div variants={item} className="pt-6 border-t border-gray-100 dark:border-gray-700/50 space-y-4">
             <div className="flex items-center justify-between mb-2">
-               <div className="flex items-center gap-2">
-                  <Pill size={16} className="text-emerald-500" />
-                  <h2 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Medicamentos</h2>
-               </div>
-               <span className="text-[10px] font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full">
-                 ENTREGA DE STOCK
-               </span>
+              <div className="flex items-center gap-2">
+                <Pill size={16} className="text-emerald-500" />
+                <h2 className="text-sm font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Medicamentos</h2>
+              </div>
+              <span className="text-[10px] font-black px-3 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-full">
+                ENTREGA DE STOCK
+              </span>
             </div>
 
             <div className="relative">
@@ -284,7 +283,7 @@ export default function NewAttentionPage() {
               >
                 <option value="">Seleccionar medicamento para agregar...</option>
                 {filteredMeds
-                  .filter((m) => !dispensedMeds.find((d) => d.medId === m.id))
+                  .filter((m) => !dispensedMeds.find((d) => d.medicamento_id === m.id))
                   .map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.nombre} (Stock: {m.stock_actual ?? 0} {m.unidad_medida})
@@ -296,49 +295,52 @@ export default function NewAttentionPage() {
 
             <AnimatePresence>
               {dispensedMeds.length > 0 && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
                   className="space-y-3 mt-4"
                 >
-                  {dispensedMeds.map((item, idx) => (
-                    <motion.div
-                      key={item.medId}
-                      layout
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      className="flex items-center gap-4 rounded-2xl bg-emerald-50/30 dark:bg-emerald-900/10 p-4 border border-emerald-100/50 dark:border-emerald-900/30 group/med"
-                    >
-                      <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center text-emerald-500 shadow-sm group-hover/med:rotate-12 transition-transform">
-                        <Pill size={18} />
-                      </div>
-                      <div className="flex-1">
-                        <span className="font-bold text-slate-800 dark:text-white block">
-                          {item.medName}
-                        </span>
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Disponible para entrega</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          min="1"
-                          className="w-16 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-gray-800 p-2 text-center font-black text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/20 outline-none"
-                          value={item.cantidad}
-                          onChange={(e) =>
-                            updateMedQuantity(idx, parseInt(e.target.value))
-                          }
-                        />
-                        <button
-                          type="button"
-                          onClick={() => removeMed(idx)}
-                          className="h-10 w-10 flex items-center justify-center rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </motion.div>
-                  ))}
+                  {dispensedMeds.map((item, idx) => {
+                    const medInfo = medicamentos.find((m) => m.id === item.medicamento_id);
+                    return (
+                      <motion.div
+                        key={item.medicamento_id}
+                        layout
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="flex items-center gap-4 rounded-2xl bg-emerald-50/30 dark:bg-emerald-900/10 p-4 border border-emerald-100/50 dark:border-emerald-900/30 group/med"
+                      >
+                        <div className="h-10 w-10 flex-shrink-0 rounded-xl bg-white dark:bg-gray-800 flex items-center justify-center text-emerald-500 shadow-sm group-hover/med:rotate-12 transition-transform">
+                          <Pill size={18} />
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-bold text-slate-800 dark:text-white block">
+                            {medInfo?.nombre || 'Medicamento'}
+                          </span>
+                          <span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Disponible para entrega</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            min="1"
+                            className="w-16 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-gray-800 p-2 text-center font-black text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500/20 outline-none"
+                            value={item.cantidad}
+                            onChange={(e) =>
+                              updateMedQuantity(idx, parseInt(e.target.value))
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeMed(idx)}
+                            className="h-10 w-10 flex items-center justify-center rounded-xl text-rose-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </motion.div>
               )}
             </AnimatePresence>

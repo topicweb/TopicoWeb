@@ -67,11 +67,11 @@ Este plan establece una reestructuración profunda de la lógica de Atenciones d
 ### **FASE 2: LÓGICA DE NEGOCIO TRANSACCIONAL**
 **Objetivo:** Implementar nueva lógica de dispensación con garantías ACID
 
-#### **💼 2.1 Refactorización de `registrarAtencion`**
-- [ ] **Transacción atómica** que agrupa movimientos por medicamento/tipo
-- [ ] **Validación de stock** antes de la transacción
-- [ ] **Rollback automático** si cualquier paso falla
-- [ ] **Generación de descripciones consolidadas**
+#### **💼 2.1 Refactorización de `registrarAtencion`** ✅ COMPLETADO
+- [x] **Transacción atómica** - `db.transaction('rw', ...)` con Dexie garantiza ACID
+- [x] **Validación de stock** antes de la transacción - FASE 1 valida stock y tipos ANTES de iniciar transacción
+- [x] **Rollback automático** - Dexie maneja rollback automático si falla cualquier operación dentro de la transacción
+- [x] **Generación de descripciones consolidadas** - `generarDescripcionMovimiento()` crea descripciones como "Atención: 2unid. Paracetamol, 5ml Alcohol"
 
 #### **🔄 2.2 Sistema de Agrupación Inteligente**
 - [ ] **Implementar lógica de agrupación**:
