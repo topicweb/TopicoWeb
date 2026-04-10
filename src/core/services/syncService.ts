@@ -96,6 +96,7 @@ export class SyncService {
       }
 
       // 2. Fetch otras tablas filtrando por business_id
+      // programas_estudio se incluye en PULL pero NO en PUSH (datos de configuración, read-only desde cliente)
       for (const tableName of TABLES) {
         if (tableName === 'instituciones') continue; // Ya procesado arriba
 

@@ -7,7 +7,8 @@ import { db } from '@/core/db/dexie/db';
 import { supabase } from '@/core/db/supabase/client';
 
 // Orden de sincronización: medicamentos DEBE ir antes que movimientos_stock (foreign key)
-const TABLES = ['instituciones', 'perfiles', 'programas_estudio', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
+// NOTA: programas_estudio está excluido de PUSH porque es datos de configuración (read-only desde cliente)
+const TABLES = ['instituciones', 'perfiles', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
 
 // Tablas en Supabase que NO tienen columnas creado_at/actualizado_at
 // Estas columnas deben excluirse al sincronizar para evitar 400 Bad Request

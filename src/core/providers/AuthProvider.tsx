@@ -67,17 +67,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const role = perfil?.rol ?? null;
   const businessId = perfil?.business_id ?? null;
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[AuthProvider] Debug:', {
-      userEmail: user?.email,
-      perfil: perfil,
-      businessId: businessId,
-      role: role,
-      perfilBusinessId: perfil?.business_id,
-    });
-  }, [perfil, businessId, role, user?.email]);
-
   useEffect(() => {
     // Resuelve la sesión persistida en localStorage al cargar la app
     supabase.auth.getSession().then(({ data: { session } }) => {
