@@ -12,7 +12,11 @@ import { supabase } from '@/core/db/supabase/client';
 import type { BaseEntity } from '@/core/db/dexie/types';
 import { getDeviceId } from '@/core/utils/deviceId';
 
-const TABLES = ['instituciones', 'perfiles', 'programas_estudio', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
+// Tablas para PULL (descargar de Supabase): incluye perfiles para mantener datos actualizados
+const PULL_TABLES = ['instituciones', 'perfiles', 'programas_estudio', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
+
+// Tablas para PUSH (subir a Supabase): excluye perfiles (gestionado por Auth trigger) y programas_estudio (read-only)
+const PUSH_TABLES = ['instituciones', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
 // Tablas en Supabase que NO tienen columnas creado_at/actualizado_at
 // Estas tablas no pueden usar PULL incremental, siempre hacen PULL completo
 // Después de la migración, todas las tablas tienen actualizado_at, así que esta lista está vacía
@@ -96,8 +100,7 @@ export class SyncService {
       }
 
       // 2. Fetch otras tablas filtrando por business_id
-      // programas_estudio se incluye en PULL pero NO en PUSH (datos de configuración, read-only desde cliente)
-      for (const tableName of TABLES) {
+      for (const tableName of PULL_TABLES) {
         if (tableName === 'instituciones') continue; // Ya procesado arriba
 
         let query = supabase.from(tableName).select('*').eq('business_id', businessId);
@@ -118,9 +121,18 @@ export class SyncService {
           continue;
         }
 
+        // Normalizar datos de Supabase para Dexie
+        // - activo: boolean -> 1/0
+        // - sync_status: siempre 'synced' (los datos de Supabase ya están sincronizados)
+        const normalizedData = data.map((item: any) => ({
+          ...item,
+          activo: typeof item.activo === 'boolean' ? (item.activo ? 1 : 0) : item.activo,
+          sync_status: 'synced',
+        }));
+
         // Upsert en Dexie local
         const table = (db as any)[tableName];
-        await table.bulkPut(data);
+        await table.bulkPut(normalizedData);
       }
 
       // Actualizar timestamp de última sincronización
@@ -145,7 +157,7 @@ export class SyncService {
     this.isPushing = true;
 
     try {
-      for (const tableName of TABLES) {
+      for (const tableName of PUSH_TABLES) {
         const table = (db as any)[tableName];
         let pending = await table.where('sync_status').equals('pending').toArray();
 
@@ -178,9 +190,9 @@ export class SyncService {
         const cleanData = pending.map((item: any) => {
           const { sync_status, deleted_at, ...rest } = item;
 
-          // Convertir activo de 0/1 a boolean para Supabase
+          // Convertir activo a boolean para Supabase (soporta 1/0 y true/false)
           if ('activo' in rest) {
-            rest.activo = rest.activo === 1;
+            rest.activo = rest.activo === 1 || rest.activo === true;
           }
 
           // Eliminar timestamps de tablas que no los tienen en Supabase

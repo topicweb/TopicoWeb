@@ -7,8 +7,10 @@ import { db } from '@/core/db/dexie/db';
 import { supabase } from '@/core/db/supabase/client';
 
 // Orden de sincronización: medicamentos DEBE ir antes que movimientos_stock (foreign key)
-// NOTA: programas_estudio está excluido de PUSH porque es datos de configuración (read-only desde cliente)
-const TABLES = ['instituciones', 'perfiles', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
+// NOTA: 
+// - programas_estudio está excluido de PUSH (datos de configuración, read-only desde cliente)
+// - perfiles está excluido (se crea automáticamente por trigger handle_new_user en Auth, sin política INSERT RLS)
+const TABLES = ['instituciones', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
 
 // Tablas en Supabase que NO tienen columnas creado_at/actualizado_at
 // Estas columnas deben excluirse al sincronizar para evitar 400 Bad Request
@@ -61,13 +63,77 @@ async function migrateNullTipoMedida() {
   }
 }
 
+/**
+ * Migración de datos: Corrige registros con activo como boolean a 1/0
+ * Esto soluciona el problema de sincronización donde activo llegaba como boolean desde Supabase
+ * pero se necesita como número (1/0) en Dexie para consistencia
+ */
+async function migrateActivoBooleanToNumber() {
+  try {
+    // NOTA: perfiles excluido - se maneja en migratePerfilesSyncStatus
+    const tables = ['pacientes', 'medicamentos', 'programas_estudio'];
+    let totalCorrected = 0;
+
+    for (const tableName of tables) {
+      const table = (db as any)[tableName];
+      const allRecords = await table.toArray();
+
+      for (const record of allRecords) {
+        // Si activo es boolean, convertir a número (1 o 0)
+        if (typeof record.activo === 'boolean') {
+          await table.update(record.id, {
+            activo: record.activo ? 1 : 0,
+            sync_status: 'pending', // Marcar para re-sincronizar
+          });
+          totalCorrected++;
+          console.log(`[Migración activo] Corregido ${tableName}.${record.id}: ${record.activo} → ${record.activo ? 1 : 0}`);
+        }
+      }
+    }
+
+    if (totalCorrected > 0) {
+      console.log(`[Migración activo] Corregidos ${totalCorrected} registros con activo boolean → number`);
+    }
+  } catch (error) {
+    console.error('[Migración activo] Error corrigiendo valores:', error);
+  }
+}
+
+/**
+ * Migración CRÍTICA: Corrige sync_status de perfiles de 'pending' a 'synced'
+ * Los perfiles se gestionan via Server Actions, no por background sync.
+ * Si tienen 'pending' nunca se sincronizarán porque están excluidos del PUSH.
+ */
+async function migratePerfilesSyncStatus() {
+  try {
+    const allPerfiles = await db.perfiles.toArray();
+    const pendingPerfiles = allPerfiles.filter((p: any) => p.sync_status === 'pending');
+
+    if (pendingPerfiles.length === 0) return;
+
+    console.log(`[Migración perfiles] Corrigiendo ${pendingPerfiles.length} perfiles con sync_status='pending' → 'synced'`);
+
+    for (const perfil of pendingPerfiles) {
+      await db.perfiles.update(perfil.id, {
+        sync_status: 'synced',
+      });
+    }
+
+    console.log(`[Migración perfiles] ${pendingPerfiles.length} perfiles corregidos a 'synced'`);
+  } catch (error) {
+    console.error('[Migración perfiles] Error corrigiendo sync_status:', error);
+  }
+}
+
 export function useSimpleSync(enabled: boolean) {
   useEffect(() => {
     if (!enabled || !navigator.onLine) return;
 
     const syncPending = async () => {
-      // Ejecutar migración antes de sincronizar (solo la primera vez)
+      // Ejecutar migraciones antes de sincronizar (solo la primera vez)
       await migrateNullTipoMedida();
+      await migrateActivoBooleanToNumber();
+      await migratePerfilesSyncStatus();
 
       for (const tableName of TABLES) {
         const table = (db as any)[tableName];
@@ -103,9 +169,9 @@ export function useSimpleSync(enabled: boolean) {
         const cleanData = pending.map((item: any) => {
           const { deleted_at, ...rest } = item;
 
-          // Convertir activo de 0/1 a boolean para Supabase
+          // Convertir activo a boolean para Supabase (soporta 1/0 y true/false)
           if ('activo' in rest) {
-            rest.activo = rest.activo === 1;
+            rest.activo = rest.activo === 1 || rest.activo === true;
           }
 
           // Eliminar business_id de tablas que no lo tienen (instituciones)

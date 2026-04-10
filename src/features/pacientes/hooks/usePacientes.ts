@@ -23,7 +23,7 @@ export function usePacientes(): UsePacientesReturn {
       return db.pacientes
         .where('business_id')
         .equals(businessId)
-        .filter((p) => p.activo === 1)
+        .filter((p) => (p.activo as any))
         .toArray();
     },
     [businessId]
@@ -35,7 +35,7 @@ export function usePacientes(): UsePacientesReturn {
       return db.programas_estudio
         .where('business_id')
         .equals(businessId)
-        .filter((p) => p.activo === 1)
+        .filter((p) => (p.activo as any))
         .toArray();
     },
     [businessId]
@@ -100,22 +100,24 @@ export function usePacientes(): UsePacientesReturn {
     pacientes.find((p) => p.dni === dni.trim());
 
   const asegurarPrograma = async (nombre: string, id?: string): Promise<string> => {
-    const programaId = id ?? crypto.randomUUID();
-    const existe = await db.programas_estudio.get(programaId);
-
-    if (!existe) {
-      const now = new Date().toISOString();
-      await db.programas_estudio.put({
-        id: programaId,
-        nombre,
-        activo: 1,
-        creado_at: now,
-        actualizado_at: now,
-        sync_status: 'pending',
-      });
+    // Si se proporciona un ID, verificar que exista
+    if (id) {
+      const programa = await db.programas_estudio.get(id);
+      if (programa) return id;
+      throw new Error(`Programa de estudio con ID ${id} no encontrado`);
     }
 
-    return programaId;
+    // Buscar programa por nombre en la base de datos local (debe venir de Supabase)
+    const programa = await db.programas_estudio
+      .where('nombre')
+      .equals(nombre)
+      .first();
+
+    if (!programa) {
+      throw new Error(`Programa de estudio "${nombre}" no encontrado. Debe seleccionar un programa existente.`);
+    }
+
+    return programa.id;
   };
 
   return {

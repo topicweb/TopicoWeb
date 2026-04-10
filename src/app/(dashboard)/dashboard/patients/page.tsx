@@ -9,10 +9,10 @@ import { PacienteSchema } from "@/shared/schemas/validation";
 import { toast } from "sonner";
 import { Paciente } from "@/features/pacientes/types";
 
-// Definimos tus 2 programas fijos aquí.
+// Definimos tus 2 programas fijos aquí con los IDs correctos de Supabase
 const PROGRAMAS_FIJOS = [
   {
-    id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11", // UUID válido generado
+    id: "b585d843-cac5-4d35-bb87-d98d5ecaf49f", // UUID de Supabase
     nombre: "Enfermería Técnica",
     activo: 1,
     creado_at: new Date().toISOString(),
@@ -20,7 +20,7 @@ const PROGRAMAS_FIJOS = [
     sync_status: "synced" as const,
   },
   {
-    id: "b2eebc99-9c0b-4ef8-bb6d-6bb9bd380a12", // UUID válido generado
+    id: "175a339d-ee41-47af-a681-3d2751dd23b0", // UUID de Supabase
     nombre: "Desarrollo de Sistemas de Información",
     activo: 1,
     creado_at: new Date().toISOString(),
@@ -199,11 +199,10 @@ export default function PatientsPage() {
                       )}
                       {/* Indicador visual de sincronización */}
                       <span
-                        className={`inline-flex h-2 w-2 rounded-full ${
-                          patient.sync_status === "synced"
+                        className={`inline-flex h-2 w-2 rounded-full ${patient.sync_status === "synced"
                             ? "bg-green-500"
                             : "bg-amber-500"
-                        }`}
+                          }`}
                         title={
                           patient.sync_status === "synced"
                             ? "Sincronizado"

@@ -56,49 +56,42 @@ export function useUsuarios() {
   };
 
   /**
-   * Actualiza un perfil de usuario.
-   * - Online: Server Action → luego marca local como 'synced'.
-   * - Offline: Guarda local como 'pending' → se sincronizará al recuperar red.
+   * Actualiza un perfil de usuario via Server Action.
+   * NOTA: perfiles no usan sincronización background (excluidos de syncService).
+   * Siempre se marcan como 'synced' ya que se gestionan directamente via Server Actions.
    */
   const actualizarUsuario = async (id: string, datos: Partial<Perfil>) => {
-    if (navigator.onLine) {
-      await updateUserAction(id, datos);
-      await db.perfiles.update(id, {
-        ...datos,
-        actualizado_at: new Date().toISOString(),
-        sync_status: 'synced',
-      });
-    } else {
-      await db.perfiles.update(id, {
-        ...datos,
-        actualizado_at: new Date().toISOString(),
-        sync_status: 'pending',
-      });
+    if (!navigator.onLine) {
+      throw new Error('Se requiere conexión para actualizar usuarios.');
     }
+
+    await updateUserAction(id, datos);
+    await db.perfiles.update(id, {
+      ...datos,
+      actualizado_at: new Date().toISOString(),
+      sync_status: 'synced',
+    });
   };
 
   /**
    * Soft-delete de usuario: marca como inactivo en Dexie y en Supabase.
-   * Si está offline, useSimpleSync propagará el delete al recuperar red.
+   * NOTA: perfiles no usan sincronización background (excluidos de syncService).
+   * Requiere conexión para ejecutar la Server Action.
    */
   const eliminarUsuario = async (id: string) => {
+    if (!navigator.onLine) {
+      throw new Error('Se requiere conexión para eliminar usuarios.');
+    }
+
     const now = new Date().toISOString();
 
+    await softDeleteUserAction(id);
     await db.perfiles.update(id, {
       activo: 0,
       deleted_at: now,
       actualizado_at: now,
-      sync_status: 'pending',
+      sync_status: 'synced',
     });
-
-    if (navigator.onLine) {
-      try {
-        await softDeleteUserAction(id);
-        await db.perfiles.update(id, { sync_status: 'synced' });
-      } catch (error) {
-        console.error('Error propagando soft-delete al servidor:', error);
-      }
-    }
   };
 
   return {
