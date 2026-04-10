@@ -1,11 +1,11 @@
 /**
- * @module shared/utils/security
- *
  * Utilidades de seguridad para sanitización y validación.
- * FASE 4.3: Seguridad y Validación - Sanitización de inputs
  */
-
 import type { TipoMedida } from '@/features/inventario/types';
+import type { RolUsuario } from '@/features/usuarios/types';
+
+// Re-exportar para compatibilidad
+export type { RolUsuario };
 
 // ── Constantes ─────────────────────────────────────────────────────────────
 
@@ -180,11 +180,6 @@ export function sanitizeObject<T extends Record<string, unknown>>(
 }
 
 // ── Validación de Permisos ─────────────────────────────────────────────────
-
-/**
- * Roles de usuario en el sistema
- */
-export type RolUsuario = 'admin' | 'personal';
 
 /**
  * Permisos para operaciones con medicamentos según tipo

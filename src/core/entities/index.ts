@@ -34,6 +34,8 @@ export type {
   Medicamento,
   MovimientoStock,
   TipoMovimiento,
+  TipoMedida,
   MedicamentoFormData,
   MovimientoFormData,
+  DispensacionMedicamento,
 } from '@/features/inventario/types';

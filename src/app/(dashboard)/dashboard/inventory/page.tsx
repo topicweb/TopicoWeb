@@ -112,6 +112,8 @@ export default function InventoryPage() {
         medicamento_id: stockItem.id,
         tipo,
         cantidad,
+        tipo_medida: stockItem.tipo_medida,
+        descripcion_movimiento: motivo || undefined,
         fecha_movimiento: new Date().toISOString(),
       });
       toast.success("Stock actualizado correctamente");
@@ -136,18 +138,19 @@ export default function InventoryPage() {
         </button>
       </div>
 
-      <div className="relative max-w-md">
+      <div className="relative w-full md:max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input
           type="text"
           placeholder="Buscar medicamento..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-white"
         />
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      {/* Vista Desktop: Tabla */}
+      <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
             <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
@@ -156,11 +159,10 @@ export default function InventoryPage() {
                 <th className="px-6 py-4">Ubicación</th>
                 <th className="px-6 py-4">Stock</th>
                 <th className="px-6 py-4">Estado</th>
-                <th className="px-6 py-4">Operaciones</th>
+                <th className="px-6 py-4 text-right">Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {/* 2. UX: Skeletons durante la búsqueda */}
               {isSearching ? (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i} className="border-b dark:border-gray-700">
@@ -173,6 +175,9 @@ export default function InventoryPage() {
                     </td>
                     <td className="px-6 py-4">
                       <Skeleton className="h-5 w-24 rounded-full" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <Skeleton className="h-6 w-20" />
                     </td>
                     <td className="px-6 py-4">
                       <Skeleton className="h-8 w-24" />
@@ -188,7 +193,7 @@ export default function InventoryPage() {
                     <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                       {item.nombre}
                       {item.descripcion && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 mt-0.5">
                           {item.descripcion}
                         </p>
                       )}
@@ -201,7 +206,7 @@ export default function InventoryPage() {
                         <span
                           className={`font-bold ${(item.stock_actual ?? 0) <= item.stock_minimo ? "text-red-500" : "text-gray-900 dark:text-gray-100"}`}
                         >
-                          {item.stock_actual ?? 0}
+                          {item.stock_actual ?? 0} {item.unidad_medida}
                         </span>
                         {(item.stock_actual ?? 0) <= item.stock_minimo && (
                           <AlertTriangle size={16} className="text-red-500" />
@@ -218,23 +223,23 @@ export default function InventoryPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex gap-2">
+                      <div className="flex justify-end gap-2">
                         <button
                           onClick={() => handleAdjustStock(item)}
-                          className="text-green-600 hover:text-green-900 dark:hover:text-green-400"
+                          className="p-2 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-900/20 dark:hover:text-green-400 transition-colors"
                           title="Ajustar Stock"
                         >
                           <ArrowRightLeft size={18} />
                         </button>
                         <button
                           onClick={() => handleEdit(item)}
-                          className="text-blue-600 hover:text-blue-900 dark:hover:text-blue-400"
+                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 transition-colors"
                         >
                           <Edit2 size={18} />
                         </button>
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-900 dark:hover:text-red-400"
+                          className="p-2 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -244,7 +249,7 @@ export default function InventoryPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center">
+                  <td colSpan={5} className="py-12 text-center text-slate-500">
                     No se encontraron medicamentos.
                   </td>
                 </tr>
@@ -252,6 +257,100 @@ export default function InventoryPage() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Vista Mobile: Tarjetas */}
+      <div className="md:hidden space-y-3">
+        {isSearching ? (
+          Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+              <Skeleton className="h-5 w-3/4 mb-2" />
+              <Skeleton className="h-4 w-1/2 mb-3" />
+              <div className="flex justify-between items-center">
+                <Skeleton className="h-6 w-20" />
+                <Skeleton className="h-8 w-24" />
+              </div>
+            </div>
+          ))
+        ) : filteredMedicamentos.length > 0 ? (
+          filteredMedicamentos.map((item: Medicamento) => {
+            const isLowStock = (item.stock_actual ?? 0) <= item.stock_minimo;
+            return (
+              <div
+                key={item.id}
+                className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+              >
+                {/* Header: Nombre y Estado */}
+                <div className="flex justify-between items-start gap-2 mb-2">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-base leading-tight">
+                      {item.nombre}
+                    </h3>
+                    {item.descripcion && (
+                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                        {item.descripcion}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${item.sync_status === "synced" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                  >
+                    {item.sync_status === "synced" ? "Sync" : "Pendiente"}
+                  </span>
+                </div>
+
+                {/* Info Grid */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2">
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Stock</p>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`font-bold text-sm ${isLowStock ? "text-red-500" : "text-gray-900 dark:text-white"}`}>
+                        {item.stock_actual ?? 0}
+                      </span>
+                      <span className="text-xs text-slate-500">{item.unidad_medida}</span>
+                      {isLowStock && <AlertTriangle size={14} className="text-red-500" />}
+                    </div>
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2">
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">Ubicación</p>
+                    <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                      {item.anaquel || "-"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Acciones */}
+                <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    onClick={() => handleAdjustStock(item)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-green-50 text-green-700 text-xs font-semibold dark:bg-green-900/20 dark:text-green-400"
+                  >
+                    <ArrowRightLeft size={14} />
+                    Stock
+                  </button>
+                  <button
+                    onClick={() => handleEdit(item)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold dark:bg-blue-900/20 dark:text-blue-400"
+                  >
+                    <Edit2 size={14} />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(item.id)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-red-50 text-red-700 text-xs font-semibold dark:bg-red-900/20 dark:text-red-400"
+                  >
+                    <Trash2 size={14} />
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
+            <p className="text-slate-500">No se encontraron medicamentos.</p>
+          </div>
+        )}
       </div>
 
       {isModalOpen && (

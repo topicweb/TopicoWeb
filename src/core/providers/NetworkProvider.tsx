@@ -1,35 +1,27 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { syncService } from "../services/syncService";
+import { useBidirectionalSync } from "../hooks/useBidirectionalSync";
 
 interface NetworkContextType {
   isOnline: boolean;
+  isSyncing: boolean;
 }
 
-const NetworkContext = createContext<NetworkContextType>({ isOnline: true });
+const NetworkContext = createContext<NetworkContextType>({ isOnline: true, isSyncing: false });
 
 export const useNetwork = () => useContext(NetworkContext);
 
 export function NetworkProvider({ children }: { children: React.ReactNode }) {
   const [isOnline, setIsOnline] = useState(true);
 
-  useEffect(() => {
-    // Initial check
-    const online = navigator.onLine;
-    setIsOnline(online);
-    
-    if (online) {
-      syncService.sync();
-      syncService.listenToChanges();
-    }
+  // Sincronización bidireccional automática cuando hay conexión
+  const { isSyncing } = useBidirectionalSync();
 
-    const handleOnline = () => {
-      setIsOnline(true);
-      console.log("Came online, starting sync...");
-      syncService.sync();
-      syncService.listenToChanges(); // Re-subscribe on reconnection
-    };
+  useEffect(() => {
+    setIsOnline(navigator.onLine);
+
+    const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 
     window.addEventListener("online", handleOnline);
@@ -42,7 +34,7 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <NetworkContext.Provider value={{ isOnline }}>
+    <NetworkContext.Provider value={{ isOnline, isSyncing }}>
       {children}
     </NetworkContext.Provider>
   );

@@ -1,15 +1,23 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { motion } from "framer-motion";
+import { ArrowLeftRight, Package, TrendingUp, TrendingDown } from "lucide-react";
 import { useMovimientos } from "@/features/movimientos/hooks/useMovimientos";
-import { ArrowDown, ArrowUp, Calendar, Search } from "lucide-react";
-import { Skeleton } from "@/shared/ui/Skeleton";
+import {
+  MovementCard,
+  MovementTable,
+  SearchFilter,
+  EmptyState,
+  MovementSkeleton,
+} from "@/features/movimientos/components";
 
 export default function MovementsPage() {
+  const { movimientos, loading } = useMovimientos();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedTerm, setDebouncedTerm] = useState("");
+  const [filterType, setFilterType] = useState<"all" | "entrada" | "salida">("all");
   const [isSearching, setIsSearching] = useState(false);
-  const { movimientos } = useMovimientos();
 
   // Debounce para el buscador
   useEffect(() => {
@@ -22,120 +30,153 @@ export default function MovementsPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Filtramos en memoria (el hook ya nos da la lista completa y reactiva)
-  const filteredMovements = movimientos.filter(
-    (m) =>
-      !debouncedTerm ||
-      m.medicamento_nombre?.toLowerCase().includes(debouncedTerm.toLowerCase()),
-  );
+  // Filtrado optimizado con useMemo
+  const filteredMovements = useMemo(() => {
+    return movimientos.filter((m) => {
+      const matchesSearch = !debouncedTerm ||
+        m.medicamentoNombre?.toLowerCase().includes(debouncedTerm.toLowerCase());
+
+      const matchesType =
+        filterType === "all" ||
+        m.tipo.toLowerCase() === filterType;
+
+      return matchesSearch && matchesType;
+    });
+  }, [movimientos, debouncedTerm, filterType]);
+
+  // Estadísticas calculadas
+  const stats = useMemo(() => {
+    const entradas = movimientos.filter(m => m.tipo === "ENTRADA").length;
+    const salidas = movimientos.filter(m => m.tipo === "SALIDA").length;
+    return { total: movimientos.length, entradas, salidas };
+  }, [movimientos]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center border-b border-slate-100 dark:border-slate-800 pb-5">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Historial de Movimientos
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">Kardex de entradas y salidas</p>
-        </div>
-      </div>
+    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:space-y-8 sm:p-6 lg:p-8">
+      {/* Header Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="space-y-4"
+      >
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="rounded-lg bg-linear-to-br from-teal-500 to-teal-600 p-2 shadow-lg shadow-teal-500/20">
+                <ArrowLeftRight className="h-5 w-5 text-white" />
+              </div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
+                Historial de Movimientos
+              </h1>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 pl-11">
+              Kardex de entradas y salidas de inventario
+            </p>
+          </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Buscar por insumo..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-9 pr-4 text-sm focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+          {/* Stats Cards - Desktop */}
+          <div className="hidden sm:flex items-center gap-3">
+            <div className="rounded-xl bg-white px-4 py-2 shadow-sm border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-2">
+                <Package size={16} className="text-slate-400" />
+                <span className="text-xs text-slate-500 dark:text-slate-400">Total</span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                  {stats.total}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-xl bg-emerald-50 px-4 py-2 border border-emerald-100 dark:border-emerald-900/30 dark:bg-emerald-900/20">
+              <div className="flex items-center gap-2">
+                <TrendingUp size={16} className="text-emerald-600 dark:text-emerald-400" />
+                <span className="text-xs text-emerald-700 dark:text-emerald-400">Entradas</span>
+                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                  {stats.entradas}
+                </span>
+              </div>
+            </div>
+            <div className="rounded-xl bg-rose-50 px-4 py-2 border border-rose-100 dark:border-rose-900/30 dark:bg-rose-900/20">
+              <div className="flex items-center gap-2">
+                <TrendingDown size={16} className="text-rose-600 dark:text-rose-400" />
+                <span className="text-xs text-rose-700 dark:text-rose-400">Salidas</span>
+                <span className="text-sm font-semibold text-rose-700 dark:text-rose-400">
+                  {stats.salidas}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <SearchFilter
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          filterType={filterType}
+          onFilterChange={setFilterType}
         />
-      </div>
 
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-            <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
-              <tr>
-                <th className="px-6 py-4">Fecha</th>
-                <th className="px-6 py-4">Insumo</th>
-                <th className="px-6 py-4">Operación</th>
-                <th className="px-6 py-4">Cantidad</th>
-                <th className="px-6 py-4">Detalle</th>
-              </tr>
-            </thead>
-            <tbody>
-              {isSearching ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <tr key={i} className="border-b dark:border-gray-700">
-                    <td className="px-6 py-4">
-                      <Skeleton className="h-4 w-36" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <Skeleton className="h-4 w-40" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <Skeleton className="h-5 w-24 rounded-full" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <Skeleton className="h-4 w-8" />
-                    </td>
-                    <td className="px-6 py-4">
-                      <Skeleton className="h-4 w-28" />
-                    </td>
-                  </tr>
-                ))
-              ) : filteredMovements.length > 0 ? (
-                filteredMovements.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="border-b hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={16} className="text-gray-400" />
-                        {new Date(item.fecha_movimiento).toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
-                      {item.medicamento_nombre}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          item.tipo === "ENTRADA"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                        }`}
-                      >
-                        {item.tipo === "ENTRADA" ? (
-                          <ArrowDown size={12} />
-                        ) : (
-                          <ArrowUp size={12} />
-                        )}
-                        {item.tipo.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 font-bold">{item.cantidad}</td>
-                    <td className="px-6 py-4 text-xs text-gray-500">
-                      {item.atencion_id
-                        ? `Atención: ...${item.atencion_id.slice(-6)}`
-                        : "Ajuste Manual"}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center">
-                    {searchTerm
-                      ? `No se encontraron movimientos para "${searchTerm}"`
-                      : "No hay movimientos registrados."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        {/* Stats Cards - Mobile */}
+        <div className="grid grid-cols-3 gap-2 sm:hidden">
+          <div className="rounded-xl bg-white p-3 text-center shadow-sm border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
+            <div className="text-xs text-slate-500 dark:text-slate-400">Total</div>
+            <div className="text-lg font-bold text-slate-900 dark:text-white">{stats.total}</div>
+          </div>
+          <div className="rounded-xl bg-emerald-50 p-3 text-center border border-emerald-100 dark:border-emerald-900/30 dark:bg-emerald-900/20">
+            <div className="text-xs text-emerald-700 dark:text-emerald-400">Entradas</div>
+            <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{stats.entradas}</div>
+          </div>
+          <div className="rounded-xl bg-rose-50 p-3 text-center border border-rose-100 dark:border-rose-900/30 dark:bg-rose-900/20">
+            <div className="text-xs text-rose-700 dark:text-rose-400">Salidas</div>
+            <div className="text-lg font-bold text-rose-700 dark:text-rose-400">{stats.salidas}</div>
+          </div>
         </div>
-      </div>
+      </motion.div>
+
+      {/* Results Count */}
+      {!loading && !isSearching && filteredMovements.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-xs text-slate-500 dark:text-slate-400"
+        >
+          Mostrando {filteredMovements.length} de {movimientos.length} movimientos
+        </motion.div>
+      )}
+
+      {/* Content */}
+      {loading || isSearching ? (
+        <>
+          <div className="hidden sm:block">
+            <MovementSkeleton count={8} viewMode="table" />
+          </div>
+          <div className="sm:hidden">
+            <MovementSkeleton count={6} viewMode="cards" />
+          </div>
+        </>
+      ) : filteredMovements.length > 0 ? (
+        <>
+          {/* Desktop: Table View */}
+          <div className="hidden sm:block">
+            <MovementTable movements={filteredMovements} />
+          </div>
+
+          {/* Mobile: Card View */}
+          <div className="grid gap-3 sm:hidden">
+            {filteredMovements.map((movement, index) => (
+              <MovementCard
+                key={movement.id}
+                movement={movement}
+                index={index}
+              />
+            ))}
+          </div>
+        </>
+      ) : (
+        <EmptyState
+          hasSearchTerm={!!searchTerm || filterType !== "all"}
+          searchTerm={searchTerm || (filterType !== "all" ? filterType : undefined)}
+        />
+      )}
     </div>
   );
 }

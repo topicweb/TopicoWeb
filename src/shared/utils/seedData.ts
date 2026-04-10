@@ -18,7 +18,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
         // Intentamos buscar una institución existente en Supabase antes de inventar una
         // (Esto evita el error de RLS si la institución ya fue creada por un admin)
         const { data: remoteInst } = await supabase.from('instituciones').select('id').limit(1).single();
-        
+
         if (remoteInst) {
             currentBusinessId = remoteInst.id;
             console.log('Usando institución existente de Supabase:', currentBusinessId);
@@ -32,7 +32,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
             nombre: 'Institución Educativa Demo',
             activo: 1,
             creado_at: new Date().toISOString(),
-            sync_status: remoteInst ? 'synced' : 'pending' 
+            sync_status: remoteInst ? 'synced' : 'pending'
         } as any);
     }
 
@@ -204,6 +204,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 atencion_id: attId,
                 tipo: 'SALIDA',
                 cantidad: 1,
+                tipo_medida: 'UNIDAD',
                 fecha_movimiento: dateStr,
                 creado_at: dateStr,
                 actualizado_at: dateStr,
@@ -217,5 +218,5 @@ export async function seedDatabase(userEmail: string, userId: string) {
     }
 
     console.log('--- Seed de Datos Finalizado ---');
-    window.location.reload(); 
+    window.location.reload();
 }

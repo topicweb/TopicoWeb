@@ -20,15 +20,23 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
     },
   });
 
-  if (authError) throw new Error(authError.message);
+  if (authError) {
+    // Detectar error de email duplicado
+    if (authError.message?.includes('already been registered') ||
+      authError.message?.includes('already exists') ||
+      authError.code === '23505') {
+      throw new Error(`El email "${data.email}" ya está registrado. Por favor use otro email o recupere la contraseña.`);
+    }
+    throw new Error(authError.message);
+  }
 
   // Opcional: Si quieres asignar el rol inmediatamente en la tabla perfiles
   // (aunque el trigger lo pone por defecto en 'personal', aquí forzamos el valor del formulario)
   if (authData.user) {
     const { error: profileError } = await supabaseAdmin
       .from('perfiles')
-      .update({ 
-        rol: data.rol, 
+      .update({
+        rol: data.rol,
         activo: data.activo,
         business_id: data.business_id // CRITICAL: Link new user to current business
       })
@@ -40,8 +48,8 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
   }
 
   // Devolvemos el perfil completo para que la UI se actualice al instante
-  return { 
-    success: true, 
+  return {
+    success: true,
     user: {
       id: authData.user!.id,
       email: data.email!,
@@ -51,7 +59,7 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
       activo: data.activo ?? 1,
       creado_at: new Date().toISOString(),
       actualizado_at: new Date().toISOString(),
-      sync_status: 'synced' 
+      sync_status: 'synced'
     } as Perfil
   };
 }
@@ -59,9 +67,9 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
 export async function updateUserAction(id: string, data: Partial<Perfil>) {
   // Usamos supabaseAdmin para saltarnos las reglas RLS que dan error 403
   const { error } = await supabaseAdmin.from('perfiles').update(data).eq('id', id);
-  
+
   if (error) throw new Error(error.message);
-  
+
   return { success: true };
 }
 
@@ -70,9 +78,9 @@ export async function softDeleteUserAction(userId: string) {
   // No borramos el usuario de Supabase Auth para mantener la integridad y permitir "deshacer".
   const { error } = await supabaseAdmin
     .from('perfiles')
-    .update({ 
+    .update({
       activo: false,
-      deleted_at: new Date().toISOString() 
+      deleted_at: new Date().toISOString()
     })
     .eq('id', userId);
 

@@ -1,97 +1,127 @@
-/**
- * @module features/pacientes/hooks/usePacientes
- *
- * Hook central del módulo Pacientes.
- * Proporciona todo el CRUD + lógica de negocio para pacientes y programas de estudio.
- *
- * Patrón canónico (plantilla para todos los demás módulos):
- *   useDexieCrud → multi-tenancy + sync_status + soft-delete automáticos.
- */
-import { useDexieCrud } from '@/shared/hooks/use-dexie-crud';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/core/providers/AuthProvider';
-import { Paciente, PacienteFormData, ProgramaEstudio } from '../types';
 import { db } from '@/core/db';
+import type { Paciente, PacienteFormData, ProgramaEstudio } from '../types';
 
-export function usePacientes() {
+interface UsePacientesReturn {
+  pacientes: Paciente[];
+  programas: ProgramaEstudio[];
+  loading: boolean;
+  crearPaciente: (datos: PacienteFormData) => Promise<string>;
+  actualizarPaciente: (id: string, cambios: Partial<Paciente>) => Promise<void>;
+  eliminarPaciente: (id: string) => Promise<void>;
+  buscarPorDni: (dni: string) => Paciente | undefined;
+  asegurarPrograma: (nombre: string, id?: string) => Promise<string>;
+}
+
+export function usePacientes(): UsePacientesReturn {
   const { businessId } = useAuth();
-  // ── 1. CRUD genérico → multi-tenancy y sync_status automáticos ──────────
-  const {
-    data: pacientes,
-    create: baseCreate,
-    update: actualizarPaciente,
-    remove: eliminarPaciente,
-    isLoading,
-  } = useDexieCrud<Paciente>(db.pacientes);
 
-  // ── 2. Datos relacionados (solo lectura reactiva) ────────────────────────
-  // programas_estudio no pasa por useDexieCrud porque no tiene CRUD completo
-  const programas = useLiveQuery<ProgramaEstudio[] | undefined>(
-    () => {
+  const pacientes = useLiveQuery<Paciente[]>(
+    async () => {
       if (!businessId) return [];
-      return db.programas_estudio
-        .where('business_id').equals(businessId)
-        .filter((p: ProgramaEstudio) => p.activo === 1)
+      return db.pacientes
+        .where('business_id')
+        .equals(businessId)
+        .filter((p) => p.activo === 1)
         .toArray();
     },
     [businessId]
   ) ?? [];
 
-  // ── 3. Lógica de negocio específica ────────────────────────────────────
+  const programas = useLiveQuery<ProgramaEstudio[]>(
+    async () => {
+      if (!businessId) return [];
+      return db.programas_estudio
+        .where('business_id')
+        .equals(businessId)
+        .filter((p) => p.activo === 1)
+        .toArray();
+    },
+    [businessId]
+  ) ?? [];
 
-  /**
-   * Crea un nuevo paciente garantizando unicidad de DNI dentro del tenant.
-   * El business_id se inyecta automáticamente por `useDexieCrud`.
-   */
-  const crearPaciente = async (datos: PacienteFormData) => {
-    const dniExiste = pacientes.some((p) => p.dni === datos.dni);
-    if (dniExiste) {
+  const loading = pacientes === undefined;
+
+  const assertBusinessId = (): string => {
+    if (!businessId) throw new Error('Usuario no autenticado');
+    return businessId;
+  };
+
+  const crearPaciente = async (datos: PacienteFormData): Promise<string> => {
+    const bid = assertBusinessId();
+
+    if (pacientes.some((p) => p.dni === datos.dni)) {
       throw new Error(`Ya existe un paciente con el DNI ${datos.dni}`);
     }
-    return baseCreate(datos);
+
+    const now = new Date().toISOString();
+    const paciente: Paciente = {
+      ...datos,
+      id: crypto.randomUUID(),
+      business_id: bid,
+      creado_at: now,
+      actualizado_at: now,
+      activo: 1,
+      sync_status: 'pending',
+    };
+
+    await db.pacientes.add(paciente);
+    return paciente.id;
   };
 
-  /**
-   * Busca un paciente por DNI — útil para la búsqueda rápida previa al registro.
-   * Busca solo dentro del tenant actual (filtrado por business_id en memoria).
-   */
-  const buscarPorDni = (dni: string): Paciente | undefined => {
-    return pacientes.find((p) => p.dni === dni.trim());
-  };
-
-  /**
-   * Garantiza que un programa existe en Dexie antes de asignarlo a un paciente.
-   * Si ya existe (por id) lo devuelve; si no existe lo crea como 'pending'.
-   */
-  const asegurarPrograma = async (
-    nombrePrograma: string,
-    id?: string
-  ): Promise<string> => {
-    const finalId = id ?? crypto.randomUUID();
-
-    const existe = await db.programas_estudio.get(finalId);
-    if (!existe) {
-      const programa: ProgramaEstudio = {
-        id: finalId,
-        nombre: nombrePrograma,
-        activo: 1,
-        creado_at: new Date().toISOString(),
-        actualizado_at: new Date().toISOString(),
-        sync_status: 'pending',
-      };
-      await db.programas_estudio.put(programa);
+  const actualizarPaciente = async (id: string, cambios: Partial<Paciente>): Promise<void> => {
+    const paciente = await db.pacientes.get(id);
+    if (!paciente || paciente.business_id !== businessId) {
+      throw new Error('Paciente no encontrado o sin permisos');
     }
 
-    return finalId;
+    await db.pacientes.update(id, {
+      ...cambios,
+      actualizado_at: new Date().toISOString(),
+      sync_status: 'pending',
+    });
+  };
+
+  const eliminarPaciente = async (id: string): Promise<void> => {
+    const paciente = await db.pacientes.get(id);
+    if (!paciente || paciente.business_id !== businessId) {
+      throw new Error('Paciente no encontrado o sin permisos');
+    }
+
+    await db.pacientes.update(id, {
+      activo: 0,
+      actualizado_at: new Date().toISOString(),
+      sync_status: 'pending',
+    });
+  };
+
+  const buscarPorDni = (dni: string): Paciente | undefined =>
+    pacientes.find((p) => p.dni === dni.trim());
+
+  const asegurarPrograma = async (nombre: string, id?: string): Promise<string> => {
+    const programaId = id ?? crypto.randomUUID();
+    const existe = await db.programas_estudio.get(programaId);
+
+    if (!existe) {
+      const now = new Date().toISOString();
+      await db.programas_estudio.put({
+        id: programaId,
+        nombre,
+        activo: 1,
+        creado_at: now,
+        actualizado_at: now,
+        sync_status: 'pending',
+      });
+    }
+
+    return programaId;
   };
 
   return {
-    // Data
     pacientes,
     programas,
-    isLoading,
-
-    // Operaciones
+    loading,
     crearPaciente,
     actualizarPaciente,
     eliminarPaciente,

@@ -1,95 +1,61 @@
-/**
- * @module features/atenciones/types
- *
- * Tipos del módulo Atenciones (Consultas Médicas).
- * Alineados con el esquema SQL real de Supabase.
- * BaseEntity y SyncStatus se importan desde el núcleo — NO redefinir aquí.
- */
 import { BaseEntity } from '@/core/db/dexie/types';
-import type { DispensacionMedicamento as DispensacionMedicamentoType } from '@/features/inventario/types';
+import type { DispensacionMedicamento as DispensacionType } from '@/features/inventario/types';
 
-// Re-exportar desde core para compatibilidad con importadores existentes.
 export type { BaseEntity, SyncStatus } from '@/core/db/dexie/types';
 
-// ── Entidades ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// ENTIDADES
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Signos vitales — almacenados como JSONB en Supabase.
- * Tipos simples para máxima flexibilidad (strings vacíos = no registrado).
- */
 export interface SignosVitales {
-  temp: string;        // Temperatura corporal en °C
-  presion: string;     // Presión arterial, ej: "120/80"
-  saturacion: string;  // Saturación de oxígeno en %
+  temp: string;
+  presion: string;
+  saturacion: string;
 }
 
-/**
- * Atencion — mapea 1:1 con `public.atenciones` en Supabase.
- *
- * Campos gestionados automáticamente por `useDexieCrud`:
- *   id, business_id, creado_at, activo, actualizado_at, sync_status
- */
+export const SIGNOS_VITALES_VACIO: SignosVitales = {
+  temp: '',
+  presion: '',
+  saturacion: '',
+};
+
 export interface Atencion extends BaseEntity {
-  /** Multi-tenancy: FK a public.instituciones */
   business_id: string;
-  /** FK a public.pacientes */
   paciente_id: string;
-  /** FK a public.perfiles (personal de salud que registra la atención) */
   perfil_id: string;
   motivo_consulta: string;
-  /**
-   * Signos vitales — JSONB en Supabase.
-   * Strings vacíos indican "no registrado" para ese campo.
-   */
   signos_vitales: SignosVitales;
   observacion?: string;
-  activo: number; // 0 | 1 para indexación
-  fecha_atencion: string; // ISO string
+  activo: number;
+  fecha_atencion: string;
 }
 
-// ── DTOs / Form types ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// DTOs / FORMULARIOS
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Tipo para el formulario de registro de atención.
- * Excluye campos gestionados por `useDexieCrud` + `perfil_id` (se inyecta desde AuthContext).
- */
 export type AtencionFormData = Omit<
   Atencion,
-  | 'id'
-  | 'business_id'
-  | 'perfil_id'
-  | 'activo'
-  | 'creado_at'
-  | 'sync_status'
-  | 'actualizado_at'
-  | 'deleted_at'
+  'id' | 'business_id' | 'perfil_id' | 'activo' | 'creado_at' | 'sync_status' | 'actualizado_at' | 'deleted_at'
 >;
 
-// ── Tipos de Dispensación Múltiple (Nuevos) ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// TIPOS EXTENDIDOS
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/**
- * Atención extendida con lista de dispensaciones múltiples.
- * Usada para el registro de atenciones con varios medicamentos.
- */
+export type DispensacionMedicamento = DispensacionType;
+
 export interface AtencionExtendida extends Atencion {
-  /** Lista de medicamentos dispensados en esta atención */
   dispensaciones: DispensacionMedicamento[];
 }
 
-/**
- * Dispensación de medicamento en una atención.
- * Re-exportado desde inventario para mantener consistencia.
- */
-export type DispensacionMedicamento = DispensacionMedicamentoType;
+export interface AtencionConDetalles extends Atencion {
+  pacienteNombre: string;
+  staffNombre: string;
+}
 
-/**
- * Resultado de una atención con movimientos consolidados.
- * Representa el estado final después de agrupar dispensaciones.
- */
 export interface AtencionProcesada {
-  /** Datos básicos de la atención */
   atencion: Atencion;
-  /** Movimientos de stock consolidados generados */
   movimientos_generados: {
     medicamento_id: string;
     medicamento_nombre: string;
@@ -99,15 +65,88 @@ export interface AtencionProcesada {
   }[];
 }
 
-/**
- * Configuración para la agrupación de movimientos.
- * Define cómo se combinan las dispensaciones en movimientos consolidados.
- */
 export interface ConfiguracionAgrupacion {
-  /** Agrupar por medicamento (default) */
   por_medicamento: boolean;
-  /** Agrupar por tipo de medida */
   por_tipo_medida: boolean;
-  /** Generar descripciones automáticas */
   generar_descripciones: boolean;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// REPOSITORY PATTERN (Clean Architecture)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/**
+ * Contexto necesario para crear una atención
+ * Incluye datos de autenticación y autorización
+ */
+export interface AtencionContext {
+  businessId: string;
+  perfilId: string;
+}
+
+/**
+ * Resultado de la operación de crear atención
+ * Incluye metadatos útiles para tracking y UI
+ */
+export interface AtencionResultado {
+  atencionId: string;
+  movimientosCreados: number;
+  stockActualizado: string[];
+  descripcionConsolidada?: string;
+}
+
+/**
+ * Error específico de operaciones de atención
+ */
+export class AtencionError extends Error {
+  constructor(
+    message: string,
+    public readonly code: 'PACIENTE_NO_ENCONTRADO' | 'STOCK_INSUFICIENTE' | 'PERFIL_NO_ENCONTRADO' | 'VALIDACION_FALLIDA',
+    public readonly detalles?: Record<string, unknown>
+  ) {
+    super(message);
+    this.name = 'AtencionError';
+  }
+}
+
+/**
+ * Contrato del repositorio de atenciones (Puerto en Clean Architecture)
+ * Define las operaciones disponibles sin especificar implementación
+ */
+export interface AtencionRepository {
+  /**
+   * Crea una nueva atención con sus dispensaciones asociadas
+   * Ejecuta todo en una transacción atómica
+   * @throws {AtencionError} Si hay errores de validación
+   * @throws {StockError} Si hay errores de stock
+   */
+  crear(
+    datos: AtencionFormData,
+    dispensaciones: DispensacionMedicamento[],
+    contexto: AtencionContext
+  ): Promise<AtencionResultado>;
+
+  /**
+   * Lista atenciones con detalles de paciente y staff
+   * Útil para vistas de listado con información enriquecida
+   */
+  listarConDetalles(businessId: string, limite?: number): Promise<AtencionConDetalles[]>;
+
+  /**
+   * Obtiene una atención completa con sus dispensaciones
+   */
+  obtenerPorId(id: string): Promise<AtencionExtendida | null>;
+
+  /**
+   * Actualiza campos de una atención existente
+   */
+  actualizar(id: string, cambios: Partial<Atencion>, businessId: string): Promise<void>;
+
+  /**
+   * Obtiene estadísticas de atenciones por período
+   */
+  obtenerEstadisticas(
+    businessId: string,
+    dias: number
+  ): Promise<{ fecha: string; cantidad: number }[]>;
 }

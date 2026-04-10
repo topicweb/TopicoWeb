@@ -1,20 +1,9 @@
-import { useEffect } from 'react';
-import { syncService } from '@/core/services/syncService';
+import { useSimpleSync } from './useSimpleSync';
 
 /**
- * Hook to trigger initial synchronization and listen for realtime changes.
- * Should be called when the user is authenticated and has a businessId.
+ * Hook simple para sincronización inicial.
+ * El sync real se maneja en useSimpleSync cuando hay conexión.
  */
 export function useInitialSync(enabled: boolean) {
-  useEffect(() => {
-    if (!enabled) return;
-
-    // Trigger initial sync
-    syncService.sync().catch((err) => {
-      console.error('Failed to run initial sync:', err);
-    });
-
-    // Start listening to realtime changes from Supabase
-    syncService.listenToChanges();
-  }, [enabled]);
+  useSimpleSync(enabled);
 }

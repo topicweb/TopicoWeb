@@ -111,7 +111,7 @@ export function DashboardCharts() {
           <div className="h-2 w-2 rounded-full bg-teal-500 shadow-[0_0_8px_rgba(13,148,136,0.3)]" />
         </div>
 
-        <div className="w-full h-[250px]">
+        <div className="w-full h-62.5">
           {mounted && attentionsData ? (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={attentionsData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
@@ -172,7 +172,7 @@ export function DashboardCharts() {
           <div className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]" />
         </div>
 
-        <div className="relative w-full h-[250px]">
+        <div className="relative w-full h-62.5">
           {mounted && medicineData ? (
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>

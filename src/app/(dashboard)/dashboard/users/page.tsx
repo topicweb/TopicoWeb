@@ -7,6 +7,7 @@ import { UserModal } from "@/features/usuarios/components/UserModal";
 import { Plus, Search, Trash2, Edit2 } from "lucide-react";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { ConfirmationModal } from "@/shared/ui/ConfirmationModal";
+import { toast } from "sonner";
 
 export default function UsersPage() {
   const { role } = useAuth();
@@ -39,8 +40,13 @@ export default function UsersPage() {
 
   const handleConfirmDelete = async () => {
     if (deleteModal.id) {
-      await eliminarUsuario(deleteModal.id);
-      setDeleteModal({ isOpen: false, id: null });
+      try {
+        await eliminarUsuario(deleteModal.id);
+        toast.success("Usuario eliminado correctamente");
+        setDeleteModal({ isOpen: false, id: null });
+      } catch (error: any) {
+        toast.error(error.message || "Error al eliminar usuario");
+      }
     }
   };
 
@@ -55,11 +61,20 @@ export default function UsersPage() {
   };
 
   const handleSave = async (data: Partial<Perfil> & { password?: string }) => {
-    if (editingItem) {
-      const { password, ...rest } = data;
-      await actualizarUsuario(editingItem.id, rest);
-    } else {
-      await crearUsuario(data);
+    try {
+      if (editingItem) {
+        const { password, ...rest } = data;
+        await actualizarUsuario(editingItem.id, rest);
+        toast.success("Usuario actualizado correctamente");
+      } else {
+        await crearUsuario(data);
+        toast.success("Usuario creado correctamente");
+      }
+      setIsModalOpen(false);
+    } catch (error: any) {
+      // Mostrar error como toast
+      toast.error(error.message || "Error al guardar usuario");
+      // No cerrar el modal para que el usuario pueda corregir
     }
   };
 
@@ -116,9 +131,9 @@ export default function UsersPage() {
                   {user.rol}
                 </span>
                 <span
-                  className={`ml-2 text-xs ${user.sync_status === "synced" ? "text-green-500" : "text-amber-500"}`}
+                  className={`ml-2 text-xs ${(!user.sync_status || user.sync_status === "synced") ? "text-green-500" : "text-amber-500"}`}
                 >
-                  {user.sync_status === "synced" ? "Sincronizado" : "Pendiente"}
+                  {(!user.sync_status || user.sync_status === "synced") ? "Sincronizado" : "Pendiente"}
                 </span>
               </div>
             </div>

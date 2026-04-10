@@ -1,208 +1,285 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-  X,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  ArrowRightLeft,
-} from "lucide-react";
-import { Medicamento, TipoMovimiento } from "../types";
+import { useState, useCallback } from "react";
+import { X, ArrowUpCircle, ArrowDownCircle, ArrowRightLeft } from "lucide-react";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+import type { Medicamento, TipoMovimiento } from "../types";
 
 interface MovimientoStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   medicamento: Medicamento | null;
-  onGuardar: (
-    tipo: TipoMovimiento,
-    cantidad: number,
-    motivo: string,
-  ) => Promise<void>;
+  onGuardar: (tipo: TipoMovimiento, cantidad: number, motivo: string) => Promise<void>;
 }
 
-export const MovimientoStockModal = ({
-  isOpen,
-  onClose,
-  medicamento,
-  onGuardar,
-}: MovimientoStockModalProps) => {
-  const [tipo, setTipo] = useState<TipoMovimiento>("ENTRADA");
-  const [cantidad, setCantidad] = useState(1);
-  const [motivo, setMotivo] = useState(""); // Puede ser fecha vencimiento si es entrada, o motivo si es salida manual
+interface FormState {
+  tipo: TipoMovimiento;
+  cantidad: number;
+  motivo: string;
+}
+
+const overlayVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+};
+
+const modalVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: { type: "spring", damping: 25, stiffness: 300 },
+  },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
+};
+
+const DEFAULT_FORM: FormState = {
+  tipo: "ENTRADA",
+  cantidad: 1,
+  motivo: "",
+};
+
+const TIPO_CONFIG = {
+  ENTRADA: {
+    label: "Entrada",
+    color: "emerald",
+    icon: ArrowUpCircle,
+    bgGradient: "from-emerald-500 to-teal-500",
+    shadowColor: "shadow-emerald-500/30",
+  },
+  SALIDA: {
+    label: "Salida",
+    color: "rose",
+    icon: ArrowDownCircle,
+    bgGradient: "from-rose-500 to-pink-500",
+    shadowColor: "shadow-rose-500/30",
+  },
+} as const;
+
+const inputBaseClass =
+  "w-full rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-3 focus:ring-teal-500/5 transition-all outline-none md:rounded-2xl md:p-4 md:text-base";
+
+export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }: MovimientoStockModalProps) {
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
 
-  if (!isOpen || !medicamento) return null;
+  const updateField = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
+    setForm((prev) => ({ ...prev, [field]: value }));
+  }, []);
+
+  const resetForm = useCallback(() => {
+    setForm(DEFAULT_FORM);
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!medicamento) return;
+
     setSaving(true);
     try {
-      await onGuardar(tipo, cantidad, motivo);
+      await onGuardar(form.tipo, form.cantidad, form.motivo);
       onClose();
-      setCantidad(1);
-      setMotivo("");
-      setTipo("ENTRADA");
-    } catch (error) {
-      console.error(error);
+      resetForm();
     } finally {
       setSaving(false);
     }
   };
 
+  if (!isOpen || !medicamento) return null;
+
+  const config = TIPO_CONFIG[form.tipo];
+  const StockIcon = config.icon;
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-all animate-in fade-in duration-200">
-      <div
-        className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white shadow-2xl transition-all dark:bg-gray-800 animate-in zoom-in-95 duration-200"
-        role="dialog"
-        aria-modal="true"
-      >
-        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
-              <ArrowRightLeft size={20} />
-            </div>
-            <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                Ajustar Stock
-              </h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                {medicamento.nombre}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200 transition-colors"
-            aria-label="Cerrar"
-          >
-            <X size={20} />
-          </button>
-        </div>
+    <AnimatePresence>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <motion.div
+          variants={overlayVariants}
+          initial="hidden"
+          animate="visible"
+          exit="hidden"
+          onClick={onClose}
+          className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+        />
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Selector de Tipo */}
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              onClick={() => setTipo("ENTRADA")}
-              className={`relative p-4 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${
-                tipo === "ENTRADA"
-                  ? "border-green-500 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 dark:border-green-500/50"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-green-200 hover:bg-green-50/50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"
-              }`}
-            >
-              <ArrowUpCircle
-                size={28}
-                className={tipo === "ENTRADA" ? "animate-bounce-subtle" : ""}
-              />
-              <span className="font-bold text-sm">Entrada</span>
-              {tipo === "ENTRADA" && (
-                <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-green-500"></div>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setTipo("SALIDA")}
-              className={`relative p-4 rounded-xl border-2 flex flex-col items-center gap-3 transition-all duration-200 ${
-                tipo === "SALIDA"
-                  ? "border-red-500 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 dark:border-red-500/50"
-                  : "border-gray-200 bg-white text-gray-600 hover:border-red-200 hover:bg-red-50/50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-700"
-              }`}
-            >
-              <ArrowDownCircle
-                size={28}
-                className={tipo === "SALIDA" ? "animate-bounce-subtle" : ""}
-              />
-              <span className="font-bold text-sm">Salida</span>
-              {tipo === "SALIDA" && (
-                <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-red-500"></div>
-              )}
-            </button>
+        <motion.div
+          variants={modalVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          className="relative w-full max-w-md lg:max-w-lg overflow-hidden rounded-2xl md:rounded-[2.5rem] bg-white dark:bg-slate-900 border border-white dark:border-slate-800 shadow-2xl max-h-[95dvh] flex flex-col"
+        >
+          {/* Background */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className={`absolute top-0 left-0 w-full h-32 bg-linear-to-b ${config.bgGradient} opacity-5 to-transparent`} />
+            <div className={`absolute -right-20 -top-20 w-64 h-64 ${config.color === "emerald" ? "bg-emerald-500" : "bg-rose-500"} opacity-5 rounded-full blur-3xl`} />
+            <div className={`absolute -left-20 -bottom-20 w-64 h-64 ${config.color === "emerald" ? "bg-teal-500" : "bg-pink-500"} opacity-5 rounded-full blur-3xl`} />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-              Cantidad
-            </label>
-            <div className="relative">
+          {/* Header */}
+          <div className="relative px-5 py-4 md:p-8 md:pb-4 shrink-0">
+            <div className="absolute top-0 right-0 p-4 md:p-8 opacity-[0.05] pointer-events-none">
+              <ArrowRightLeft size={80} className="text-teal-500 transform -rotate-12 md:size-32" />
+            </div>
+            <div className="flex justify-between items-center relative z-10">
+              <div className="min-w-0 flex-1">
+                <h2 className="text-lg md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  Ajustar Stock
+                </h2>
+                <p className="text-[10px] md:text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5 md:mt-1 truncate">
+                  {medicamento.nombre}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-xl md:rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all text-slate-500 shrink-0 ml-2"
+              >
+                <X size={18} className="md:size-5" />
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="flex-1 min-h-0 px-5 py-4 md:p-8 md:pt-4 space-y-3 md:space-y-6 relative z-10 overflow-y-auto overscroll-contain">
+            {/* Stock Actual Info */}
+            <div className="flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+              <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center shrink-0">
+                <StockIcon size={18} className="text-teal-600 dark:text-teal-400 md:size-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Stock Actual</p>
+                <p className="text-base md:text-lg font-bold text-slate-900 dark:text-white truncate">
+                  {medicamento.stock_actual} {medicamento.unidad_medida}
+                </p>
+              </div>
+            </div>
+
+            {/* Selector de Tipo */}
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
+              <TypeSelector
+                type="ENTRADA"
+                selected={form.tipo}
+                onSelect={(t) => updateField("tipo", t)}
+              />
+              <TypeSelector
+                type="SALIDA"
+                selected={form.tipo}
+                onSelect={(t) => updateField("tipo", t)}
+              />
+            </div>
+
+            {/* Cantidad */}
+            <FormField label="Cantidad">
               <input
                 type="number"
                 min="1"
                 required
-                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:bg-gray-700"
-                value={cantidad}
-                onChange={(e) => setCantidad(parseInt(e.target.value) || 0)}
+                className={inputBaseClass}
+                value={form.cantidad}
+                onChange={(e) => updateField("cantidad", parseInt(e.target.value) || 0)}
               />
-            </div>
-          </div>
+            </FormField>
 
-          {tipo === "ENTRADA" ? (
-            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Fecha de Vencimiento (Opcional)
-              </label>
-              <input
-                type="date"
-                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:bg-gray-700 dark:color-scheme:dark"
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-              />
-            </div>
-          ) : (
-            <div className="space-y-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Motivo de Salida (Opcional)
-              </label>
-              <input
-                type="text"
-                placeholder="Ej: Dañado, Vencido, Ajuste..."
-                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-4 py-2.5 text-gray-900 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/20 outline-none transition-all dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-blue-500 dark:focus:bg-gray-700"
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-              />
-            </div>
-          )}
+            {/* Motivo / Fecha dinámico */}
+            {form.tipo === "ENTRADA" ? (
+              <FormField label="Fecha de Vencimiento (Opcional)">
+                <input
+                  type="date"
+                  className={inputBaseClass}
+                  value={form.motivo}
+                  onChange={(e) => updateField("motivo", e.target.value)}
+                />
+              </FormField>
+            ) : (
+              <FormField label="Motivo de Salida (Opcional)">
+                <input
+                  type="text"
+                  placeholder="Ej: Dañado, Vencido, Ajuste..."
+                  className={inputBaseClass}
+                  value={form.motivo}
+                  onChange={(e) => updateField("motivo", e.target.value)}
+                />
+              </FormField>
+            )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className={`flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-medium text-white shadow-sm transition-all focus:ring-4 disabled:opacity-50 disabled:cursor-not-allowed ${
-                tipo === "ENTRADA"
-                  ? "bg-green-600 hover:bg-green-700 focus:ring-green-300 dark:focus:ring-green-900"
-                  : "bg-red-600 hover:bg-red-700 focus:ring-red-300 dark:focus:ring-red-900"
-              }`}
-            >
-              {saving ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  {tipo === "ENTRADA" ? (
-                    <ArrowUpCircle size={18} />
-                  ) : (
-                    <ArrowDownCircle size={18} />
-                  )}
-                  <span>
-                    {tipo === "ENTRADA"
-                      ? "Registrar Entrada"
-                      : "Registrar Salida"}
-                  </span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+            {/* Actions */}
+            <div className="flex justify-end gap-2 md:gap-3 pt-4 md:pt-6 shrink-0">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 md:px-6 md:py-3 text-xs md:text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors uppercase tracking-wider md:tracking-widest"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={saving}
+                className={`flex items-center gap-1.5 md:gap-2 rounded-xl md:rounded-2xl bg-linear-to-r ${config.bgGradient} px-5 py-2.5 md:px-8 md:py-4 text-xs md:text-sm font-bold text-white hover:shadow-lg md:hover:shadow-xl ${config.shadowColor} transition-all active:scale-95 disabled:opacity-50`}
+              >
+                {saving ? (
+                  <div className="h-3.5 w-3.5 md:h-4 md:w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                ) : (
+                  <StockIcon size={16} className="md:size-5" />
+                )}
+                {saving ? "PROCESANDO..." : `Registrar ${config.label}`}
+              </button>
+            </div>
+          </form>
+        </motion.div>
       </div>
+    </AnimatePresence>
+  );
+}
+
+// Subcomponents
+
+interface FormFieldProps {
+  label: string;
+  children: React.ReactNode;
+}
+
+function FormField({ label, children }: FormFieldProps) {
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        {label}
+      </label>
+      {children}
     </div>
   );
-};
+}
+
+interface TypeSelectorProps {
+  type: TipoMovimiento;
+  selected: TipoMovimiento;
+  onSelect: (type: TipoMovimiento) => void;
+}
+
+function TypeSelector({ type, selected, onSelect }: TypeSelectorProps) {
+  const config = TIPO_CONFIG[type];
+  const Icon = config.icon;
+  const isSelected = selected === type;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(type)}
+      className={`relative p-3 md:p-4 rounded-lg md:rounded-xl border-2 flex flex-col items-center gap-1.5 md:gap-2 transition-all duration-200 ${isSelected
+        ? type === "ENTRADA"
+          ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+          : "border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
+        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/50"
+        }`}
+    >
+      <Icon size={24} className="md:size-7" />
+      <span className="font-bold text-xs md:text-sm">{config.label}</span>
+      {isSelected && (
+        <div
+          className={`absolute top-1.5 right-1.5 md:top-2 md:right-2 h-1.5 w-1.5 md:h-2 md:w-2 rounded-full ${type === "ENTRADA" ? "bg-emerald-500" : "bg-rose-500"
+            }`}
+        />
+      )}
+    </button>
+  );
+}

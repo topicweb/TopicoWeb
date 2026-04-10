@@ -1,191 +1,263 @@
-
-import { db } from '@/core/db/dexie/db';
+/**
+ * Servicio de Sincronización Bidireccional
+ * 
+ * Estrategia:
+ * - PULL: Descargar datos de Supabase al inicio y en cambios remotos
+ * - PUSH: Subir datos locales pendientes
+ * - Conflictos: Last Write Wins basado en actualizado_at
+ * - Sincronización Híbrida: Completa para nuevos dispositivos, incremental para conocidos
+ */
+import { db } from '@/core/db';
 import { supabase } from '@/core/db/supabase/client';
-import { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
-import Dexie, { Table } from 'dexie';
+import type { BaseEntity } from '@/core/db/dexie/types';
+import { getDeviceId } from '@/core/utils/deviceId';
 
-const TABLES_CONFIG: Record<string, { timestampCol?: string, omitCols: string[] }> = {
-    'instituciones': { timestampCol: 'creado_at', omitCols: ['sync_status', 'deleted_at', 'activo'] },
-    'perfiles': { timestampCol: 'actualizado_at', omitCols: ['sync_status', 'deleted_at'] },
-    'programas_estudio': { timestampCol: null as any, omitCols: ['sync_status', 'deleted_at', 'creado_at', 'actualizado_at'] },
-    'pacientes': { timestampCol: 'creado_at', omitCols: ['sync_status', 'deleted_at', 'actualizado_at'] },
-    'medicamentos': { timestampCol: 'creado_at', omitCols: ['sync_status', 'deleted_at', 'actualizado_at', 'stock_actual'] },
-    'atenciones': { timestampCol: 'fecha_atencion', omitCols: ['sync_status', 'deleted_at', 'creado_at', 'actualizado_at'] },
-    'movimientos_stock': { timestampCol: 'fecha_movimiento', omitCols: ['sync_status', 'deleted_at', 'creado_at', 'actualizado_at'] },
-    'security_audit_log': { timestampCol: 'timestamp', omitCols: ['sync_status'] }, // FASE 4.3: Audit trail
-};
+const TABLES = ['instituciones', 'perfiles', 'programas_estudio', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
+// Tablas en Supabase que NO tienen columnas creado_at/actualizado_at
+// Estas tablas no pueden usar PULL incremental, siempre hacen PULL completo
+// Después de la migración, todas las tablas tienen actualizado_at, así que esta lista está vacía
+const TABLES_WITHOUT_TIMESTAMPS: string[] = [];
 
-// El orden de las tablas es CRÍTICO para evitar errores de Foreign Key en Supabase
-const TABLES = [
-    'instituciones',
-    'perfiles',
-    'programas_estudio',
-    'pacientes',
-    'medicamentos',
-    'atenciones',
-    'movimientos_stock',
-    'security_audit_log' // FASE 4.3: Audit trail se sincroniza al final
-];
+// Tablas que NO tienen business_id (instituciones.id IS the business_id)
+const TABLES_WITHOUT_BUSINESS_ID = ['instituciones'];
 
 export class SyncService {
-    private isSyncing = false;
-    private channels: RealtimeChannel[] = [];
+  private static instance: SyncService;
+  private isPulling = false;
+  private isPushing = false;
 
-    async sync() {
-        if (this.isSyncing) return;
-        this.isSyncing = true;
-        console.log('Starting sync...');
+  private constructor() { }
 
-        try {
-            if (navigator.onLine) {
-                await this.syncDown(); // Primero bajamos cambios para evitar conflictos
-                await this.syncUp();
-                console.log('Sync completed successfully.');
-            } else {
-                console.log('Offline: skipping sync.');
-            }
-        } catch (error) {
-            console.error('Sync failed:', error);
-        } finally {
-            this.isSyncing = false;
-        }
+  static getInstance(): SyncService {
+    if (!SyncService.instance) {
+      SyncService.instance = new SyncService();
+    }
+    return SyncService.instance;
+  }
+
+  /**
+   * Verifica si el dispositivo es conocido (ya ha sincronizado antes)
+   * Retorna el lastSync timestamp si existe, null si es dispositivo nuevo
+   */
+  private async getDeviceSyncStatus(businessId: string): Promise<{ isKnown: boolean; lastSync: string | null }> {
+    const deviceId = getDeviceId();
+    const metadata = await db.sync_metadata.where({ deviceId, businessId }).first();
+
+    if (metadata) {
+      console.log('[SyncService] Dispositivo conocido, última sync:', metadata.lastSync);
+      return { isKnown: true, lastSync: metadata.lastSync };
     }
 
-    private async syncUp() {
-        console.log('Syncing pending changes to Supabase...');
-        for (const tableName of TABLES) {
-            const table: Table<any, any> = (db as any)[tableName];
+    console.log('[SyncService] Dispositivo nuevo, se hará PULL completo');
+    return { isKnown: false, lastSync: null };
+  }
 
-            const pendingItems = await table.where('sync_status').equals('pending').toArray();
+  /**
+   * Actualiza el timestamp de última sincronización para este dispositivo
+   */
+  private async updateLastSync(businessId: string): Promise<void> {
+    const deviceId = getDeviceId();
+    const now = new Date().toISOString();
 
-            if (pendingItems.length > 0) {
-                console.log(`Found ${pendingItems.length} pending items in ${tableName}.`);
+    await db.sync_metadata.put({
+      deviceId,
+      businessId,
+      lastSync: now
+    });
+  }
 
-                // Prepara los datos para el upsert, removiendo metadatos dev/locales omitCols
-                const remoteData = pendingItems.map(item => {
-                    const cleanItem = { ...item };
-                    const colsToOmit = TABLES_CONFIG[tableName].omitCols || [];
-                    for (const col of colsToOmit) {
-                        delete cleanItem[col];
-                    }
-
-                    // Mapeo de booleano para Supabase (Dexie usa 1/0 para índices)
-                    if ('activo' in cleanItem && typeof (cleanItem as any).activo === 'number') {
-                        (cleanItem as any).activo = (cleanItem as any).activo === 1;
-                    }
-
-                    return cleanItem;
-                });
-
-                try {
-                    const { error } = await supabase
-                        .from(tableName)
-                        .upsert(remoteData, { onConflict: 'id' }); // 'id' debe ser tu PK
-
-                    if (error) throw error;
-
-                    // Si el lote se subió correctamente, actualiza el estado local de esos items
-                    const idsToUpdate = pendingItems.map(item => item.id);
-                    await table.bulkUpdate(idsToUpdate.map(id => ({ key: id, changes: { sync_status: 'synced' } })));
-                    console.log(`Successfully synced ${idsToUpdate.length} items from ${tableName}.`);
-
-                } catch (err: any) {
-                    console.error(`Failed to sync batch from ${tableName}:`, err?.message || err);
-                }
-            }
-        }
+  /**
+   * PULL: Descargar datos de Supabase para un business_id
+   * Estrategia Híbrida:
+   * - Dispositivo nuevo: PULL completo (todos los datos)
+   * - Dispositivo conocido: PULL incremental (solo cambios desde última sync)
+   * NOTA: instituciones.id IS the business_id, so we fetch all institutions first
+   */
+  async pullFromSupabase(businessId: string): Promise<void> {
+    if (this.isPulling) {
+      return;
     }
 
-    private async syncDown() {
-        console.log('Pulling changes from Supabase...');
-        const lastSync = localStorage.getItem('last_sync_timestamp');
-        const now = new Date().toISOString();
+    this.isPulling = true;
 
-        for (const tableName of TABLES) {
-            let query = supabase.from(tableName).select('*');
+    try {
+      // Detectar si es dispositivo nuevo o conocido
+      const { isKnown, lastSync } = await this.getDeviceSyncStatus(businessId);
 
-            const config = TABLES_CONFIG[tableName];
-            if (lastSync && config.timestampCol) {
-                query = query.gt(config.timestampCol, lastSync);
-            }
+      // 1. Primero fetch todas las instituciones (sin filtro, siempre completo)
+      const { data: instituciones, error: institucionesError } = await supabase
+        .from('instituciones')
+        .select('*');
 
-            const { data, error } = await query;
+      if (institucionesError) {
+        console.error('[SyncService] Error PULL instituciones:', institucionesError);
+      } else if (instituciones && instituciones.length > 0) {
+        await db.instituciones.bulkPut(instituciones);
+      }
 
-            if (error) {
-                console.error(`Failed to pull ${tableName}`, error);
-                continue;
-            }
+      // 2. Fetch otras tablas filtrando por business_id
+      for (const tableName of TABLES) {
+        if (tableName === 'instituciones') continue; // Ya procesado arriba
 
-            if (data && data.length > 0) {
-                console.log(`Pulled ${data.length} items for ${tableName} from Supabase.`);
-                const table: Table<any, any> = (db as any)[tableName];
+        let query = supabase.from(tableName).select('*').eq('business_id', businessId);
 
-                // Procesamiento por lotes (batching) para no bloquear el hilo principal
-                const BATCH_SIZE = 50;
-                for (let i = 0; i < data.length; i += BATCH_SIZE) {
-                    const batch = data.slice(i, i + BATCH_SIZE);
-                    const dataToPut = batch.map(row => {
-                        const localItem = { ...row, sync_status: 'synced' };
-                        if ('activo' in localItem && typeof localItem.activo === 'boolean') {
-                            localItem.activo = localItem.activo ? 1 : 0;
-                        }
-                        return localItem;
-                    });
-
-                    await table.bulkPut(dataToPut);
-                    // Pequeño respiro para la UI si hay muchos datos
-                    if (data.length > BATCH_SIZE) await new Promise(r => setTimeout(r, 10));
-                }
-            }
+        // Para dispositivos conocidos, usar filtro incremental SOLO si la tabla tiene actualizado_at
+        if (isKnown && lastSync && !TABLES_WITHOUT_TIMESTAMPS.includes(tableName)) {
+          query = query.gt('actualizado_at', lastSync);
         }
 
-        localStorage.setItem('last_sync_timestamp', now);
+        const { data, error } = await query;
+
+        if (error) {
+          console.error(`[SyncService] Error PULL ${tableName}:`, error);
+          continue;
+        }
+
+        if (!data || data.length === 0) {
+          continue;
+        }
+
+        // Upsert en Dexie local
+        const table = (db as any)[tableName];
+        await table.bulkPut(data);
+      }
+
+      // Actualizar timestamp de última sincronización
+      await this.updateLastSync(businessId);
+    } catch (error) {
+      console.error('[SyncService] Error en PULL:', error);
+      throw error;
+    } finally {
+      this.isPulling = false;
+    }
+  }
+
+  /**
+   * PUSH: Subir datos locales pendientes a Supabase
+   * Similar a useSimpleSync pero como servicio reutilizable
+   */
+  async pushToSupabase(): Promise<void> {
+    if (this.isPushing) {
+      return;
     }
 
-    listenToChanges() {
-        if (this.channels.length > 0) {
-            // Silencio el log si ya están conectados para evitar spam en la consola
-            return;
+    this.isPushing = true;
+
+    try {
+      for (const tableName of TABLES) {
+        const table = (db as any)[tableName];
+        let pending = await table.where('sync_status').equals('pending').toArray();
+
+        if (pending.length === 0) continue;
+
+        // VALIDACIÓN DE FOREIGN KEY: Filtrar movimientos con medicamento_id inválido
+        if (tableName === 'movimientos_stock') {
+          const medicamentoIds = new Set((await db.medicamentos.toArray()).map(m => m.id));
+          const validMovements = pending.filter((m: any) => medicamentoIds.has(m.medicamento_id));
+
+          if (validMovements.length < pending.length) {
+            const invalidCount = pending.length - validMovements.length;
+            console.warn(`[SyncService] Filtrados ${invalidCount} movimientos con medicamento_id inválido`);
+
+            const invalidIds = pending
+              .filter((m: any) => !medicamentoIds.has(m.medicamento_id))
+              .map((m: any) => m.id);
+
+            await table.bulkUpdate(invalidIds.map((id: string) => ({
+              key: id,
+              changes: { sync_status: 'failed' }
+            })));
+          }
+
+          pending = validMovements;
+          if (pending.length === 0) continue;
         }
-        console.log('Attaching Supabase Realtime listeners...');
 
-        const handleRealtimeChange = (tableName: string) => async (payload: any) => {
-            console.log(`Realtime change in ${tableName}:`, payload);
-            const table: Table<any, any> = (db as any)[tableName];
+        // Limpiar metadatos locales antes de enviar
+        const cleanData = pending.map((item: any) => {
+          const { sync_status, deleted_at, ...rest } = item;
 
-            if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-                const localItem = { ...payload.new, sync_status: 'synced' };
-                if ('activo' in localItem && typeof localItem.activo === 'boolean') {
-                    localItem.activo = localItem.activo ? 1 : 0;
-                }
-                await table.put(localItem);
-            } else if (payload.eventType === 'DELETE') {
-                const existing = await table.get(payload.old.id);
-                if (existing) {
-                    await table.delete(payload.old.id);
-                }
-            }
-        };
+          // Convertir activo de 0/1 a boolean para Supabase
+          if ('activo' in rest) {
+            rest.activo = rest.activo === 1;
+          }
 
-        this.channels = TABLES.map(tableName => {
-            const channel = supabase.channel(`public:${tableName}`)
-                .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, handleRealtimeChange(tableName))
-                .subscribe((status, err) => {
-                    if (status === 'SUBSCRIBED') {
-                        console.log(`Subscribed to ${tableName}`);
-                    }
-                    if (err) {
-                        console.error(`Subscription error on ${tableName}:`, err);
-                    }
-                });
-            return channel;
+          // Eliminar timestamps de tablas que no los tienen en Supabase
+          if (TABLES_WITHOUT_TIMESTAMPS.includes(tableName)) {
+            delete rest.creado_at;
+            delete rest.actualizado_at;
+          }
+
+          // Asignar valor por defecto para tipo_medida si es NULL
+          if (tableName === 'movimientos_stock' && !rest.tipo_medida) {
+            rest.tipo_medida = 'UNIDAD';
+          }
+
+          return rest;
         });
-    }
 
-    async stopListening() {
-        await Promise.all(this.channels.map(ch => ch.unsubscribe()));
-        this.channels = [];
+        const { error } = await supabase.from(tableName).upsert(cleanData, { onConflict: 'id' });
+
+        if (error) {
+          console.error(`[SyncService] Error PUSH ${tableName}:`, error);
+          continue;
+        }
+
+        // Marcar como sincronizado
+        const ids = pending.map((p: any) => p.id);
+        await table.bulkUpdate(ids.map((id: string) => ({ key: id, changes: { sync_status: 'synced' } })));
+        console.log(`[SyncService] PUSH ${tableName}: ${ids.length} registros`);
+      }
+
+      console.log('[SyncService] PUSH completado exitosamente');
+    } catch (error) {
+      console.error('[SyncService] Error en PUSH:', error);
+      throw error;
+    } finally {
+      this.isPushing = false;
     }
+  }
+
+  /**
+   * Resolución de conflictos: Last Write Wins
+   * Compara timestamps y decide qué versión mantener
+   */
+  async resolveConflict(tableName: string, id: string): Promise<void> {
+    const table = (db as any)[tableName];
+    const localItem = await table.get(id);
+
+    if (!localItem) return;
+
+    const { data: remoteItem } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (!remoteItem) return;
+
+    // Comparar timestamps (usando creado_at ya que actualizado_at no existe en Supabase)
+    const localTime = new Date(localItem.creado_at).getTime();
+    const remoteTime = new Date(remoteItem.creado_at).getTime();
+
+    if (remoteTime > localTime) {
+      // Remoto gana, actualizar local
+      await table.put(remoteItem);
+    } else {
+      // Local gana, subir a remoto
+      const { sync_status, deleted_at, ...rest } = localItem;
+      await supabase.from(tableName).upsert(rest, { onConflict: 'id' });
+      await table.update(id, { sync_status: 'synced' });
+    }
+  }
+
+  /**
+   * Sincronización completa: PULL + PUSH
+   */
+  async fullSync(businessId: string): Promise<void> {
+    await this.pullFromSupabase(businessId);
+    await this.pushToSupabase();
+  }
 }
 
-export const syncService = new SyncService();
+export const syncService = SyncService.getInstance();

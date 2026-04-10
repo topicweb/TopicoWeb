@@ -6,6 +6,7 @@ import { Session, User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
+import { syncService } from "@/core/services/syncService";
 import type { Perfil, RolUsuario } from "@/features/usuarios/types";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -26,6 +27,8 @@ interface AuthContextType {
   businessId: string | null;
   /** true mientras se resuelve la sesión inicial */
   isLoading: boolean;
+  /** true mientras se está sincronizando datos iniciales */
+  isInitialSync: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -38,7 +41,8 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   businessId: null,
   isLoading: true,
-  signOut: async () => {},
+  isInitialSync: false,
+  signOut: async () => { },
 });
 
 export const useAuth = (): AuthContextType => useContext(AuthContext);
@@ -49,6 +53,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialSync, setIsInitialSync] = useState(false);
+  const [hasInitialPull, setHasInitialPull] = useState(false);
   const router = useRouter();
 
   // Reactivo: se actualiza automáticamente cuando el SyncService escribe el perfil en Dexie.
@@ -61,6 +67,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const role = perfil?.rol ?? null;
   const businessId = perfil?.business_id ?? null;
 
+  // Debug logging
+  useEffect(() => {
+    console.log('[AuthProvider] Debug:', {
+      userEmail: user?.email,
+      perfil: perfil,
+      businessId: businessId,
+      role: role,
+      perfilBusinessId: perfil?.business_id,
+    });
+  }, [perfil, businessId, role, user?.email]);
+
   useEffect(() => {
     // Resuelve la sesión persistida en localStorage al cargar la app
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -72,14 +89,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Escucha cambios en la sesión (login, logout, token refresh)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
+
+      // Al hacer login, ejecutar PULL inicial si no se ha hecho
+      if (_event === 'SIGNED_IN' && session?.user && !hasInitialPull) {
+        setTimeout(async () => {
+          try {
+            // Obtener perfil de Supabase para conseguir business_id
+            const { data: perfiles } = await supabase
+              .from('perfiles')
+              .select('*')
+              .eq('email', session.user.email!)
+              .single();
+
+            if (perfiles?.business_id) {
+              setIsInitialSync(true);
+              await syncService.pullFromSupabase(perfiles.business_id);
+              setHasInitialPull(true);
+            }
+          } catch (error) {
+            console.error('[AuthProvider] Error en PULL inicial:', error);
+          } finally {
+            setIsInitialSync(false);
+          }
+        }, 500);
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [hasInitialPull]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -88,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, perfil, role, businessId, isLoading, signOut }}
+      value={{ user, session, perfil, role, businessId, isLoading, isInitialSync, signOut }}
     >
       {children}
     </AuthContext.Provider>
