@@ -271,13 +271,13 @@ export function MedicineDispenser({
           placeholder="Buscar medicamento..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+          className="w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 py-4 lg:py-3 pl-12 pr-4 text-base text-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:text-white shadow-sm"
         />
         {busqueda && (
           <button
             type="button"
             onClick={() => setBusqueda("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-100 hover:text-slate-600"
           >
             <X className="w-5 h-5" />
           </button>

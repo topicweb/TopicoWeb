@@ -14,8 +14,8 @@ const TABLES = ['instituciones', 'pacientes', 'medicamentos', 'atenciones', 'mov
 
 // Tablas en Supabase que NO tienen columnas creado_at/actualizado_at
 // Estas columnas deben excluirse al sincronizar para evitar 400 Bad Request
-// Después de la migración, todas las tablas tienen actualizado_at, así que esta lista está vacía
-const TABLES_WITHOUT_TIMESTAMPS: string[] = [];
+// NOTA: movimientos_stock usa fecha_movimiento en lugar de creado_at
+const TABLES_WITHOUT_TIMESTAMPS: string[] = ['movimientos_stock'];
 
 // Tablas que NO tienen business_id (instituciones.id IS the business_id)
 const TABLES_WITHOUT_BUSINESS_ID = ['instituciones'];
@@ -24,7 +24,7 @@ const TABLES_WITHOUT_BUSINESS_ID = ['instituciones'];
  * Migración de datos: Corrige registros existentes con tipo_medida NULL
  * Se ejecuta una sola vez al inicio para limpiar datos corruptos
  */
-async function migrateNullTipoMedida() {
+export async function migrateNullTipoMedida() {
   try {
     // Obtener TODOS los movimientos, no solo los pendientes
     // Esto asegura que corregimos datos corruptos independientemente de su estado
@@ -68,9 +68,9 @@ async function migrateNullTipoMedida() {
  * Esto soluciona el problema de sincronización donde activo llegaba como boolean desde Supabase
  * pero se necesita como número (1/0) en Dexie para consistencia
  */
-async function migrateActivoBooleanToNumber() {
+export async function migrateActivoBooleanToNumber() {
   try {
-    // NOTA: perfiles excluido - se maneja en migratePerfilesSyncStatus
+    // Incluye medicamentos para que aparezcan en el MedicineDispenser (filtro: activo === 1)
     const tables = ['pacientes', 'medicamentos', 'programas_estudio'];
     let totalCorrected = 0;
 
@@ -104,7 +104,7 @@ async function migrateActivoBooleanToNumber() {
  * Los perfiles se gestionan via Server Actions, no por background sync.
  * Si tienen 'pending' nunca se sincronizarán porque están excluidos del PUSH.
  */
-async function migratePerfilesSyncStatus() {
+export async function migratePerfilesSyncStatus() {
   try {
     const allPerfiles = await db.perfiles.toArray();
     const pendingPerfiles = allPerfiles.filter((p: any) => p.sync_status === 'pending');
@@ -125,15 +125,33 @@ async function migratePerfilesSyncStatus() {
   }
 }
 
+/**
+ * Hook para ejecutar migraciones de datos al iniciar la aplicación.
+ * ESTE HOOK DEBE LLAMARSE UNA SOLA VEZ AL INICIO (ej: en AuthProvider).
+ * Las migraciones corrigen inconsistencias de datos entre versiones.
+ */
+export function useDataMigrations() {
+  useEffect(() => {
+    // Ejecutar migraciones inmediatamente al montar, no esperar a sync
+    const runMigrations = async () => {
+      console.log('[useDataMigrations] Iniciando migraciones...');
+      await migrateNullTipoMedida();
+      await migrateActivoBooleanToNumber();
+      await migratePerfilesSyncStatus();
+      console.log('[useDataMigrations] Migraciones completadas');
+    };
+
+    runMigrations();
+  }, []);
+}
+
 export function useSimpleSync(enabled: boolean) {
   useEffect(() => {
     if (!enabled || !navigator.onLine) return;
 
     const syncPending = async () => {
-      // Ejecutar migraciones antes de sincronizar (solo la primera vez)
-      await migrateNullTipoMedida();
-      await migrateActivoBooleanToNumber();
-      await migratePerfilesSyncStatus();
+      // Las migraciones ahora se ejecutan en useDataMigrations al inicio
+      // No es necesario ejecutarlas aquí (ya se corrigieron los datos)
 
       for (const tableName of TABLES) {
         const table = (db as any)[tableName];

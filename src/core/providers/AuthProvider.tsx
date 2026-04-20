@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
 import { syncService } from "@/core/services/syncService";
+import { useDataMigrations } from "@/core/hooks/useSimpleSync";
 import type { Perfil, RolUsuario } from "@/features/usuarios/types";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -56,6 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isInitialSync, setIsInitialSync] = useState(false);
   const [hasInitialPull, setHasInitialPull] = useState(false);
   const router = useRouter();
+
+  // Ejecutar migraciones de datos al iniciar la aplicación
+  useDataMigrations();
 
   // Reactivo: se actualiza automáticamente cuando el SyncService escribe el perfil en Dexie.
   // Esto garantiza que businessId esté disponible incluso en modo offline (tras primera sync).

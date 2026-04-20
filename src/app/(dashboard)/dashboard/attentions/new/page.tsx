@@ -11,7 +11,7 @@ import { useUsuarios } from "@/features/usuarios/hooks/useUsuarios";
 import { MedicineDispenser } from "@/features/atenciones/components/MedicineDispenser";
 import { SignosVitalesInput } from "@/features/atenciones/components/SignosVitalesInput";
 import { SIGNOS_VITALES_VACIO } from "@/features/atenciones/types";
-import { Search, Loader2, Save, ArrowLeft, User, AlertCircle, Plus, Pill, ChevronRight, ChevronLeft, Stethoscope, FileText, PillBottle } from "lucide-react";
+import { Search, Loader2, Save, ArrowLeft, User, AlertCircle, Plus, ChevronRight, ChevronLeft, Stethoscope, FileText, PillBottle } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -60,14 +60,6 @@ export default function NewAttentionPage() {
     return true;
   };
 
-  const nextStep = () => {
-    if (currentStep < 3 && canAdvance()) setCurrentStep(currentStep + 1);
-  };
-
-  const prevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient || !user) return;
@@ -114,13 +106,17 @@ export default function NewAttentionPage() {
     }),
   };
 
-  const [[page, direction], setPage] = useState([1, 0]);
+  const [direction, setDirection] = useState(0);
 
-  const paginate = (newDirection: number) => {
-    const newStep = currentStep + newDirection;
+  const goToStep = (newStep: number) => {
+    console.log(`[Wizard] Attempting to go to step ${newStep}, currentStep=${currentStep}, canAdvance=${canAdvance()}`);
     if (newStep >= 1 && newStep <= 3 && canAdvance()) {
-      setPage([newStep, newDirection]);
+      const newDirection = newStep > currentStep ? 1 : -1;
+      setDirection(newDirection);
       setCurrentStep(newStep);
+      console.log(`[Wizard] Successfully moved to step ${newStep}`);
+    } else {
+      console.log(`[Wizard] Navigation blocked: step=${newStep}, canAdvance=${canAdvance()}`);
     }
   };
 
@@ -156,8 +152,7 @@ export default function NewAttentionPage() {
                 type="button"
                 onClick={() => {
                   if (step.id < currentStep) {
-                    setPage([step.id, -1]);
-                    setCurrentStep(step.id);
+                    goToStep(step.id);
                   }
                 }}
                 disabled={step.id > currentStep}
@@ -183,7 +178,7 @@ export default function NewAttentionPage() {
       </div>
 
       {/* Content - Carrusel */}
-      <form onSubmit={handleSubmit} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} className="flex-1 overflow-hidden relative">
+      <form onSubmit={handleSubmit} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} className="flex-1 flex flex-col min-h-0 overflow-hidden">
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={currentStep}
@@ -193,18 +188,18 @@ export default function NewAttentionPage() {
             animate="center"
             exit="exit"
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="h-full overflow-y-auto"
+            className="flex-1 overflow-y-auto"
           >
             {/* Paso 1: Paciente */}
             {currentStep === 1 && (
-              <div className="h-full flex flex-col items-center justify-center p-4 pb-24">
+              <div className="h-full flex flex-col items-center p-4 lg:p-2 pt-8 lg:pt-4 pb-25 lg:pb-32">
                 <div className="w-full max-w-md">
-                  <div className="text-center mb-8">
-                    <div className="h-16 w-16 mx-auto rounded-2xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4">
-                      <User size={32} className="text-teal-600" />
+                  <div className="text-center mb-6 lg:mb-3">
+                    <div className="h-14 w-14 lg:h-12 lg:w-12 mx-auto rounded-2xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4 lg:mb-3">
+                      <User size={28} className="text-teal-600 lg:size-24" />
                     </div>
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Seleccionar Paciente</h2>
-                    <p className="text-sm text-slate-500">Busque por DNI o nombre del paciente</p>
+                    <h2 className="text-xl lg:text-lg font-bold text-slate-900 dark:text-white mb-2 lg:mb-1">Seleccionar Paciente</h2>
+                    <p className="text-sm lg:text-xs text-slate-500">Busque por DNI o nombre del paciente</p>
                   </div>
 
                   {!selectedPatient ? (
@@ -213,7 +208,7 @@ export default function NewAttentionPage() {
                       <input
                         type="text"
                         placeholder="Buscar DNI o nombre..."
-                        className="w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 py-4 pl-12 pr-4 text-base text-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:text-white shadow-sm"
+                        className="w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 py-4 lg:py-3 pl-12 pr-4 text-base text-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:text-white shadow-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         autoFocus
@@ -233,7 +228,7 @@ export default function NewAttentionPage() {
                                 onClick={() => {
                                   setSelectedPatient(p);
                                   setSearchTerm("");
-                                  setTimeout(nextStep, 300);
+                                  setTimeout(() => goToStep(2), 300);
                                 }}
                                 className="w-full px-4 py-3.5 text-left hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-0"
                               >
@@ -264,17 +259,17 @@ export default function NewAttentionPage() {
                     <motion.div
                       initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
-                      className="rounded-2xl bg-linear-to-br from-teal-500 to-teal-600 p-6 text-white shadow-xl shadow-teal-500/25"
+                      className="rounded-2xl bg-linear-to-br from-teal-500 to-teal-600 p-5 lg:p-4 text-white shadow-xl shadow-teal-500/25"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-14 w-14 rounded-xl bg-white/20 flex items-center justify-center">
-                          <User size={28} className="text-white" />
+                      <div className="flex items-center gap-4 lg:gap-3">
+                        <div className="h-12 w-12 lg:h-10 lg:w-10 rounded-xl bg-white/20 flex items-center justify-center">
+                          <User size={24} className="text-white lg:size-20" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-lg truncate">
+                          <p className="font-bold text-lg lg:text-base truncate">
                             {selectedPatient.nombres} {selectedPatient.apellidos}
                           </p>
-                          <p className="text-teal-100 text-sm">
+                          <p className="text-teal-100 text-sm lg:text-xs">
                             {selectedPatient.categoria} • DNI: {selectedPatient.dni}
                           </p>
                         </div>
@@ -282,7 +277,7 @@ export default function NewAttentionPage() {
                       <button
                         type="button"
                         onClick={() => setSelectedPatient(null)}
-                        className="mt-4 w-full py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors"
+                        className="mt-4 lg:mt-3 w-full py-2.5 lg:py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm lg:text-xs font-medium transition-colors"
                       >
                         Cambiar paciente
                       </button>
@@ -294,61 +289,56 @@ export default function NewAttentionPage() {
 
             {/* Paso 2: Consulta */}
             {currentStep === 2 && (
-              <div className="p-4 md:p-6 pb-24 space-y-4 max-w-5xl mx-auto">
-                <div className="text-center mb-4">
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Datos de la Consulta</h2>
-                  <p className="text-sm text-slate-500">Ingrese el motivo, observaciones y signos vitales</p>
-                </div>
-
-                {/* Paciente seleccionado (resumen compacto) */}
-                <div className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/50 max-w-fit mx-auto">
-                  <div className="h-8 w-8 rounded-lg bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
-                    <User size={16} className="text-teal-600" />
+              <div className="p-4 md:p-6 pb-32 h-full flex flex-col max-w-6xl mx-auto">
+                {/* Header compacto con info del paciente */}
+                <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700 shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center shrink-0">
+                    <User size={20} className="text-teal-600" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm text-slate-800 dark:text-white truncate">
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 dark:text-white truncate">
                       {selectedPatient?.nombres} {selectedPatient?.apellidos}
                     </p>
-                    <p className="text-xs text-slate-500">{selectedPatient?.dni}</p>
+                    <p className="text-xs text-slate-500">{selectedPatient?.categoria} • DNI: {selectedPatient?.dni}</p>
                   </div>
                 </div>
 
-                {/* Grid de 2 columnas en PC */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Motivo */}
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-                    <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      <FileText size={16} className="text-teal-500" />
-                      Motivo <span className="text-red-500">*</span>
-                    </label>
-                    <textarea
-                      required
-                      className="w-full rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 text-sm text-slate-800 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all h-24 resize-none"
-                      value={formData.motivo}
-                      onChange={(e) => setFormData({ ...formData, motivo: e.target.value })}
-                      placeholder="Describa el motivo de consulta..."
-                      autoFocus
-                    />
+                {/* Layout PC: Motivo arriba, Signos vitales en fila, Observación abajo */}
+                <div className="flex-1 flex flex-col gap-3 min-h-0">
+                  <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-2">
+                    {/* Motivo - ancho completo, altura moderada */}
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm shrink-0">
+                      <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
+                        <FileText size={14} className="text-teal-500" />
+                        Motivo <span className="text-red-500">*</span>
+                      </label>
+                      <textarea
+                        required
+                        rows={2}
+                        className="w-full rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 text-sm text-slate-800 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
+                        value={formData.motivo}
+                        onChange={(e) => setFormData({ ...formData, motivo: e.target.value })}
+                        placeholder="Describa el motivo de consulta..."
+                        autoFocus
+                      />
+                    </div>
+                    {/* Observación - toma el espacio restante */}
+                    <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm flex-1 flex flex-col min-h-0">
+                      <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 shrink-0">
+                        Tratamiento / Observación
+                      </label>
+                      <textarea
+                        className="w-full flex-1 min-h-100px rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 text-sm text-slate-800 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
+                        value={formData.observacion}
+                        onChange={(e) => setFormData({ ...formData, observacion: e.target.value })}
+                        placeholder="Describa el tratamiento o observaciones adicionales..."
+                      />
+                    </div>
                   </div>
 
-                  {/* Observación */}
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-                      Tratamiento / Observación
-                    </label>
-                    <textarea
-                      className="w-full rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 text-sm text-slate-800 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all h-24 resize-none"
-                      value={formData.observacion}
-                      onChange={(e) => setFormData({ ...formData, observacion: e.target.value })}
-                      placeholder="Describa el tratamiento..."
-                    />
-                  </div>
-                </div>
-
-                {/* Signos Vitales - Centrado */}
-                <div className="max-w-2xl mx-auto">
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
-                    <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 text-center">
+                  {/* Signos Vitales - fila horizontal compacta */}
+                  <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm shrink-0">
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
                       Signos Vitales
                     </label>
                     <SignosVitalesInput
@@ -362,14 +352,20 @@ export default function NewAttentionPage() {
 
             {/* Paso 3: Medicamentos */}
             {currentStep === 3 && (
-              <div className="p-4 md:p-6 pb-24 max-w-4xl mx-auto">
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1">Dispensación</h2>
-                  <p className="text-sm text-slate-500">Seleccione los medicamentos a dispensar</p>
+              <div className="p-4 md:p-6 pb-32 h-full flex flex-col max-w-6xl mx-auto">
+                {/* Header simple sin subtítulo */}
+                <div className="flex items-center justify-between mb-4 shrink-0">
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">Dispensación</h2>
+
+                  {dispensedMeds.length > 0 && (
+                    <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-sm font-bold rounded-full">
+                      {dispensedMeds.length} medicamentos
+                    </span>
+                  )}
                 </div>
 
                 {/* Resumen paciente */}
-                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/50 mb-4">
+                <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/50 mb-3 shrink-0">
                   <div className="h-10 w-10 rounded-lg bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center">
                     <User size={20} className="text-teal-600" />
                   </div>
@@ -379,11 +375,6 @@ export default function NewAttentionPage() {
                     </p>
                     <p className="text-xs text-slate-500 truncate">{formData.motivo || "Sin motivo"}</p>
                   </div>
-                  {dispensedMeds.length > 0 && (
-                    <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs font-bold rounded-full">
-                      {dispensedMeds.length} meds
-                    </span>
-                  )}
                 </div>
 
                 {/* Error display */}
@@ -393,7 +384,7 @@ export default function NewAttentionPage() {
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
-                      className="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 flex items-center gap-2 text-rose-700 dark:text-rose-300"
+                      className="mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-900/20 border border-rose-200 dark:border-rose-800 flex items-center gap-2 text-rose-700 dark:text-rose-300 shrink-0"
                     >
                       <AlertCircle size={18} />
                       <span className="text-sm">{atencionError}</span>
@@ -401,8 +392,8 @@ export default function NewAttentionPage() {
                   )}
                 </AnimatePresence>
 
-                {/* Medicine Dispenser */}
-                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+                {/* Medicine Dispenser - ocupa todo el espacio restante */}
+                <div className="flex-1 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm overflow-hidden min-h-0">
                   <MedicineDispenser
                     medicamentos={medicamentos}
                     seleccionadas={dispensedMeds}
@@ -416,11 +407,11 @@ export default function NewAttentionPage() {
         </AnimatePresence>
 
         {/* Navigation Buttons */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm border-t border-slate-100 dark:border-slate-800">
+        <div className="p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm border-t border-slate-100 dark:border-slate-800 shrink-0">
           <div className="flex justify-between items-center max-w-3xl mx-auto">
             <button
               type="button"
-              onClick={() => paginate(-1)}
+              onClick={() => goToStep(currentStep - 1)}
               disabled={currentStep === 1}
               className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all ${currentStep === 1
                 ? "opacity-0 pointer-events-none"
@@ -434,7 +425,10 @@ export default function NewAttentionPage() {
             {currentStep < 3 ? (
               <button
                 type="button"
-                onClick={() => paginate(1)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  goToStep(currentStep + 1);
+                }}
                 disabled={!canAdvance()}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl bg-teal-600 text-white font-semibold shadow-lg shadow-teal-500/25 hover:bg-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >

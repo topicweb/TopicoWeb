@@ -1,17 +1,6 @@
 "use client";
 
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, } from "recharts";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db/dexie/db";
 import { Skeleton } from "../ui/Skeleton";

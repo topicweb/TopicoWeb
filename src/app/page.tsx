@@ -16,7 +16,7 @@ export default function LandingPage() {
     }
   }, [user, isLoading, router]);
 
-  if (isLoading) return null; // Or a spinner
+  if (isLoading) return null;
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-900 text-white">

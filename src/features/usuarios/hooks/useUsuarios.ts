@@ -1,7 +1,6 @@
 /**
  * Hook del módulo Usuarios - CRUD híbrido (Server Actions + Dexie).
  */
-import { useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/core/providers/AuthProvider';
 import { Perfil } from '../types';
