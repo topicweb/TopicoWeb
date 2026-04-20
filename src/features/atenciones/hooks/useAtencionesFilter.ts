@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { AtencionConDetalles } from '../types';
 import type { AtencionesFilterState } from '../types/filters';
 
@@ -34,6 +34,18 @@ export function useAtencionesFilter(
   atenciones: AtencionConDetalles[]
 ): UseAtencionesFilterReturnType {
   const [filters, setFilters] = useState<AtencionesFilterState>(defaultFilters);
+
+  // Estado para debounce del término de búsqueda
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(filters.searchTerm);
+
+  // Efecto de debounce: actualizar término después de 300ms de inactividad
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(filters.searchTerm);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [filters.searchTerm]);
 
   /**
    * Setter específico para término de búsqueda
@@ -119,8 +131,9 @@ export function useAtencionesFilter(
       }
 
       // Filtro por término de búsqueda (paciente o motivo)
-      if (filters.searchTerm) {
-        const term = filters.searchTerm.toLowerCase();
+      // Usa debouncedSearchTerm para evitar re-renders excesivos mientras se escribe
+      if (debouncedSearchTerm) {
+        const term = debouncedSearchTerm.toLowerCase();
         const matchesPaciente = atencion.pacienteNombre.toLowerCase().includes(term);
         const matchesMotivo = atencion.motivo_consulta.toLowerCase().includes(term);
         if (!matchesPaciente && !matchesMotivo) {
@@ -130,7 +143,7 @@ export function useAtencionesFilter(
 
       return true;
     });
-  }, [atenciones, filters]);
+  }, [atenciones, filters, debouncedSearchTerm]);
 
   const resultCount = filteredData.length;
 

@@ -21,43 +21,62 @@ const TABLES_WITHOUT_TIMESTAMPS: string[] = ['movimientos_stock'];
 const TABLES_WITHOUT_BUSINESS_ID = ['instituciones'];
 
 /**
- * Migración de datos: Corrige registros existentes con tipo_medida NULL
- * Se ejecuta una sola vez al inicio para limpiar datos corruptos
+ * Utilidad: Cede el control al navegador para evitar bloquear UI
+ * Usa requestIdleCallback si está disponible, o setTimeout como fallback
+ */
+const yieldToMain = (): Promise<void> => {
+  return new Promise((resolve) => {
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      (window as any).requestIdleCallback(() => resolve(), { timeout: 50 });
+    } else {
+      setTimeout(resolve, 10); // Fallback: ceder cada 10ms
+    }
+  });
+};
+
+/**
+ * Migración de datos: Corrige movimientos con tipo_medida NULL
+ * CRITICAL FIX: Ahora procesa en batches de 100 con yield para no bloquear UI
  */
 export async function migrateNullTipoMedida() {
   try {
-    // Obtener TODOS los movimientos, no solo los pendientes
-    // Esto asegura que corregimos datos corruptos independientemente de su estado
-    const allMovements = await db.movimientos_stock.toArray();
-
-    if (allMovements.length === 0) return;
-
-    console.log(`[Migración] Revisando ${allMovements.length} movimientos totales...`);
-
+    const BATCH_SIZE = 100;
+    let offset = 0;
     let correctedCount = 0;
+    let processedCount = 0;
 
-    for (const movement of allMovements) {
-      // Verificar si tipo_medida es null o undefined
-      if (!movement.tipo_medida) {
-        // Intentar obtener tipo_medida del medicamento asociado
-        const medicamento = await db.medicamentos.get(movement.medicamento_id);
-        const tipoMedida = medicamento?.tipo_medida || 'UNIDAD';
+    // Procesar en batches para no bloquear la UI
+    while (true) {
+      const batch = await db.movimientos_stock
+        .offset(offset)
+        .limit(BATCH_SIZE)
+        .toArray();
 
-        await db.movimientos_stock.update(movement.id, {
-          tipo_medida: tipoMedida,
-          sync_status: 'pending', // Marcar para re-sincronizar
-        });
+      if (batch.length === 0) break;
 
-        correctedCount++;
-        console.log(`[Migración] Corregido movimiento ${movement.id}: ${tipoMedida}`);
+      for (const movement of batch) {
+        processedCount++;
+
+        if (!movement.tipo_medida) {
+          const medicamento = await db.medicamentos.get(movement.medicamento_id);
+          const tipoMedida = medicamento?.tipo_medida || 'UNIDAD';
+
+          await db.movimientos_stock.update(movement.id, {
+            tipo_medida: tipoMedida,
+            sync_status: 'pending',
+          });
+
+          correctedCount++;
+        }
       }
+
+      // CRITICAL: Ceder control al navegador cada batch
+      await yieldToMain();
+
+      offset += BATCH_SIZE;
     }
 
-    if (correctedCount > 0) {
-      console.log(`[Migración] Corregidos ${correctedCount} movimientos sin tipo_medida`);
-    } else {
-      console.log(`[Migración] Todos los movimientos tienen tipo_medida válido`);
-    }
+    console.log(`[Migración] Procesados ${processedCount} movimientos, corregidos ${correctedCount}`);
   } catch (error) {
     console.error('[Migración] Error corrigiendo tipo_medida:', error);
   }
@@ -65,35 +84,46 @@ export async function migrateNullTipoMedida() {
 
 /**
  * Migración de datos: Corrige registros con activo como boolean a 1/0
- * Esto soluciona el problema de sincronización donde activo llegaba como boolean desde Supabase
- * pero se necesita como número (1/0) en Dexie para consistencia
+ * CRITICAL FIX: Ahora procesa en batches con yield para no bloquear UI
  */
 export async function migrateActivoBooleanToNumber() {
   try {
-    // Incluye medicamentos para que aparezcan en el MedicineDispenser (filtro: activo === 1)
+    const BATCH_SIZE = 100;
     const tables = ['pacientes', 'medicamentos', 'programas_estudio'];
     let totalCorrected = 0;
+    let totalProcessed = 0;
 
     for (const tableName of tables) {
       const table = (db as any)[tableName];
-      const allRecords = await table.toArray();
+      let offset = 0;
 
-      for (const record of allRecords) {
-        // Si activo es boolean, convertir a número (1 o 0)
-        if (typeof record.activo === 'boolean') {
-          await table.update(record.id, {
-            activo: record.activo ? 1 : 0,
-            sync_status: 'pending', // Marcar para re-sincronizar
-          });
-          totalCorrected++;
-          console.log(`[Migración activo] Corregido ${tableName}.${record.id}: ${record.activo} → ${record.activo ? 1 : 0}`);
+      while (true) {
+        const batch = await table.offset(offset).limit(BATCH_SIZE).toArray();
+        if (batch.length === 0) break;
+
+        let batchCorrected = 0;
+
+        for (const record of batch) {
+          totalProcessed++;
+
+          if (typeof record.activo === 'boolean') {
+            await table.update(record.id, {
+              activo: record.activo ? 1 : 0,
+              sync_status: 'pending',
+            });
+            totalCorrected++;
+            batchCorrected++;
+          }
         }
+
+        // CRITICAL: Ceder control al navegador cada batch
+        await yieldToMain();
+
+        offset += BATCH_SIZE;
       }
     }
 
-    if (totalCorrected > 0) {
-      console.log(`[Migración activo] Corregidos ${totalCorrected} registros con activo boolean → number`);
-    }
+    console.log(`[Migración activo] Procesados ${totalProcessed}, corregidos ${totalCorrected}`);
   } catch (error) {
     console.error('[Migración activo] Error corrigiendo valores:', error);
   }

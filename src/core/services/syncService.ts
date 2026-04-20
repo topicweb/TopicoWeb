@@ -29,6 +29,7 @@ export class SyncService {
   private static instance: SyncService;
   private isPulling = false;
   private isPushing = false;
+  private pendingPulls: string[] = []; // CRITICAL: Cola de businessIds pendientes
 
   private constructor() { }
 
@@ -78,7 +79,12 @@ export class SyncService {
    * NOTA: instituciones.id IS the business_id, so we fetch all institutions first
    */
   async pullFromSupabase(businessId: string): Promise<void> {
+    // CRITICAL FIX: Si ya está sincronizando, encolar para procesar después
     if (this.isPulling) {
+      if (!this.pendingPulls.includes(businessId)) {
+        this.pendingPulls.push(businessId);
+        console.log(`[SyncService] PULL encolado para ${businessId}`);
+      }
       return;
     }
 
@@ -142,6 +148,18 @@ export class SyncService {
       throw error;
     } finally {
       this.isPulling = false;
+
+      // CRITICAL FIX: Procesar siguiente PULL en cola si existe
+      if (this.pendingPulls.length > 0) {
+        const nextBusinessId = this.pendingPulls.shift();
+        console.log(`[SyncService] Procesando PULL encolado para ${nextBusinessId}`);
+        // Usar setTimeout para evitar recursion profunda
+        setTimeout(() => {
+          if (nextBusinessId) {
+            this.pullFromSupabase(nextBusinessId).catch(console.error);
+          }
+        }, 100);
+      }
     }
   }
 
