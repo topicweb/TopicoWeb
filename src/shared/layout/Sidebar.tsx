@@ -2,38 +2,18 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Users,
-  Package,
-  ArrowRightLeft,
-  ClipboardPlus,
-  LogOut,
-  Stethoscope,
-  LayoutDashboard,
-  ShieldCheck,
-} from "lucide-react";
+import { Stethoscope } from "lucide-react";
 import { useAuth } from "@/core/providers/AuthProvider";
+import { SyncMonitor } from "@/shared/components/SyncMonitor";
+import { UserProfileCard } from "@/shared/components/UserProfileCard";
+import { primaryMenuItems, secondaryMenuItems } from "./navigation.config";
 
 export const Sidebar = () => {
   const pathname = usePathname();
   const { user, role, signOut } = useAuth();
 
-  const menuItems = [
-    { href: "/dashboard", icon: LayoutDashboard, label: "Panel Principal" },
-    { href: "/dashboard/users", icon: ShieldCheck, label: "Usuarios" },
-    { href: "/dashboard/patients", icon: Users, label: "Pacientes" },
-    {
-      href: "/dashboard/attentions/new",
-      icon: ClipboardPlus,
-      label: "Nueva Atención",
-    },
-    { href: "/dashboard/inventory", icon: Package, label: "Inventario" },
-    {
-      href: "/dashboard/movements",
-      icon: ArrowRightLeft,
-      label: "Movimientos",
-    },
-  ];
+  // Combinar items primarios y secundarios para desktop
+  const menuItems = [...primaryMenuItems, ...secondaryMenuItems];
 
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 h-full w-64 flex-col bg-slate-950 text-slate-400 border-r border-slate-800">
@@ -70,33 +50,18 @@ export const Sidebar = () => {
         </div>
       </div>
 
+      {/* Estado de sincronización - Siempre visible en sidebar */}
+      <div className="px-4 pb-2">
+        <SyncMonitor variant="inline" />
+      </div>
+
       <div className="p-4 border-t border-slate-900">
-        <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-800/50">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 bg-teal-600/20 rounded-lg flex items-center justify-center shrink-0 text-teal-400 border border-teal-600/10">
-                <span className="font-bold text-sm uppercase">
-                  {(user?.email || "U").charAt(0)}
-                </span>
-              </div>
-              <div className="min-w-0">
-                <p className="font-bold text-sm text-white truncate">
-                  {user?.email?.split("@")[0] || "Usuario"}
-                </p>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                  {role || "Personal"}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => signOut()}
-              className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-all"
-              title="Cerrar Sesión"
-            >
-              <LogOut size={18} />
-            </button>
-          </div>
-        </div>
+        <UserProfileCard
+          email={user?.email}
+          role={role}
+          onSignOut={signOut}
+          variant="compact"
+        />
       </div>
     </aside>
   );

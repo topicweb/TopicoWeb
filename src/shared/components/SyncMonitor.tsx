@@ -6,7 +6,16 @@ import { useNetwork } from "@/core/providers/NetworkProvider";
 import { motion, AnimatePresence } from "framer-motion";
 import { Cloud, CloudOff, RefreshCw, CheckCircle2 } from "lucide-react";
 
-export const SyncMonitor = () => {
+interface SyncMonitorProps {
+  /** 'fixed' = esquina superior derecha (default), 'inline' = flujo normal del documento */
+  variant?: "fixed" | "inline";
+}
+
+/**
+ * Monitor de sincronización - Indicador de estado de red y pending items.
+ * Crítico en entorno médico: alerta sobre datos no sincronizados antes de cerrar sesión.
+ */
+export const SyncMonitor = ({ variant = "fixed" }: SyncMonitorProps) => {
   const { isOnline } = useNetwork();
 
   const pendingCount = useLiveQuery(async () => {
@@ -22,8 +31,13 @@ export const SyncMonitor = () => {
 
   const hasPending = (pendingCount || 0) > 0;
 
+  const containerClasses =
+    variant === "fixed"
+      ? "hidden md:block fixed top-4 right-4 z-50"
+      : "w-full";
+
   return (
-    <div className="hidden md:block fixed top-4 right-4 z-50">
+    <div className={containerClasses}>
       <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md rounded-xl p-2 flex items-center gap-2 shadow-lg border border-slate-200 dark:border-slate-800">
         <div className={`h-7 w-7 rounded-lg flex items-center justify-center ${isOnline ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}`}>
           {isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}

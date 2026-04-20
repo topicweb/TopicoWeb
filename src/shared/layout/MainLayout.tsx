@@ -2,7 +2,6 @@
 
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
-import { SyncMonitor } from "@/shared/components/SyncMonitor";
 
 export default function MainLayout({
   children,
@@ -23,9 +22,6 @@ export default function MainLayout({
 
       {/* Bottom Navigation - Mobile Only */}
       <BottomNav />
-
-      {/* Sync Monitor - Desktop Only (top-right corner) */}
-      <SyncMonitor />
     </div>
   );
 }

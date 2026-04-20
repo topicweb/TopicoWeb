@@ -1,18 +1,28 @@
 @import "tailwindcss";
 
+/**
+ * Sistema de diseño médico profesional
+ * Paleta optimizada para entornos clínicos: alta legibilidad, baja fatiga visual
+ */
 :root {
-  /* Colors - Medical Clean Palette */
+  /* === Core: Superficie y texto === */
   --background: #fdfdfd;
   --foreground: #1e293b;
-  
-  --primary: #0d9488; /* Teal 600 - Professional Medical */
+
+  /* === Primarios: Teal 600 === */
+  --primary: #0d9488;
   --primary-hover: #0f766e;
   --primary-glow: rgba(13, 148, 136, 0.1);
-  
-  --success: #059669; /* Emerald 600 */
-  --warning: #d97706; /* Amber 600 */
-  --danger: #dc2626;  /* Red 600 */
-  
+
+  /* === Semánticos: Estados === */
+  --success: #059669;
+  /* Emerald 600 */
+  --warning: #d97706;
+  /* Amber 600 */
+  --danger: #dc2626;
+  /* Red 600 */
+
+  /* === Escala Slate === */
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
   --slate-200: #e2e8f0;
@@ -20,12 +30,12 @@
   --slate-800: #1e293b;
   --slate-900: #0f172a;
 
-  /* Glassmorphism Tokens - Softer for readability */
+  /* === Glassmorphism: Tarjetas y modales === */
   --glass-bg: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(226, 232, 240, 0.8);
   --glass-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
-  
-  /* Radii */
+
+  /* === Radios de borde === */
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 }
@@ -38,7 +48,9 @@ body {
   min-height: 100vh;
 }
 
-/* Custom Utility Classes without @apply to avoid lint warnings in some IDEs */
+/* === Utilidades: Componentes reutilizables (sin @apply por compatibilidad) === */
+
+/** Efecto cristal para tarjetas - blur moderado */
 .glass-card {
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
@@ -47,6 +59,7 @@ body {
   box-shadow: var(--glass-shadow);
 }
 
+/** Efecto cristal para modales - blur intenso con sombra elevada */
 .glass-modal {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
@@ -55,6 +68,7 @@ body {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
+/** Gradientes de texto - branding primario */
 .text-gradient {
   background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
   -webkit-background-clip: text;
@@ -62,7 +76,7 @@ body {
   -webkit-text-fill-color: transparent;
 }
 
-/* Professional Input Styles */
+/* === Inputs: Estados de enfoque accesibles === */
 .input-premium {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
@@ -75,7 +89,7 @@ body {
   box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
 }
 
-/* Scrollbar styling */
+/* === Scrollbar: Estilo unificado === */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -93,6 +107,7 @@ body {
   background: #94a3b8;
 }
 
+/** Modo oscuro: Contraste ajustado */
 .dark ::-webkit-scrollbar-thumb {
   background: #334155;
 }

@@ -2,31 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Users,
-  Package,
-  ArrowRightLeft,
-  ClipboardPlus,
-  LayoutDashboard,
-} from "lucide-react";
 import { MobileMenuSheet } from "./MobileMenuSheet";
-
-const menuItems = [
-  { href: "/dashboard", icon: LayoutDashboard, label: "Panel" },
-  { href: "/dashboard/patients", icon: Users, label: "Pacientes" },
-  {
-    href: "/dashboard/attentions/new",
-    icon: ClipboardPlus,
-    label: "Nueva",
-    highlight: true,
-  },
-  { href: "/dashboard/inventory", icon: Package, label: "Stock" },
-  {
-    href: "/dashboard/movements",
-    icon: ArrowRightLeft,
-    label: "Movimientos",
-  },
-];
+import { primaryMenuItems } from "./navigation.config";
 
 export const BottomNav = () => {
   const pathname = usePathname();
@@ -35,7 +12,7 @@ export const BottomNav = () => {
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
       <div className="bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <div className="flex items-center justify-around">
-          {menuItems.map((item) => {
+          {primaryMenuItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
 
@@ -56,7 +33,7 @@ export const BottomNav = () => {
                   strokeWidth={isActive ? 2.5 : 2}
                 />
                 <span className="text-[10px] font-medium mt-0.5 leading-tight">
-                  {item.label}
+                  {item.labelShort || item.label}
                 </span>
               </Link>
             );
