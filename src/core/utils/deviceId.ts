@@ -10,20 +10,32 @@ const DEVICE_ID_KEY = 'topico_device_id';
 /**
  * Obtiene o genera un deviceId único para este dispositivo
  * El deviceId se persiste en localStorage para mantener consistencia
+ * 
+ * CRITICAL FIX: Ahora maneja errores de localStorage (modo incógnito Safari, etc.)
  */
 export function getDeviceId(): string {
-  let deviceId = localStorage.getItem(DEVICE_ID_KEY);
-  
-  if (!deviceId) {
-    // Generar nuevo deviceId
-    deviceId = generateDeviceId();
-    localStorage.setItem(DEVICE_ID_KEY, deviceId);
-    console.log('[DeviceId] Nuevo deviceId generado:', deviceId);
-  } else {
-    console.log('[DeviceId] deviceId existente:', deviceId);
+  try {
+    let deviceId = localStorage.getItem(DEVICE_ID_KEY);
+
+    if (!deviceId) {
+      // Generar nuevo deviceId
+      deviceId = generateDeviceId();
+      try {
+        localStorage.setItem(DEVICE_ID_KEY, deviceId);
+      } catch (storageError) {
+        // Modo incógnito o storage bloqueado - usar ID de sesión temporal
+        console.warn('[DeviceId] localStorage no disponible, usando sesión temporal');
+        // Generar nuevo ID cada vez (no persistente pero funcional)
+        return deviceId;
+      }
+    }
+
+    return deviceId;
+  } catch (error) {
+    // Error accediendo a localStorage (ej: Safari incógnito)
+    console.warn('[DeviceId] Error accediendo a localStorage, generando ID temporal:', error);
+    return generateDeviceId();
   }
-  
-  return deviceId;
 }
 
 /**

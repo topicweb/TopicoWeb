@@ -42,7 +42,7 @@ export function useAtenciones(): UseAtencionesReturn {
   );
 
   const atencionesConDetalles = atencionesData ?? [];
-  const atenciones: Atencion[] = atencionesConDetalles;
+  const atenciones: Atencion[] = [...atencionesConDetalles]; // Copia para evitar mutación compartida
   const isLoading = atencionesData === undefined;
 
   const handleError = (err: unknown): string => {

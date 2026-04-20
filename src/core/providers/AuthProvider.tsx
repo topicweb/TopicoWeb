@@ -92,16 +92,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(async () => {
           try {
             // Obtener perfil de Supabase para conseguir business_id
-            const { data: perfiles } = await supabase
+            // FIX: Usar .maybeSingle() para no lanzar error si el perfil no existe todavía
+            const { data: perfiles, error: perfilError } = await supabase
               .from('perfiles')
               .select('*')
               .eq('email', session.user.email!)
-              .single();
+              .maybeSingle();
+
+            if (perfilError) {
+              console.warn('[AuthProvider] Error obteniendo perfil:', perfilError);
+              return;
+            }
 
             if (perfiles?.business_id) {
               setIsInitialSync(true);
               await syncService.pullFromSupabase(perfiles.business_id);
               setHasInitialPull(true);
+            } else {
+              // Perfil no existe todavía (puede pasar en primer login)
+              // Esperar a que el trigger de Supabase lo cree
+              console.log('[AuthProvider] Perfil no encontrado, esperando creación por trigger...');
+              // Opcional: reintentar después de unos segundos
+              setTimeout(async () => {
+                const { data: retryPerfil } = await supabase
+                  .from('perfiles')
+                  .select('business_id')
+                  .eq('email', session.user.email!)
+                  .maybeSingle();
+
+                if (retryPerfil?.business_id) {
+                  setIsInitialSync(true);
+                  await syncService.pullFromSupabase(retryPerfil.business_id);
+                  setHasInitialPull(true);
+                  setIsInitialSync(false);
+                }
+              }, 2000);
             }
           } catch (error) {
             console.error('[AuthProvider] Error en PULL inicial:', error);

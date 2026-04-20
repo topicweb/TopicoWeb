@@ -54,6 +54,13 @@ export function useLazyMovimientos(businessId: string | undefined, options: UseL
     setError(null);
   }, [medicamentoId, atencionId, fechaDesde, fechaHasta, tipo, businessId]);
 
+  // CRITICAL FIX: Limpiar cache al desmontar para evitar memory leak
+  useEffect(() => {
+    return () => {
+      pageCache.current = {};
+    };
+  }, []);
+
   const getQuery = useCallback(() => {
     if (!businessId) return null;
 

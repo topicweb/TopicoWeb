@@ -83,6 +83,14 @@ export function useAtencionesFilter(
   }, [filters]);
 
   /**
+   * Verifica si el rango de fechas es inválido (fechaDesde > fechaHasta)
+   */
+  const isDateRangeInvalid = useMemo(() => {
+    if (!filters.fechaDesde || !filters.fechaHasta) return false;
+    return new Date(filters.fechaDesde) > new Date(filters.fechaHasta);
+  }, [filters.fechaDesde, filters.fechaHasta]);
+
+  /**
    * Lógica principal de filtrado con useMemo para performance
    * Aplica filtros en cascada: paciente → fechas → búsqueda textual
    */
@@ -135,6 +143,7 @@ export function useAtencionesFilter(
     setPacienteId,
     resetFilters,
     hasActiveFilters,
+    isDateRangeInvalid,
     resultCount,
   };
 }

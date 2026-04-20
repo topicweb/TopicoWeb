@@ -26,6 +26,7 @@ export default function AttentionsPage() {
     setPacienteId,
     resetFilters,
     hasActiveFilters,
+    isDateRangeInvalid,
     resultCount,
   } = useAtencionesFilter(atencionesConDetalles);
 
@@ -93,6 +94,7 @@ export default function AttentionsPage() {
         onFechaHastaChange={setFechaHasta}
         onReset={resetFilters}
         hasActiveFilters={hasActiveFilters}
+        isDateRangeInvalid={isDateRangeInvalid}
         resultCount={resultCount}
       />
 

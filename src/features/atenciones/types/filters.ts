@@ -39,6 +39,8 @@ export interface UseAtencionesFilterReturn {
   resetFilters: () => void;
   /** Indica si hay algún filtro activo (no default) */
   hasActiveFilters: boolean;
+  /** Indica si el rango de fechas es inválido (desde > hasta) */
+  isDateRangeInvalid: boolean;
   /** Cantidad de resultados después del filtrado */
   resultCount: number;
 }
@@ -53,5 +55,6 @@ export interface AtencionesFilterBarProps {
   onFechaHastaChange: (date: string | null) => void;
   onReset: () => void;
   hasActiveFilters: boolean;
+  isDateRangeInvalid: boolean;
   resultCount: number;
 }
