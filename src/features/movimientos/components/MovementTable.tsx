@@ -77,11 +77,10 @@ export function MovementTable({ movements }: MovementTableProps) {
                   </td>
                   <td className="px-6 py-4">
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        isEntrada
-                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                          : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
-                      }`}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isEntrada
+                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                        : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                        }`}
                     >
                       {isEntrada ? (
                         <ArrowDown size={12} />
@@ -93,11 +92,10 @@ export function MovementTable({ movements }: MovementTableProps) {
                   </td>
                   <td className="px-6 py-4">
                     <span
-                      className={`text-sm font-bold ${
-                        isEntrada
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : "text-rose-600 dark:text-rose-400"
-                      }`}
+                      className={`text-sm font-bold ${isEntrada
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : "text-rose-600 dark:text-rose-400"
+                        }`}
                     >
                       {isEntrada ? "+" : "-"}
                       {movement.cantidad}
