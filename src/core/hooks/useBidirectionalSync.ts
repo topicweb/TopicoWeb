@@ -32,7 +32,7 @@ export function useBidirectionalSync() {
       try {
         // PULL inicial si es el primer login
         if (!hasInitialPull) {
-          console.log('[useBidirectionalSync] Ejecutando PULL inicial...');
+          // DEBUG: console.log('[useBidirectionalSync] Ejecutando PULL inicial...');
           await syncService.pullFromSupabase(businessId);
           setHasInitialPull(true);
         }

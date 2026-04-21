@@ -7,6 +7,13 @@ import { AtencionCard } from '@/features/atenciones/components/AtencionCard';
 import Link from 'next/link';
 import { Plus, FileText, Stethoscope } from 'lucide-react';
 
+// E2E TEST: Botón de prueba temporal (eliminar en producción)
+const runE2ETest = async () => {
+  const { simularAtencionCompleta } = await import('@/test/e2e/simularAtencion.test');
+  await simularAtencionCompleta();
+  window.location.reload(); // Recargar para ver los nuevos datos
+};
+
 /**
  * Página de listado de atenciones médicas
  *
@@ -77,13 +84,25 @@ export default function AttentionsPage() {
             {atencionesConDetalles.length} atenciones registradas en total
           </p>
         </div>
-        <Link
-          href="/dashboard/attentions/new"
-          className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-teal-700 hover:shadow-md focus:ring-4 focus:ring-teal-500/20 active:scale-95 dark:bg-teal-500 dark:hover:bg-teal-400"
-        >
-          <Plus size={20} />
-          Nueva Atención
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* E2E TEST: Botón temporal para probar flujo completo */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={runE2ETest}
+              className="inline-flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-violet-700 hover:shadow-md focus:ring-4 focus:ring-violet-500/20 active:scale-95"
+              title="Ejecutar prueba E2E: crea paciente, medicamentos, atención y dispensación"
+            >
+              🧪 Test E2E
+            </button>
+          )}
+          <Link
+            href="/dashboard/attentions/new"
+            className="inline-flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-teal-700 hover:shadow-md focus:ring-4 focus:ring-teal-500/20 active:scale-95 dark:bg-teal-500 dark:hover:bg-teal-400"
+          >
+            <Plus size={20} />
+            Nueva Atención
+          </Link>
+        </div>
       </div>
 
       {/* Barra de filtros */}

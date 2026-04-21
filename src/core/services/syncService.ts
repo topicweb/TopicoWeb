@@ -49,11 +49,11 @@ export class SyncService {
     const metadata = await db.sync_metadata.where({ deviceId, businessId }).first();
 
     if (metadata) {
-      console.log('[SyncService] Dispositivo conocido, última sync:', metadata.lastSync);
+      // DEBUG: console.log('[SyncService] Dispositivo conocido, última sync:', metadata.lastSync);
       return { isKnown: true, lastSync: metadata.lastSync };
     }
 
-    console.log('[SyncService] Dispositivo nuevo, se hará PULL completo');
+    // DEBUG: console.log('[SyncService] Dispositivo nuevo, se hará PULL completo');
     return { isKnown: false, lastSync: null };
   }
 
@@ -83,7 +83,7 @@ export class SyncService {
     if (this.isPulling) {
       if (!this.pendingPulls.includes(businessId)) {
         this.pendingPulls.push(businessId);
-        console.log(`[SyncService] PULL encolado para ${businessId}`);
+        // DEBUG: console.log(`[SyncService] PULL encolado para ${businessId}`);
       }
       return;
     }
@@ -152,7 +152,7 @@ export class SyncService {
       // CRITICAL FIX: Procesar siguiente PULL en cola si existe
       if (this.pendingPulls.length > 0) {
         const nextBusinessId = this.pendingPulls.shift();
-        console.log(`[SyncService] Procesando PULL encolado para ${nextBusinessId}`);
+        // DEBUG: console.log(`[SyncService] Procesando PULL encolado para ${nextBusinessId}`);
         // Usar setTimeout para evitar recursion profunda
         setTimeout(() => {
           if (nextBusinessId) {
@@ -188,7 +188,7 @@ export class SyncService {
 
           if (validMovements.length < pending.length) {
             const invalidCount = pending.length - validMovements.length;
-            console.warn(`[SyncService] Filtrados ${invalidCount} movimientos con medicamento_id inválido`);
+            // DEBUG: console.warn(`[SyncService] Filtrados ${invalidCount} movimientos con medicamento_id inválido`);
 
             const invalidIds = pending
               .filter((m: any) => !medicamentoIds.has(m.medicamento_id))
@@ -237,10 +237,10 @@ export class SyncService {
         // Marcar como sincronizado
         const ids = pending.map((p: any) => p.id);
         await table.bulkUpdate(ids.map((id: string) => ({ key: id, changes: { sync_status: 'synced' } })));
-        console.log(`[SyncService] PUSH ${tableName}: ${ids.length} registros`);
+        // DEBUG: console.log(`[SyncService] PUSH ${tableName}: ${ids.length} registros`);
       }
 
-      console.log('[SyncService] PUSH completado exitosamente');
+      // DEBUG: console.log('[SyncService] PUSH completado exitosamente');
     } catch (error) {
       console.error('[SyncService] Error en PUSH:', error);
       throw error;

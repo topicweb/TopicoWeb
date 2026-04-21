@@ -5,6 +5,7 @@
 import { useEffect } from 'react';
 import { db } from '@/core/db/dexie/db';
 import { supabase } from '@/core/db/supabase/client';
+import { toast } from 'sonner';
 
 // Orden de sincronización: medicamentos DEBE ir antes que movimientos_stock (foreign key)
 // NOTA: 
@@ -34,49 +35,57 @@ const yieldToMain = (): Promise<void> => {
   });
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// MIGRACIONES GENÉRICAS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+interface BatchMigrationConfig<T> {
+  tableName: keyof typeof db;
+  batchSize?: number;
+  processItem: (item: T) => Promise<boolean>;
+}
+
+/**
+ * Procesador genérico de migraciones en batches.
+ * Evita bloquear la UI cediendo control al navegador cada batch.
+ */
+async function batchMigration<T>(config: BatchMigrationConfig<T>): Promise<void> {
+  const { tableName, batchSize = 100, processItem } = config;
+  const table = (db as any)[tableName];
+  let offset = 0;
+
+  while (true) {
+    const batch = await table.offset(offset).limit(batchSize).toArray();
+    if (batch.length === 0) break;
+
+    for (const item of batch) {
+      await processItem(item);
+    }
+
+    await yieldToMain();
+    offset += batchSize;
+  }
+}
+
 /**
  * Migración de datos: Corrige movimientos con tipo_medida NULL
- * CRITICAL FIX: Ahora procesa en batches de 100 con yield para no bloquear UI
  */
 export async function migrateNullTipoMedida() {
   try {
-    const BATCH_SIZE = 100;
-    let offset = 0;
-    let correctedCount = 0;
-    let processedCount = 0;
-
-    // Procesar en batches para no bloquear la UI
-    while (true) {
-      const batch = await db.movimientos_stock
-        .offset(offset)
-        .limit(BATCH_SIZE)
-        .toArray();
-
-      if (batch.length === 0) break;
-
-      for (const movement of batch) {
-        processedCount++;
-
+    await batchMigration({
+      tableName: 'movimientos_stock',
+      processItem: async (movement: any) => {
         if (!movement.tipo_medida) {
           const medicamento = await db.medicamentos.get(movement.medicamento_id);
-          const tipoMedida = medicamento?.tipo_medida || 'UNIDAD';
-
           await db.movimientos_stock.update(movement.id, {
-            tipo_medida: tipoMedida,
+            tipo_medida: medicamento?.tipo_medida || 'UNIDAD',
             sync_status: 'pending',
           });
-
-          correctedCount++;
+          return true;
         }
-      }
-
-      // CRITICAL: Ceder control al navegador cada batch
-      await yieldToMain();
-
-      offset += BATCH_SIZE;
-    }
-
-    console.log(`[Migración] Procesados ${processedCount} movimientos, corregidos ${correctedCount}`);
+        return false;
+      },
+    });
   } catch (error) {
     console.error('[Migración] Error corrigiendo tipo_medida:', error);
   }
@@ -84,46 +93,27 @@ export async function migrateNullTipoMedida() {
 
 /**
  * Migración de datos: Corrige registros con activo como boolean a 1/0
- * CRITICAL FIX: Ahora procesa en batches con yield para no bloquear UI
  */
 export async function migrateActivoBooleanToNumber() {
-  try {
-    const BATCH_SIZE = 100;
-    const tables = ['pacientes', 'medicamentos', 'programas_estudio'];
-    let totalCorrected = 0;
-    let totalProcessed = 0;
+  const tables: (keyof typeof db)[] = ['pacientes', 'medicamentos', 'programas_estudio'];
 
+  try {
     for (const tableName of tables) {
       const table = (db as any)[tableName];
-      let offset = 0;
-
-      while (true) {
-        const batch = await table.offset(offset).limit(BATCH_SIZE).toArray();
-        if (batch.length === 0) break;
-
-        let batchCorrected = 0;
-
-        for (const record of batch) {
-          totalProcessed++;
-
+      await batchMigration({
+        tableName,
+        processItem: async (record: any) => {
           if (typeof record.activo === 'boolean') {
             await table.update(record.id, {
               activo: record.activo ? 1 : 0,
               sync_status: 'pending',
             });
-            totalCorrected++;
-            batchCorrected++;
+            return true;
           }
-        }
-
-        // CRITICAL: Ceder control al navegador cada batch
-        await yieldToMain();
-
-        offset += BATCH_SIZE;
-      }
+          return false;
+        },
+      });
     }
-
-    console.log(`[Migración activo] Procesados ${totalProcessed}, corregidos ${totalCorrected}`);
   } catch (error) {
     console.error('[Migración activo] Error corrigiendo valores:', error);
   }
@@ -132,24 +122,21 @@ export async function migrateActivoBooleanToNumber() {
 /**
  * Migración CRÍTICA: Corrige sync_status de perfiles de 'pending' a 'synced'
  * Los perfiles se gestionan via Server Actions, no por background sync.
- * Si tienen 'pending' nunca se sincronizarán porque están excluidos del PUSH.
  */
 export async function migratePerfilesSyncStatus() {
   try {
-    const allPerfiles = await db.perfiles.toArray();
-    const pendingPerfiles = allPerfiles.filter((p: any) => p.sync_status === 'pending');
+    const pendingPerfiles = await db.perfiles
+      .where('sync_status')
+      .equals('pending')
+      .toArray();
 
     if (pendingPerfiles.length === 0) return;
 
-    console.log(`[Migración perfiles] Corrigiendo ${pendingPerfiles.length} perfiles con sync_status='pending' → 'synced'`);
-
-    for (const perfil of pendingPerfiles) {
-      await db.perfiles.update(perfil.id, {
-        sync_status: 'synced',
-      });
-    }
-
-    console.log(`[Migración perfiles] ${pendingPerfiles.length} perfiles corregidos a 'synced'`);
+    await Promise.all(
+      pendingPerfiles.map((perfil) =>
+        db.perfiles.update(perfil.id, { sync_status: 'synced' })
+      )
+    );
   } catch (error) {
     console.error('[Migración perfiles] Error corrigiendo sync_status:', error);
   }
@@ -164,11 +151,11 @@ export function useDataMigrations() {
   useEffect(() => {
     // Ejecutar migraciones inmediatamente al montar, no esperar a sync
     const runMigrations = async () => {
-      console.log('[useDataMigrations] Iniciando migraciones...');
+      // DEBUG: console.log('[useDataMigrations] Iniciando migraciones...');
       await migrateNullTipoMedida();
       await migrateActivoBooleanToNumber();
       await migratePerfilesSyncStatus();
-      console.log('[useDataMigrations] Migraciones completadas');
+      // DEBUG: console.log('[useDataMigrations] Migraciones completadas');
     };
 
     runMigrations();
@@ -251,6 +238,10 @@ export function useSimpleSync(enabled: boolean) {
 
         if (error) {
           console.error(`[useSimpleSync] Error sincronizando ${tableName}:`, error);
+          // Feedback visual solo en errores graves (no en 409 Conflict que es normal)
+          if (error.code !== '409' && error.code !== '23505') {
+            toast.error(`Error sincronizando ${tableName}. Se reintentará automáticamente.`);
+          }
           continue;
         }
 
