@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-// Esquema para Pacientes
+// ───────────────────────────────────────────────────────────────────────────────
+// ESQUEMAS DE VALIDACIÓN
+// Define reglas de validación para formularios usando Zod
+// ───────────────────────────────────────────────────────────────────────────────
+
+// ───────────────────────────────────────────────────────────────────────────────
+// Validación de Pacientes
+// ───────────────────────────────────────────────────────────────────────────────
 export const PacienteSchema = z.object({
   nombres: z.string().min(2, "El nombre debe tener al menos 2 letras"),
   apellidos: z.string().min(2, "El apellido debe tener al menos 2 letras"),
@@ -11,11 +18,12 @@ export const PacienteSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional().default({}),
 });
 
-// Esquema para Medicamentos
+// ───────────────────────────────────────────────────────────────────────────────
+// Validación de Medicamentos
+// ───────────────────────────────────────────────────────────────────────────────
 export const MedicamentoSchema = z.object({
   nombre: z.string().min(3, "El nombre del medicamento es muy corto"),
   descripcion: z.string().optional(),
   unidad_medida: z.string().min(1, "La unidad de medida es requerida"),
-  // Usamos coerce para transformar strings numéricos a números
   stock_minimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo"),
 });

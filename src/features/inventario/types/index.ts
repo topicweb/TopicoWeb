@@ -27,6 +27,7 @@ export interface MovimientoStock extends BaseEntity {
   tipo_medida: TipoMedida;
   descripcion_movimiento?: string;
   fecha_movimiento: string;
+  fecha_vencimiento?: string | null;
 }
 
 export type MedicamentoFormData = Omit<

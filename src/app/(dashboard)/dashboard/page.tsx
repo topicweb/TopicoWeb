@@ -1,21 +1,30 @@
 "use client";
 
+import { useState } from "react";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useNetwork } from "@/core/providers/NetworkProvider";
 import { motion } from "framer-motion";
-import { Wifi, WifiOff, DatabaseZap, Trash2 } from "lucide-react";
+import { Wifi, WifiOff, Trash2 } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db, clearDatabase } from "@/core/db/dexie/db";
-import { seedDatabase } from "@/shared/utils/seedData";
 import { StatCards } from "@/shared/dashboard/StatCards";
 import { RecentActivity } from "@/shared/dashboard/RecentActivity";
 import { ExpiringStock } from "@/shared/dashboard/ExpiringStock";
+import { ConfirmationModal } from "@/shared/ui/ConfirmationModal";
 import { Users, Pill, ClipboardList, AlertTriangle } from "lucide-react";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// DASHBOARD PAGE
+// Panel principal con estadísticas en tiempo real y controles de sistema
+// ───────────────────────────────────────────────────────────────────────────────
+
 export default function DashboardPage() {
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const { businessId, user } = useAuth();
   const { isOnline } = useNetwork();
 
+  // Estadísticas del dashboard en tiempo real
   const stats = useLiveQuery(async () => {
     if (!businessId) return undefined;
 
@@ -23,17 +32,21 @@ export default function DashboardPage() {
     const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
     const [patients, attentionsToday, lowStock, expiringStock] = await Promise.all([
-      db.pacientes.where("business_id").equals(businessId).count(),
+      db.pacientes.where("[business_id+activo]").equals([businessId, 1]).count(),
       db.atenciones.where("[business_id+fecha_atencion]").between(
         [businessId, today],
         [businessId, today + "\uffff"]
       ).count(),
       db.medicamentos.where("[business_id+activo]").equals([businessId, 1])
         .filter((m) => (m.stock_actual ?? 0) <= m.stock_minimo).count(),
-      // Productos por vencer (busca movimientos de entrada recientes)
+      // Productos por vencer (movimientos con fecha_vencimiento en próximos 30 días)
       db.movimientos_stock
-        .where("[business_id+tipo+fecha_movimiento]")
-        .between([businessId, "ENTRADA", today], [businessId, "ENTRADA", thirtyDaysLater + "\uffff"])
+        .where("[business_id+tipo]")
+        .equals([businessId, "ENTRADA"])
+        .filter((mov) => {
+          if (!mov.fecha_vencimiento) return false;
+          return mov.fecha_vencimiento >= today && mov.fecha_vencimiento <= thirtyDaysLater;
+        })
         .count(),
     ]);
 
@@ -45,6 +58,7 @@ export default function DashboardPage() {
     ];
   }, [businessId]);
 
+  // Actividad reciente con nombres de pacientes y staff
   const recentActivity = useLiveQuery(async () => {
     if (!businessId) return [];
     const recents = await db.atenciones.where("business_id").equals(businessId).reverse().limit(5).toArray();
@@ -57,6 +71,7 @@ export default function DashboardPage() {
         return {
           ...a,
           pacienteNombre: p ? `${p.nombres} ${p.apellidos}` : "Desconocido",
+          pacienteDNI: p?.dni || '',
           staffNombre: staff?.nombre ?? "Desconocido",
         };
       }),
@@ -65,7 +80,7 @@ export default function DashboardPage() {
 
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-      {/* Header */}
+      {/* Header con controles de sistema */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panel Principal</h1>
@@ -76,19 +91,7 @@ export default function DashboardPage() {
 
         <div className="flex items-center gap-2">
           <button
-            onClick={() => user?.email && user?.id && seedDatabase(user.email, user.id)}
-            className="flex items-center gap-2 rounded-lg bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300"
-          >
-            <DatabaseZap size={16} />
-            Semilla
-          </button>
-
-          <button
-            onClick={() => {
-              if (confirm('¿Estás seguro? Esto borrará TODOS los datos locales y recargará la página.')) {
-                clearDatabase();
-              }
-            }}
+            onClick={() => setShowConfirmModal(true)}
             className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-300"
             title="Limpiar base de datos local"
           >
@@ -102,14 +105,26 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid - Optimizado para móvil */}
+      {/* Estadísticas principales */}
       <StatCards stats={stats} />
 
-      {/* Stock por Vencer - Sección destacada */}
+      {/* Alertas de stock próximo a vencer */}
       <ExpiringStock businessId={businessId} />
 
-      {/* Recent Activity - Compacto */}
+      {/* Actividad reciente */}
       <RecentActivity activities={recentActivity} />
+
+      <ConfirmationModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={async () => {
+          setIsClearing(true);
+          clearDatabase();
+        }}
+        title="Limpiar Base de Datos"
+        message="¿Estás seguro? Esto borrará TODOS los datos locales y recargará la página."
+        isLoading={isClearing}
+      />
     </motion.div>
   );
 }

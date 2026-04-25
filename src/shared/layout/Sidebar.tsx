@@ -8,6 +8,11 @@ import { SyncMonitor } from "@/shared/components/SyncMonitor";
 import { UserProfileCard } from "@/shared/components/UserProfileCard";
 import { primaryMenuItems, secondaryMenuItems } from "./navigation.config";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// SIDEBAR (DESKTOP)
+// Barra lateral de navegación fija para pantallas de escritorio
+// ───────────────────────────────────────────────────────────────────────────────
+
 export const Sidebar = () => {
   const pathname = usePathname();
   const { user, role, signOut } = useAuth();

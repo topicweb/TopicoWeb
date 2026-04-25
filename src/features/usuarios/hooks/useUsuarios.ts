@@ -1,26 +1,30 @@
-/**
- * Hook del módulo Usuarios - CRUD híbrido (Server Actions + Dexie).
- */
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/core/providers/AuthProvider';
 import { Perfil } from '../types';
 import { createUserAction, softDeleteUserAction, updateUserAction } from '../actions/users';
 import { db } from '@/core/db';
 
+// ───────────────────────────────────────────────────────────────────────────────
+// GESTIÓN DE USUARIOS
+// CRUD híbrido: Server Actions + Dexie (offline-first)
+// ───────────────────────────────────────────────────────────────────────────────
+
 export function useUsuarios() {
   const { businessId } = useAuth();
 
-  // Query reactiva filtrada por tenant
+  // Query reactiva: usuarios activos del tenant actual
   const usuarios = useLiveQuery<Perfil[] | undefined>(
     async () => {
       const allPerfiles = await db.perfiles.toArray();
 
       if (!businessId) return [];
 
+      // Filtrar por tenant
       const perfilesWithBusinessId = allPerfiles.filter((p: Perfil) => p.business_id === businessId);
 
+      // Solo activos y no eliminados
       const filtered = perfilesWithBusinessId.filter((p: Perfil) => {
-        // Manejar tanto boolean (Supabase) como number (Dexie) para activo
+        // Compatible con boolean (Supabase) y number (Dexie)
         const isActive = (p.activo as any) === 1 || (p.activo as any) === true;
         const isNotDeleted = !p.deleted_at;
         return isActive && isNotDeleted;
@@ -31,20 +35,18 @@ export function useUsuarios() {
 
   const isLoading = usuarios === undefined;
 
-  // ── 2. Operaciones ─────────────────────────────────────────────────────
+  // ── OPERACIONES CRUD ─────────────────────────────────────────────────────────
 
-  /**
-   * Crea un usuario en Supabase Auth + registra su perfil en Dexie.
-   * REQUIERE conexión a internet (Auth no funciona offline).
-   */
   const crearUsuario = async (
     usuario: Partial<Perfil> & { password?: string }
   ) => {
+    // Auth requiere conexión obligatoria
     if (!navigator.onLine) {
-      throw new Error('Se requiere conexión a internet para crear nuevos usuarios.');
+      throw new Error('Se requiere conexión para crear usuarios');
     }
-    if (!businessId) throw new Error('Business ID no encontrado');
+    if (!businessId) throw new Error('Business ID requerido');
 
+    // Crear en Supabase Auth + perfil local
     const result = await createUserAction({ ...usuario, business_id: businessId });
 
     if (result.success && result.user) {
@@ -54,14 +56,10 @@ export function useUsuarios() {
     return result;
   };
 
-  /**
-   * Actualiza un perfil de usuario via Server Action.
-   * NOTA: perfiles no usan sincronización background (excluidos de syncService).
-   * Siempre se marcan como 'synced' ya que se gestionan directamente via Server Actions.
-   */
   const actualizarUsuario = async (id: string, datos: Partial<Perfil>) => {
+    // Actualización directa via Server Action
     if (!navigator.onLine) {
-      throw new Error('Se requiere conexión para actualizar usuarios.');
+      throw new Error('Se requiere conexión para actualizar');
     }
 
     await updateUserAction(id, datos);
@@ -72,14 +70,10 @@ export function useUsuarios() {
     });
   };
 
-  /**
-   * Soft-delete de usuario: marca como inactivo en Dexie y en Supabase.
-   * NOTA: perfiles no usan sincronización background (excluidos de syncService).
-   * Requiere conexión para ejecutar la Server Action.
-   */
   const eliminarUsuario = async (id: string) => {
+    // Soft-delete: mantiene datos pero marca inactivo
     if (!navigator.onLine) {
-      throw new Error('Se requiere conexión para eliminar usuarios.');
+      throw new Error('Se requiere conexión para eliminar');
     }
 
     const now = new Date().toISOString();

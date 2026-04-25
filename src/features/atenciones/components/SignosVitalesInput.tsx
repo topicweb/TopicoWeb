@@ -4,6 +4,11 @@ import { useCallback } from "react";
 import { Thermometer, Activity, Droplets } from "lucide-react";
 import { SignosVitales } from "../types";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// SIGNOS VITALES INPUT
+// Componente compacto para entrada de signos vitales médicos
+// ───────────────────────────────────────────────────────────────────────────────
+
 interface SignosVitalesInputProps {
   value: SignosVitales;
   onChange: (signos: SignosVitales) => void;

@@ -3,12 +3,12 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
 
-/**
- * Configuración de fuentes optimizada:
- * - display: 'swap': Renderiza texto inmediato con fallback, cambia cuando carga
- * - subsets: ['latin']: Reduce payload descargando solo glifos necesarios
- * - variable: Expone como CSS custom property para uso en Tailwind/globals.css
- */
+// ───────────────────────────────────────────────────────────────────────────────
+// ROOT LAYOUT
+// Configuración global de fuentes y metadata PWA
+// ───────────────────────────────────────────────────────────────────────────────
+
+// Fuentes optimizadas para rendimiento y legibilidad
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],

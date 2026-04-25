@@ -1,28 +1,49 @@
 /**
- * Servicio de Sincronización Bidireccional
+ * @fileoverview Servicio de Sincronización Bidireccional (PULL/PUSH)
+ * @description Implementa sincronización offline-first entre Dexie (IndexedDB) y Supabase.
  * 
- * Estrategia:
- * - PULL: Descargar datos de Supabase al inicio y en cambios remotos
- * - PUSH: Subir datos locales pendientes
- * - Conflictos: Last Write Wins basado en actualizado_at
+ * Estrategias implementadas:
+ * - PULL: Descarga datos desde Supabase al iniciar
+ * - PUSH: Sube datos locales pendientes automáticamente
+ * - Conflictos: Last Write Wins basado en timestamps
  * - Sincronización Híbrida: Completa para nuevos dispositivos, incremental para conocidos
+ * 
+ * @module SyncService
+ * @see useBidirectionalSync - Hook React que consume este servicio
  */
+
 import { db } from '@/core/db';
-import { supabase } from '@/core/db/supabase/client';
-import type { BaseEntity } from '@/core/db/dexie/types';
+import { supabase } from '@/core/db/supabase';
 import { getDeviceId } from '@/core/utils/deviceId';
 
-// Tablas para PULL (descargar de Supabase): incluye perfiles para mantener datos actualizados
-const PULL_TABLES = ['instituciones', 'perfiles', 'programas_estudio', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONSTANTES DE CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// Tablas para PUSH (subir a Supabase): excluye perfiles (gestionado por Auth trigger) y programas_estudio (read-only)
-const PUSH_TABLES = ['instituciones', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
-// Tablas en Supabase que NO tienen columnas creado_at/actualizado_at
-// Estas tablas no pueden usar PULL incremental, siempre hacen PULL completo
-// Después de la migración, todas las tablas tienen actualizado_at, así que esta lista está vacía
-const TABLES_WITHOUT_TIMESTAMPS: string[] = [];
+/** Tablas para PULL (descargar de Supabase) - incluye perfiles para mantener datos actualizados */
+const PULL_TABLES = [
+  'instituciones',
+  'perfiles',
+  'programas_estudio',
+  'pacientes',
+  'medicamentos',
+  'atenciones',
+  'movimientos_stock'
+] as const;
 
-// Tablas que NO tienen business_id (instituciones.id IS the business_id)
+/** Tablas para PUSH (subir a Supabase) - excluye perfiles y programas_estudio */
+const PUSH_TABLES = [
+  'instituciones',
+  'pacientes',
+  'medicamentos',
+  'atenciones',
+  'movimientos_stock'
+] as const;
+
+/** Tablas sin columnas timestamp (movimientos_stock no tiene creado_at/actualizado_at en Supabase) */
+const TABLES_WITHOUT_TIMESTAMPS: string[] = ['movimientos_stock'];
+
+/** Tablas sin business_id (instituciones usa su propio id) */
 const TABLES_WITHOUT_BUSINESS_ID = ['instituciones'];
 
 export class SyncService {
@@ -49,11 +70,9 @@ export class SyncService {
     const metadata = await db.sync_metadata.where({ deviceId, businessId }).first();
 
     if (metadata) {
-      // DEBUG: console.log('[SyncService] Dispositivo conocido, última sync:', metadata.lastSync);
       return { isKnown: true, lastSync: metadata.lastSync };
     }
 
-    // DEBUG: console.log('[SyncService] Dispositivo nuevo, se hará PULL completo');
     return { isKnown: false, lastSync: null };
   }
 
@@ -83,7 +102,6 @@ export class SyncService {
     if (this.isPulling) {
       if (!this.pendingPulls.includes(businessId)) {
         this.pendingPulls.push(businessId);
-        // DEBUG: console.log(`[SyncService] PULL encolado para ${businessId}`);
       }
       return;
     }
@@ -127,6 +145,11 @@ export class SyncService {
           continue;
         }
 
+        // LOG: Mostrar datos descargados
+        if (tableName === 'programas_estudio') {
+          console.log('[SyncService] Programas descargados de Supabase:', data.map((p: any) => ({ id: p.id, nombre: p.nombre })));
+        }
+
         // Normalizar datos de Supabase para Dexie
         // - activo: boolean -> 1/0
         // - sync_status: siempre 'synced' (los datos de Supabase ya están sincronizados)
@@ -139,6 +162,12 @@ export class SyncService {
         // Upsert en Dexie local
         const table = (db as any)[tableName];
         await table.bulkPut(normalizedData);
+
+        // LOG: Verificar datos en Dexie después de bulkPut
+        if (tableName === 'programas_estudio') {
+          const localPrograms = await db.programas_estudio.toArray();
+          console.log('[SyncService] Programas en Dexie después de bulkPut:', localPrograms.map((p: any) => ({ id: p.id, nombre: p.nombre })));
+        }
       }
 
       // Actualizar timestamp de última sincronización
@@ -152,7 +181,6 @@ export class SyncService {
       // CRITICAL FIX: Procesar siguiente PULL en cola si existe
       if (this.pendingPulls.length > 0) {
         const nextBusinessId = this.pendingPulls.shift();
-        // DEBUG: console.log(`[SyncService] Procesando PULL encolado para ${nextBusinessId}`);
         // Usar setTimeout para evitar recursion profunda
         setTimeout(() => {
           if (nextBusinessId) {
@@ -169,17 +197,26 @@ export class SyncService {
    */
   async pushToSupabase(): Promise<void> {
     if (this.isPushing) {
+      console.log('[SyncService] ⚠️ PUSH ya en progreso, omitiendo');
       return;
     }
 
     this.isPushing = true;
+    console.log('[SyncService] 📤 Iniciando PUSH a Supabase');
 
     try {
+      let totalPending = 0;
       for (const tableName of PUSH_TABLES) {
         const table = (db as any)[tableName];
         let pending = await table.where('sync_status').equals('pending').toArray();
 
-        if (pending.length === 0) continue;
+        if (pending.length === 0) {
+          console.log(`[SyncService] ✓ Tabla ${tableName}: 0 registros pendientes`);
+          continue;
+        }
+
+        console.log(`[SyncService] 📋 Tabla ${tableName}: ${pending.length} registros pendientes`);
+        totalPending += pending.length;
 
         // VALIDACIÓN DE FOREIGN KEY: Filtrar movimientos con medicamento_id inválido
         if (tableName === 'movimientos_stock') {
@@ -188,7 +225,6 @@ export class SyncService {
 
           if (validMovements.length < pending.length) {
             const invalidCount = pending.length - validMovements.length;
-            // DEBUG: console.warn(`[SyncService] Filtrados ${invalidCount} movimientos con medicamento_id inválido`);
 
             const invalidIds = pending
               .filter((m: any) => !medicamentoIds.has(m.medicamento_id))
@@ -234,18 +270,21 @@ export class SyncService {
           continue;
         }
 
+        console.log(`[SyncService] ✅ ${tableName}: upsert exitoso`);
+
         // Marcar como sincronizado
         const ids = pending.map((p: any) => p.id);
         await table.bulkUpdate(ids.map((id: string) => ({ key: id, changes: { sync_status: 'synced' } })));
-        // DEBUG: console.log(`[SyncService] PUSH ${tableName}: ${ids.length} registros`);
+        console.log(`[SyncService] ✅ ${tableName}: ${ids.length} registros marcados como synced`);
       }
 
-      // DEBUG: console.log('[SyncService] PUSH completado exitosamente');
+      console.log(`[SyncService] 📊 Total registros sincronizados: ${totalPending}`);
     } catch (error) {
-      console.error('[SyncService] Error en PUSH:', error);
+      console.error('[SyncService] ❌ Error en PUSH:', error);
       throw error;
     } finally {
       this.isPushing = false;
+      console.log('[SyncService] 🏁 PUSH finalizado');
     }
   }
 

@@ -4,6 +4,11 @@ import { motion } from "framer-motion";
 import { Activity, ClipboardList } from "lucide-react";
 import type { AtencionConDetalles } from "@/features/atenciones";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// ACTIVIDAD RECIENTE
+// Muestra las últimas atenciones médicas del día
+// ───────────────────────────────────────────────────────────────────────────────
+
 interface RecentActivityProps {
   activities: (AtencionConDetalles & { pacienteNombre: string })[] | undefined;
 }

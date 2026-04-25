@@ -1,4 +1,5 @@
 import { db } from "@/core/db/dexie/db";
+import { syncService } from '@/core/db/sync';
 import {
   updateMedicamentoStock,
   StockError,
@@ -10,21 +11,23 @@ import type {
   Atencion,
   AtencionFormData,
   AtencionConDetalles,
+  AtencionConDetallesExtendida,
   AtencionExtendida,
   DispensacionMedicamento,
+  DispensacionMedicamentoConNombre,
   AtencionContext,
   AtencionResultado,
 } from "../types";
 import { AtencionError } from "../types";
 import { SIGNOS_VITALES_VACIO } from "../types";
 
-// ── Constants ───────────────────────────────────────────────────────────────
+// ── CONSTANTES ───────────────────────────────────────────────────────────────
 
 const PACIENTE_DESCONOCIDO = "Paciente no encontrado";
 const STAFF_DESCONOCIDO = "Staff no encontrado";
 const MEDICAMENTO_DESCONOCIDO = "Medicamento no encontrado";
 
-// ── Helper Functions ─────────────────────────────────────────────────────────
+// ── FUNCIONES AUXILIARES ─────────────────────────────────────────────────────────
 
 const generarTimestampISO = (): string => new Date().toISOString();
 const generarUUID = (): string => crypto.randomUUID();
@@ -73,7 +76,7 @@ const buildMovimiento = (
   sync_status: "pending",
 });
 
-// ── Repository Implementation ────────────────────────────────────────────────
+// ── IMPLEMENTACIÓN DEL REPOSITORIO ────────────────────────────────────────────────
 
 /**
  * Implementación del repositorio de atenciones usando Dexie (IndexedDB)
@@ -116,6 +119,11 @@ export class DexieAtencionRepository {
       await db.transaction("rw", db.atenciones, async () => {
         await db.atenciones.add(buildAtencion(datos, atencionId, contexto, timestamp));
       });
+
+      // Trigger PUSH automático solo si hay conexión
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        syncService.pushToSupabase().catch(console.error);
+      }
 
       return {
         atencionId,
@@ -161,6 +169,11 @@ export class DexieAtencionRepository {
         }
       }
     );
+
+    // Trigger PUSH automático solo si hay conexión
+    if (typeof window !== 'undefined' && navigator.onLine) {
+      syncService.pushToSupabase().catch(console.error);
+    }
 
     return {
       atencionId,
@@ -225,12 +238,12 @@ export class DexieAtencionRepository {
   }
 
   /**
-   * Lista atenciones con nombres de paciente y staff enriquecidos
+   * Lista atenciones con nombres de paciente, staff y dispensaciones enriquecidos
    *
-   * Optimización: Usa Promise.all para cargar pacientes y staff en paralelo
-   * Complejidad: O(A + P + S) donde A = atenciones, P = pacientes únicos, S = staff únicos
+   * Optimización: Usa Promise.all para cargar pacientes, staff y movimientos en paralelo
+   * Complejidad: O(A + P + S + M) donde A = atenciones, P = pacientes únicos, S = staff únicos, M = movimientos
    */
-  async listarConDetalles(businessId: string, limite: number = 50): Promise<AtencionConDetalles[]> {
+  async listarConDetalles(businessId: string, limite: number = 50): Promise<AtencionConDetallesExtendida[]> {
     const atenciones = await db.atenciones
       .where("business_id")
       .equals(businessId)
@@ -242,13 +255,22 @@ export class DexieAtencionRepository {
       return [];
     }
 
-    // Optimización: bulk fetch de pacientes y perfiles
+    // Optimización: bulk fetch de pacientes, perfiles, movimientos y medicamentos
     const pacienteIds = [...new Set(atenciones.map((a) => a.paciente_id))];
     const perfilIds = [...new Set(atenciones.map((a) => a.perfil_id))];
+    const atencionIds = atenciones.map((a) => a.id);
+    const medicamentoIds = new Set<string>();
 
-    const [pacientes, perfiles] = await Promise.all([
+    // Primero obtener movimientos para saber qué medicamentos cargar
+    const movimientos = await db.movimientos_stock.where("atencion_id").anyOf(atencionIds).toArray();
+    for (const mov of movimientos) {
+      if (mov.medicamento_id) medicamentoIds.add(mov.medicamento_id);
+    }
+
+    const [pacientes, perfiles, medicamentos] = await Promise.all([
       db.pacientes.bulkGet(pacienteIds),
       db.perfiles.bulkGet(perfilIds),
+      db.medicamentos.bulkGet([...medicamentoIds]),
     ]);
 
     const pacienteMap = new Map(
@@ -257,15 +279,42 @@ export class DexieAtencionRepository {
     const perfilMap = new Map(
       perfiles.filter((p): p is NonNullable<typeof p> => p !== undefined).map((p) => [p.id, p])
     );
+    const medicamentoMap = new Map(
+      medicamentos.filter((m): m is NonNullable<typeof m> => m !== undefined).map((m) => [m.id, m])
+    );
 
-    return atenciones.map((a): AtencionConDetalles => {
+    // Mapear movimientos por atencion_id
+    const movimientosPorAtencion = new Map<string, MovimientoStock[]>();
+    for (const mov of movimientos) {
+      if (!mov.atencion_id) continue;
+      if (!movimientosPorAtencion.has(mov.atencion_id)) {
+        movimientosPorAtencion.set(mov.atencion_id, []);
+      }
+      movimientosPorAtencion.get(mov.atencion_id)!.push(mov);
+    }
+
+    return atenciones.map((a): AtencionConDetallesExtendida => {
       const paciente = pacienteMap.get(a.paciente_id);
       const staff = perfilMap.get(a.perfil_id);
+      const movs = movimientosPorAtencion.get(a.id) || [];
+
+      // Mapear movimientos a dispensaciones con nombres
+      const dispensaciones: DispensacionMedicamentoConNombre[] = movs.map((m) => {
+        const medicamento = medicamentoMap.get(m.medicamento_id);
+        return {
+          medicamento_id: m.medicamento_id,
+          cantidad: m.cantidad,
+          tipo_medida: m.tipo_medida!,
+          medicamento_nombre: medicamento?.nombre || MEDICAMENTO_DESCONOCIDO,
+        };
+      });
 
       return {
         ...a,
         pacienteNombre: paciente ? `${paciente.nombres} ${paciente.apellidos}` : PACIENTE_DESCONOCIDO,
+        pacienteDNI: paciente?.dni || '',
         staffNombre: staff?.nombre ?? STAFF_DESCONOCIDO,
+        dispensaciones,
       };
     });
   }
@@ -346,7 +395,7 @@ export class DexieAtencionRepository {
   }
 }
 
-// ── Singleton Instance ─────────────────────────────────────────────────────
+// ── INSTANCIA SINGLETON ─────────────────────────────────────────────────────
 
 /**
  * Instancia singleton del repositorio de atenciones

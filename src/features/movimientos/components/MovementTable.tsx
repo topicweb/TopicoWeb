@@ -105,8 +105,8 @@ export function MovementTable({ movements }: MovementTableProps) {
                     <div className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
                       <Hash size={14} />
                       <span>
-                        {movement.atencion_id
-                          ? `Atención ...${movement.atencion_id.slice(-6)}`
+                        {movement.atencionPacienteNombre
+                          ? `Atención - ${movement.atencionPacienteNombre}`
                           : "Ajuste Manual"}
                       </span>
                     </div>

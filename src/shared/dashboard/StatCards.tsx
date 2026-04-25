@@ -1,9 +1,13 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import Link from "next/link";
 import { Skeleton } from "@/shared/ui/Skeleton";
-import { Users, ClipboardList, Pill, AlertTriangle } from "lucide-react";
+
+// ───────────────────────────────────────────────────────────────────────────────
+// TARJETAS DE ESTADÍSTICAS DEL DASHBOARD
+// Muestra métricas principales en tarjetas con animaciones y estados de alerta
+// ───────────────────────────────────────────────────────────────────────────────
 
 interface Stat {
   label: string;

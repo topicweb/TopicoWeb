@@ -68,3 +68,5 @@ build/
 # Supabase (archivos locales generados por el CLI si se usara)
 .supabase/
 supabase/.temp/
+# Local Netlify folder
+.netlify

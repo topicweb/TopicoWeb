@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import type { AtencionConDetalles } from '../types';
+import type { AtencionConDetallesExtendida } from '../types';
 import type { AtencionesFilterState } from '../types/filters';
 
 export type { UseAtencionesFilterReturn } from '../types/filters';
 import type { UseAtencionesFilterReturn as UseAtencionesFilterReturnType } from '../types/filters';
 
-/**
- * Estado inicial por defecto de los filtros
- */
+// ───────────────────────────────────────────────────────────────────────────────
+// HOOK DE FILTRO DE ATENCIONES
+// Filtrado avanzado de atenciones con debounce y memoización
+// ───────────────────────────────────────────────────────────────────────────────
+
 const defaultFilters: AtencionesFilterState = {
   searchTerm: '',
   fechaDesde: null,
@@ -17,28 +19,15 @@ const defaultFilters: AtencionesFilterState = {
   pacienteId: null,
 };
 
-/**
- * Hook para filtrado de atenciones con múltiples criterios
- * 
- * Características:
- * - Filtrado por término de búsqueda (paciente o motivo)
- * - Filtrado por rango de fechas (desde/hasta)
- * - Filtrado por paciente específico (para ver historial)
- * - Resultados memoizados para optimizar performance
- * - API limpia para componentes UI
- * 
- * @param atenciones - Lista completa de atenciones a filtrar
- * @returns Estado filtrado y controladores
- */
 export function useAtencionesFilter(
-  atenciones: AtencionConDetalles[]
+  atenciones: AtencionConDetallesExtendida[]
 ): UseAtencionesFilterReturnType {
   const [filters, setFilters] = useState<AtencionesFilterState>(defaultFilters);
-
-  // Estado para debounce del término de búsqueda
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState(filters.searchTerm);
 
-  // Efecto de debounce: actualizar término después de 300ms de inactividad
+  // ── RENDIMIENTO: DEBOUNCE ───────────────────────────────────────────────────────
+
+  // Debounce para búsqueda (300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearchTerm(filters.searchTerm);
@@ -47,44 +36,30 @@ export function useAtencionesFilter(
     return () => clearTimeout(timer);
   }, [filters.searchTerm]);
 
-  /**
-   * Setter específico para término de búsqueda
-   */
+  // ── SETTERS DE FILTRO ─────────────────────────────────────────────────────────────
+
   const setSearchTerm = useCallback((term: string) => {
     setFilters((prev) => ({ ...prev, searchTerm: term }));
   }, []);
 
-  /**
-   * Setter para fecha inicial del rango
-   */
   const setFechaDesde = useCallback((date: string | null) => {
     setFilters((prev) => ({ ...prev, fechaDesde: date }));
   }, []);
 
-  /**
-   * Setter para fecha final del rango
-   */
   const setFechaHasta = useCallback((date: string | null) => {
     setFilters((prev) => ({ ...prev, fechaHasta: date }));
   }, []);
 
-  /**
-   * Setter para filtrar por paciente específico (historial)
-   */
   const setPacienteId = useCallback((id: string | null) => {
     setFilters((prev) => ({ ...prev, pacienteId: id }));
   }, []);
 
-  /**
-   * Resetear todos los filtros a valores por defecto
-   */
   const resetFilters = useCallback(() => {
     setFilters(defaultFilters);
   }, []);
 
-  /**
-   * Verifica si hay filtros activos (diferentes a default)
-   */
+  // ── VALIDACIÓN DE FILTRO ─────────────────────────────────────────────────────────
+
   const hasActiveFilters = useMemo(() => {
     return (
       filters.searchTerm !== '' ||
@@ -94,18 +69,13 @@ export function useAtencionesFilter(
     );
   }, [filters]);
 
-  /**
-   * Verifica si el rango de fechas es inválido (fechaDesde > fechaHasta)
-   */
   const isDateRangeInvalid = useMemo(() => {
     if (!filters.fechaDesde || !filters.fechaHasta) return false;
     return new Date(filters.fechaDesde) > new Date(filters.fechaHasta);
   }, [filters.fechaDesde, filters.fechaHasta]);
 
-  /**
-   * Lógica principal de filtrado con useMemo para performance
-   * Aplica filtros en cascada: paciente → fechas → búsqueda textual
-   */
+  // ── LÓGICA DE FILTRADO ─────────────────────────────────────────────────────────────
+
   const filteredData = useMemo(() => {
     return atenciones.filter((atencion) => {
       // Filtro por paciente específico (historial)
@@ -130,13 +100,13 @@ export function useAtencionesFilter(
         }
       }
 
-      // Filtro por término de búsqueda (paciente o motivo)
-      // Usa debouncedSearchTerm para evitar re-renders excesivos mientras se escribe
+      // Filtro por término de búsqueda (paciente, DNI o motivo)
       if (debouncedSearchTerm) {
         const term = debouncedSearchTerm.toLowerCase();
         const matchesPaciente = atencion.pacienteNombre.toLowerCase().includes(term);
+        const matchesDNI = atencion.pacienteDNI?.toLowerCase().includes(term);
         const matchesMotivo = atencion.motivo_consulta.toLowerCase().includes(term);
-        if (!matchesPaciente && !matchesMotivo) {
+        if (!matchesPaciente && !matchesDNI && !matchesMotivo) {
           return false;
         }
       }

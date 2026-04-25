@@ -1,13 +1,14 @@
 "use client";
 
-/**
- * Página de Login — route group (auth).
- * Path: /login (Next.js ignora el nombre del grupo (auth) en la URL).
- */
 import { useState } from "react";
 import { supabase } from "@/core/db/supabase/client";
 import { useRouter } from "next/navigation";
 import { Lock, Mail, Loader2, Activity } from "lucide-react";
+
+// ───────────────────────────────────────────────────────────────────────────────
+// LOGIN PAGE
+// Formulario de autenticación con Supabase
+// ───────────────────────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
+  // Autenticación con Supabase
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -40,7 +42,7 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
       <div className="w-full max-w-md space-y-8 rounded-2xl bg-slate-800 p-8 shadow-2xl ring-1 ring-slate-700">
 
-        {/* Header */}
+        {/* Header del formulario */}
         <div className="text-center">
           <div className="mb-4 flex justify-center">
             <span className="flex items-center gap-2 text-blue-400">
@@ -53,7 +55,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Form */}
+        {/* Formulario de login */}
         <form className="space-y-5" onSubmit={handleLogin} noValidate>
           <div>
             <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-300">

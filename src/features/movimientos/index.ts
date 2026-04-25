@@ -1,22 +1,26 @@
-// ── Domain Types ───────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// TIPOS DE DOMINIO
+// ───────────────────────────────────────────────────────────────────────────────
 
 export type {
   MovimientoConMedicamento,
   CrearMovimientoInput,
   RegistroMovimientoResult,
-  FiltrosMovimiento,
-  EstadisticaDispensacion,
   MovimientoRepository,
 } from "./types";
 
-// ── Repository (Data Layer) ────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// REPOSITORIO (Data Layer)
+// ───────────────────────────────────────────────────────────────────────────────
 
 export {
   DexieMovimientoRepository,
   movimientoRepository,
 } from "./data/dexieMovimientoRepository";
 
-// ── Presentation Hooks ─────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// HOOKS DE PRESENTACIÓN
+// ───────────────────────────────────────────────────────────────────────────────
 
 export {
   useMovimientos,
@@ -24,7 +28,9 @@ export {
   type UseMovimientosReturn,
 } from "./hooks/useMovimientos";
 
-// ── Presentation Components ────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// COMPONENTES DE PRESENTACIÓN
+// ───────────────────────────────────────────────────────────────────────────────
 
 export {
   MovementCard,

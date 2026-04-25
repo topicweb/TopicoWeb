@@ -4,11 +4,9 @@ export type {
   Atencion,
   AtencionFormData,
   AtencionExtendida,
-  AtencionProcesada,
   AtencionConDetalles,
   SignosVitales,
   DispensacionMedicamento,
-  ConfiguracionAgrupacion,
   AtencionContext,
   AtencionResultado,
   AtencionRepository,
@@ -26,7 +24,6 @@ export {
 // ── Presentation Hooks ─────────────────────────────────────────────────────────
 
 export { useAtenciones, type UseAtencionesReturn } from './hooks/useAtenciones';
-export { useLazyMovimientos, useInfiniteScroll } from './hooks/useLazyMovimientos';
 export { useAtencionesFilter, type UseAtencionesFilterReturn } from './hooks/useAtencionesFilter';
 
 // ── Components ──────────────────────────────────────────────────────────────────

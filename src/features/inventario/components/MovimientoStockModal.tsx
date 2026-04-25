@@ -9,13 +9,14 @@ interface MovimientoStockModalProps {
   isOpen: boolean;
   onClose: () => void;
   medicamento: Medicamento | null;
-  onGuardar: (tipo: TipoMovimiento, cantidad: number, motivo: string) => Promise<void>;
+  onGuardar: (tipo: TipoMovimiento, cantidad: number, motivo: string, fechaVencimiento?: string) => Promise<void>;
 }
 
 interface FormState {
   tipo: TipoMovimiento;
   cantidad: number;
   motivo: string;
+  fechaVencimiento: string;
 }
 
 const overlayVariants: Variants = {
@@ -38,6 +39,7 @@ const DEFAULT_FORM: FormState = {
   tipo: "ENTRADA",
   cantidad: 1,
   motivo: "",
+  fechaVencimiento: "",
 };
 
 const TIPO_CONFIG = {
@@ -78,7 +80,7 @@ export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }
 
     setSaving(true);
     try {
-      await onGuardar(form.tipo, form.cantidad, form.motivo);
+      await onGuardar(form.tipo, form.cantidad, form.motivo, form.fechaVencimiento);
       onClose();
       resetForm();
     } finally {
@@ -181,27 +183,29 @@ export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }
               />
             </FormField>
 
-            {/* Motivo / Fecha dinámico */}
-            {form.tipo === "ENTRADA" ? (
-              <FormField label="Fecha de Vencimiento (Opcional)">
+            {/* Fecha de Vencimiento para ENTRADA */}
+            {form.tipo === "ENTRADA" && (
+              <FormField label="Fecha de Vencimiento">
                 <input
                   type="date"
+                  required
                   className={inputBaseClass}
-                  value={form.motivo}
-                  onChange={(e) => updateField("motivo", e.target.value)}
-                />
-              </FormField>
-            ) : (
-              <FormField label="Motivo de Salida (Opcional)">
-                <input
-                  type="text"
-                  placeholder="Ej: Dañado, Vencido, Ajuste..."
-                  className={inputBaseClass}
-                  value={form.motivo}
-                  onChange={(e) => updateField("motivo", e.target.value)}
+                  value={form.fechaVencimiento}
+                  onChange={(e) => updateField("fechaVencimiento", e.target.value)}
                 />
               </FormField>
             )}
+
+            {/* Descripción/Motivo */}
+            <FormField label={form.tipo === "ENTRADA" ? "Descripción (Opcional)" : "Motivo de Salida (Opcional)"}>
+              <input
+                type="text"
+                placeholder={form.tipo === "ENTRADA" ? "Ej: Lote #123, Proveedor..." : "Ej: Dañado, Vencido, Ajuste..."}
+                className={inputBaseClass}
+                value={form.motivo}
+                onChange={(e) => updateField("motivo", e.target.value)}
+              />
+            </FormField>
 
             {/* Actions */}
             <div className="flex justify-end gap-2 md:gap-3 pt-4 md:pt-6 shrink-0">

@@ -1,27 +1,32 @@
+// ───────────────────────────────────────────────────────────────────────────────
+// TIPOS DE DOMINIO DE MOVIMIENTOS
+// Define interfaces para movimientos, inputs y repositorio
+// ───────────────────────────────────────────────────────────────────────────────
+
 import { MovimientoStock, TipoMovimiento } from "@/features/inventario/types";
 
-// ── Domain Types ───────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// Movimiento con información enriquecida
+// ───────────────────────────────────────────────────────────────────────────────
 
-/**
- * Movimiento con información enriquecida del medicamento
- * Resultado típico de un JOIN con la tabla de medicamentos
- */
 export interface MovimientoConMedicamento extends MovimientoStock {
   medicamentoNombre: string;
+  atencionPacienteNombre?: string;
 }
 
-/**
- * Input para crear un nuevo movimiento de stock
- * Omite campos generados automáticamente por el sistema
- */
+// ───────────────────────────────────────────────────────────────────────────────
+// Input para crear movimiento
+// ───────────────────────────────────────────────────────────────────────────────
+
 export type CrearMovimientoInput = Omit<
   MovimientoStock,
   "id" | "business_id" | "creado_at" | "actualizado_at" | "sync_status"
 >;
 
-/**
- * Resultado de la operación de registro de movimiento
- */
+// ───────────────────────────────────────────────────────────────────────────────
+// Resultado de registro de movimiento
+// ───────────────────────────────────────────────────────────────────────────────
+
 export interface RegistroMovimientoResult {
   movimientoId: string;
   medicamentoId: string;
@@ -30,55 +35,11 @@ export interface RegistroMovimientoResult {
   tipo: TipoMovimiento;
 }
 
-/**
- * Filtros para consultas de movimientos
- */
-export interface FiltrosMovimiento {
-  medicamentoId?: string;
-  atencionId?: string;
-  tipo?: TipoMovimiento;
-  fechaDesde?: string;
-  fechaHasta?: string;
-}
+// ───────────────────────────────────────────────────────────────────────────────
+// Interface del repositorio (Clean Architecture)
+// ───────────────────────────────────────────────────────────────────────────────
 
-/**
- * Estadística de medicamentos más dispensados
- */
-export interface EstadisticaDispensacion {
-  medicamentoId: string;
-  medicamentoNombre: string;
-  cantidadTotal: number;
-  numeroMovimientos: number;
-}
-
-// ── Repository Interface (Puerto en Clean Architecture) ───────────────────────
-
-/**
- * Contrato para el repositorio de movimientos
- * Define las operaciones disponibles sin especificar implementación
- */
 export interface MovimientoRepository {
-  /**
-   * Registra un nuevo movimiento y actualiza el stock del medicamento
-   * @throws {StockError} Si hay error de validación o stock insuficiente
-   */
   registrar(input: CrearMovimientoInput, businessId: string): Promise<RegistroMovimientoResult>;
-
-  /**
-   * Obtiene movimientos filtrados por medicamento
-   */
-  listarPorMedicamento(medicamentoId: string, businessId: string): Promise<MovimientoStock[]>;
-
-  /**
-   * Obtiene todos los movimientos con nombre del medicamento (JOIN)
-   */
   listarTodosConMedicamento(businessId: string): Promise<MovimientoConMedicamento[]>;
-
-  /**
-   * Obtiene estadísticas de los medicamentos más dispensados
-   */
-  obtenerEstadisticasDispensados(
-    businessId: string,
-    limite?: number
-  ): Promise<EstadisticaDispensacion[]>;
 }

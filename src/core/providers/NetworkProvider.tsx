@@ -20,9 +20,17 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
+    console.log('[NetworkProvider] Estado inicial:', navigator.onLine ? '🟢 Online' : '🔴 Offline');
 
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
+    const handleOnline = () => {
+      console.log('[NetworkProvider] 🟢 Evento online detectado');
+      setIsOnline(true);
+    };
+
+    const handleOffline = () => {
+      console.log('[NetworkProvider] 🔴 Evento offline detectado');
+      setIsOnline(false);
+    };
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);

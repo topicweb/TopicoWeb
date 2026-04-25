@@ -1,8 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useAuth } from '@/core/providers/AuthProvider';
 import { db } from '@/core/db';
+import { useAuth } from '@/core/providers/AuthProvider';
+import { useNetwork } from '@/core/providers/NetworkProvider';
+import { syncService } from '@/core/db/sync';
 import { updateMedicamentoStock } from '@/core/db/dexie/logic/stock';
-import type { Medicamento, MedicamentoFormData, MovimientoStock, MovimientoFormData } from '../types';
+import type { Medicamento, MedicamentoFormData, MovimientoStock } from '../types';
 
 interface UseMedicamentosReturn {
   medicamentos: Medicamento[];
@@ -12,11 +14,11 @@ interface UseMedicamentosReturn {
   crearMedicamento: (datos: MedicamentoFormData) => Promise<string>;
   actualizarMedicamento: (id: string, cambios: Partial<Medicamento>) => Promise<void>;
   eliminarMedicamento: (id: string) => Promise<void>;
-  registrarMovimiento: (datos: MovimientoFormData) => Promise<string>;
 }
 
-export function useMedicamentos(): UseMedicamentosReturn {
+export function useMedicamentos() {
   const { businessId } = useAuth();
+  const { isOnline } = useNetwork();
 
   const medicamentos = useLiveQuery<Medicamento[]>(
     async () => {
@@ -66,6 +68,9 @@ export function useMedicamentos(): UseMedicamentosReturn {
     };
 
     await db.medicamentos.add(medicamento);
+    if (isOnline) {
+      syncService.pushToSupabase().catch(console.error);
+    }
     return medicamento.id;
   };
 
@@ -80,6 +85,9 @@ export function useMedicamentos(): UseMedicamentosReturn {
       actualizado_at: new Date().toISOString(),
       sync_status: 'pending',
     });
+    if (isOnline) {
+      syncService.pushToSupabase().catch(console.error);
+    }
   };
 
   const eliminarMedicamento = async (id: string): Promise<void> => {
@@ -93,28 +101,11 @@ export function useMedicamentos(): UseMedicamentosReturn {
       actualizado_at: new Date().toISOString(),
       sync_status: 'pending',
     });
+    if (isOnline) {
+      syncService.pushToSupabase().catch(console.error);
+    }
   };
 
-  const registrarMovimiento = async (datos: MovimientoFormData): Promise<string> => {
-    const bid = assertBusinessId();
-    const now = new Date().toISOString();
-    const movimientoId = crypto.randomUUID();
-
-    await db.transaction('rw', db.movimientos_stock, db.medicamentos, async () => {
-      const movimiento: MovimientoStock = {
-        ...datos,
-        id: movimientoId,
-        business_id: bid,
-        creado_at: now,
-        actualizado_at: now,
-        sync_status: 'pending',
-      };
-      await db.movimientos_stock.add(movimiento);
-      await updateMedicamentoStock(datos.medicamento_id, datos.cantidad, datos.tipo, now, datos.tipo_medida);
-    });
-
-    return movimientoId;
-  };
 
   return {
     medicamentos,
@@ -124,6 +115,5 @@ export function useMedicamentos(): UseMedicamentosReturn {
     crearMedicamento,
     actualizarMedicamento,
     eliminarMedicamento,
-    registrarMovimiento,
   };
 }

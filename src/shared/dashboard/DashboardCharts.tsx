@@ -7,6 +7,11 @@ import { Skeleton } from "../ui/Skeleton";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useState, useEffect } from "react";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// GRÁFICOS DEL DASHBOARD
+// Muestra atenciones semanales y salida de medicamentos en gráficos interactivos
+// ───────────────────────────────────────────────────────────────────────────────
+
 const COLORS = ["#0d9488", "#0891b2", "#059669", "#d97706", "#dc2626"];
 
 export function DashboardCharts() {

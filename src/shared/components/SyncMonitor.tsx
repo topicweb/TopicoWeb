@@ -3,30 +3,31 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
 import { useNetwork } from "@/core/providers/NetworkProvider";
+import { useBidirectionalSync } from "@/core/hooks/useBidirectionalSync";
 import { motion, AnimatePresence } from "framer-motion";
 import { Cloud, CloudOff, RefreshCw, CheckCircle2 } from "lucide-react";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// MONITOR DE SINCRONIZACIÓN
+// Indicador de estado de red y cambios pendientes. Crítico en entorno médico
+// ───────────────────────────────────────────────────────────────────────────────
+
 interface SyncMonitorProps {
-  /** 'fixed' = esquina superior derecha (default), 'inline' = flujo normal del documento */
   variant?: "fixed" | "inline";
 }
 
-/**
- * Monitor de sincronización - Indicador de estado de red y pending items.
- * Crítico en entorno médico: alerta sobre datos no sincronizados antes de cerrar sesión.
- */
 export const SyncMonitor = ({ variant = "fixed" }: SyncMonitorProps) => {
   const { isOnline } = useNetwork();
+  const { forceSync, isSyncing } = useBidirectionalSync();
 
   const pendingCount = useLiveQuery(async () => {
-    const [pacientes, atenciones, movimientos, medicamentos, audit] = await Promise.all([
+    const [pacientes, atenciones, movimientos, medicamentos] = await Promise.all([
       db.pacientes.where("sync_status").equals("pending").count(),
       db.atenciones.where("sync_status").equals("pending").count(),
       db.movimientos_stock.where("sync_status").equals("pending").count(),
       db.medicamentos.where("sync_status").equals("pending").count(),
-      db.security_audit_log.where("sync_status").equals("pending").count(),
     ]);
-    return pacientes + atenciones + movimientos + medicamentos + audit;
+    return pacientes + atenciones + movimientos + medicamentos;
   }, []);
 
   const hasPending = (pendingCount || 0) > 0;
@@ -35,6 +36,13 @@ export const SyncMonitor = ({ variant = "fixed" }: SyncMonitorProps) => {
     variant === "fixed"
       ? "hidden md:block fixed top-4 right-4 z-50"
       : "w-full";
+
+  const handleSyncClick = () => {
+    if (isOnline && hasPending) {
+      console.log('[SyncMonitor] 🔄 Forzando sincronización manual');
+      forceSync();
+    }
+  };
 
   return (
     <div className={containerClasses}>
@@ -52,9 +60,11 @@ export const SyncMonitor = ({ variant = "fixed" }: SyncMonitorProps) => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 5 }}
                 transition={{ duration: 0.15 }}
-                className="flex items-center gap-1.5"
+                className="flex items-center gap-1.5 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg px-2 py-1 transition-colors"
+                onClick={handleSyncClick}
+                title={isOnline ? "Click para sincronizar" : "Sin conexión"}
               >
-                <RefreshCw size={12} className="text-amber-500 animate-spin" />
+                <RefreshCw size={12} className={`text-amber-500 ${isSyncing ? 'animate-spin' : ''}`} />
                 <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
                   {pendingCount}
                 </span>

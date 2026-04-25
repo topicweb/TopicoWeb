@@ -1,4 +1,9 @@
-interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {}
+// ───────────────────────────────────────────────────────────────────────────────
+// SKELETON LOADING
+// Componente de placeholder animado para estados de carga
+// ───────────────────────────────────────────────────────────────────────────────
+
+interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> { }
 
 export function Skeleton({ className, ...props }: SkeletonProps) {
   return (

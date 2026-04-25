@@ -2,19 +2,18 @@
 
 import { LogOut } from "lucide-react";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// TARJETA DE PERFIL DE USUARIO
+// Reutilizable entre Sidebar y MobileMenuSheet para consistencia visual
+// ───────────────────────────────────────────────────────────────────────────────
+
 interface UserProfileCardProps {
   email?: string | null;
   role?: string | null;
-  /** Requerido para variant='compact', no se usa en 'expanded' */
   onSignOut?: () => void;
-  /** 'compact' = Sidebar style con botón logout, 'expanded' = Mobile Sheet style solo info */
   variant?: "compact" | "expanded";
 }
 
-/**
- * Card de perfil de usuario - Reutilizable entre Sidebar y MobileMenuSheet
- * Mantiene consistencia visual en toda la aplicación
- */
 export const UserProfileCard = ({
   email,
   role,

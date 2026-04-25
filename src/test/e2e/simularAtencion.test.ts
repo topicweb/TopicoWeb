@@ -13,7 +13,6 @@
 
 import { db } from '@/core/db';
 import { atencionRepository } from '@/features/atenciones/data';
-import { supabase } from '@/core/db/supabase/client';
 import type { AtencionFormData, SignosVitales } from '@/features/atenciones/types';
 
 // ───────────────────────────────────────────────────────────────────────────────

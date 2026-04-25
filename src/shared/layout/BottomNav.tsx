@@ -5,6 +5,11 @@ import { usePathname } from "next/navigation";
 import { MobileMenuSheet } from "./MobileMenuSheet";
 import { primaryMenuItems } from "./navigation.config";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// NAVEGACIÓN INFERIOR (MÓVIL)
+// Barra de navegación fija en la parte inferior para dispositivos móviles
+// ───────────────────────────────────────────────────────────────────────────────
+
 export const BottomNav = () => {
   const pathname = usePathname();
 

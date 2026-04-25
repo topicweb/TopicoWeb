@@ -5,7 +5,11 @@ import { AlertTriangle, ChevronRight, Package, Calendar } from "lucide-react";
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db/dexie/db";
-import { Skeleton } from "@/shared/ui/Skeleton";
+
+// ───────────────────────────────────────────────────────────────────────────────
+// ALERTA DE STOCK POR VENCER
+// Muestra medicamentos que vencerán en los próximos 30 días
+// ───────────────────────────────────────────────────────────────────────────────
 
 interface ExpiringStockProps {
   businessId: string | null;
@@ -16,28 +20,37 @@ export function ExpiringStock({ businessId }: ExpiringStockProps) {
     if (!businessId) return [];
 
     const today = new Date().toISOString().split("T")[0];
-    const sevenDaysLater = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const thirtyDaysLater = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
-    // Buscar movimientos de entrada recientes (que podrían tener fecha de vencimiento)
-    const recentMovements = await db.movimientos_stock
-      .where("[business_id+tipo+fecha_movimiento]")
-      .between([businessId, "ENTRADA", today], [businessId, "ENTRADA", sevenDaysLater + "\uffff"])
+    // Buscar movimientos de entrada con fecha_vencimiento en próximos 30 días
+    const expiringMovements = await db.movimientos_stock
+      .where("[business_id+tipo]")
+      .equals([businessId, "ENTRADA"])
+      .filter((mov) => {
+        // Solo movimientos con fecha_vencimiento definida
+        if (!mov.fecha_vencimiento) return false;
+        // Verificar que vence en los próximos 30 días
+        return mov.fecha_vencimiento >= today && mov.fecha_vencimiento <= thirtyDaysLater;
+      })
       .limit(5)
       .toArray();
 
-    // Enriquecer con datos del medicamento
+    // Enriquecer con datos del medicamento y verificar que esté activo
     const enriched = await Promise.all(
-      recentMovements.map(async (mov) => {
+      expiringMovements.map(async (mov) => {
         const med = await db.medicamentos.get(mov.medicamento_id);
+        // Solo incluir si el medicamento está activo
+        if (!med || med.activo === 0) return null;
         return {
           ...mov,
-          medicamentoNombre: med?.nombre ?? "Desconocido",
-          unidadMedida: med?.unidad_medida ?? "unidad",
+          medicamentoNombre: med.nombre,
+          unidadMedida: med.unidad_medida,
         };
       })
     );
 
-    return enriched;
+    // Filtrar nulls (medicamentos inactivos)
+    return enriched.filter((item): item is NonNullable<typeof item> => item !== null);
   }, [businessId]);
 
   if (!expiringItems || expiringItems.length === 0) return null;
@@ -60,7 +73,7 @@ export function ExpiringStock({ businessId }: ExpiringStockProps) {
                 Stock por Vencer
               </h3>
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                Próximos 7 días
+                Próximos 30 días
               </p>
             </div>
           </div>
@@ -102,10 +115,10 @@ export function ExpiringStock({ businessId }: ExpiringStockProps) {
               <div className="flex items-center gap-1 text-amber-700 dark:text-amber-400">
                 <Calendar size={12} />
                 <span className="text-xs font-medium">
-                  {new Date(item.fecha_movimiento).toLocaleDateString("es-ES", {
+                  {item.fecha_vencimiento ? new Date(item.fecha_vencimiento).toLocaleDateString("es-ES", {
                     day: "2-digit",
                     month: "short",
-                  })}
+                  }) : "Sin fecha"}
                 </span>
               </div>
             </div>

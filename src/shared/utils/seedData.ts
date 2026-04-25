@@ -2,29 +2,31 @@ import { db, generateUUID } from '@/core/db/dexie/db';
 import { supabase } from '@/core/db/supabase/client';
 import { Atencion } from '@/features/atenciones/types';
 import { MovimientoStock } from '@/features/inventario/types';
-import { Paciente, ProgramaEstudio } from '@/features/pacientes/types';
-import { Medicamento } from '@/features/inventario/types';
+
+// ───────────────────────────────────────────────────────────────────────────────
+// SEED DE DATOS INICIAL
+// Crea datos demo para primer uso del sistema
+// ───────────────────────────────────────────────────────────────────────────────
 
 export async function seedDatabase(userEmail: string, userId: string) {
     if (!userEmail || !userId) return;
 
-    console.log('--- Inicianizando Seed de Datos (v11) ---');
+    console.log('🌱 Inicializando datos demo...');
 
-    // 1. Asegurar Institución (Tenant Raíz)
+    // Institución (tenant raíz del sistema)
     const existingInst = await db.table('instituciones' as any).toCollection().first();
     let currentBusinessId = existingInst?.id;
 
     if (!existingInst) {
-        // Intentamos buscar una institución existente en Supabase antes de inventar una
-        // (Esto evita el error de RLS si la institución ya fue creada por un admin)
+        // Buscar institución existente en Supabase para evitar conflictos RLS
         const { data: remoteInst } = await supabase.from('instituciones').select('id').limit(1).single();
 
         if (remoteInst) {
             currentBusinessId = remoteInst.id;
-            console.log('Usando institución existente de Supabase:', currentBusinessId);
+            console.log('✅ Institución encontrada en Supabase:', currentBusinessId);
         } else {
             currentBusinessId = generateUUID();
-            console.log('No se encontró institución en Supabase. Creando local (puede fallar sync si hay RLS):', currentBusinessId);
+            console.log('🏫 Creando nueva institución:', currentBusinessId);
         }
 
         await db.table('instituciones' as any).add({
@@ -36,31 +38,31 @@ export async function seedDatabase(userEmail: string, userId: string) {
         } as any);
     }
 
-    // 2. Asegurar Perfil vinculado a la Institución
-    let existingProfile = await db.perfiles.get(userId);
-    let perfilId = userId;
+    // Perfil de usuario administrador
+    const existingProfile = await db.perfiles.get(userId);
 
     if (!existingProfile) {
         await db.perfiles.add({
-            id: perfilId, // USAMOS EL ID REAL DE AUTH
+            id: userId,
             email: userEmail,
             nombre: 'Admin Demo',
             rol: 'admin',
             activo: 1,
-            business_id: currentBusinessId, // FK a institución
+            business_id: currentBusinessId,
             creado_at: new Date().toISOString(),
             actualizado_at: new Date().toISOString(),
             sync_status: 'pending'
         });
-        console.log('Perfil creado vinculado a institución con ID real.');
+        console.log('👤 Perfil admin creado');
     } else {
-        // Aseguramos que el perfil tenga el business_id correcto
-        await db.perfiles.update(perfilId, { business_id: currentBusinessId });
+        await db.perfiles.update(userId, { business_id: currentBusinessId });
+        console.log('🔄 Perfil vinculado a institución');
     }
 
-    // 3. Crear Programas de Estudio (FK para Pacientes)
+    // Programas de estudio (requeridos para pacientes)
     const countProgs = await db.programas_estudio.count();
     let programaId = '';
+
     if (countProgs === 0) {
         programaId = generateUUID();
         await db.programas_estudio.bulkAdd([
@@ -74,20 +76,21 @@ export async function seedDatabase(userEmail: string, userId: string) {
             {
                 id: generateUUID(),
                 business_id: currentBusinessId,
-                nombre: 'Desarrollo de Sistemas',
+                nombre: 'Desarrollo de Sistemas de Información',
                 activo: 1,
                 sync_status: 'pending'
             }
         ] as any);
-        console.log('Programas de estudio creados.');
+        console.log('📚 Programas de estudio creados');
     } else {
-        const p = await db.programas_estudio.toCollection().first();
-        programaId = p!.id;
+        programaId = (await db.programas_estudio.toCollection().first())!.id;
+        console.log('📚 Usando programa existente');
     }
 
-    // 4. Crear Pacientes vinculados a Programa y Negocio
+    // Pacientes de ejemplo
     const countPatients = await db.pacientes.count();
     let patientId = '';
+
     if (countPatients === 0) {
         patientId = generateUUID();
         await db.pacientes.bulkAdd([
@@ -122,15 +125,16 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 sync_status: 'pending'
             }
         ] as any);
-        console.log('Pacientes creados.');
+        console.log('👥 Pacientes demo creados');
     } else {
-        const p = await db.pacientes.toCollection().first();
-        patientId = p!.id;
+        patientId = (await db.pacientes.toCollection().first())!.id;
+        console.log('👥 Usando paciente existente');
     }
 
-    // 5. Crear Medicamentos con campo 'anaquel' (Spec requirement)
+    // Medicamentos con stock inicial
     const countMeds = await db.medicamentos.count();
     let medId = '';
+
     if (countMeds === 0) {
         medId = generateUUID();
         await db.medicamentos.bulkAdd([
@@ -163,19 +167,21 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 sync_status: 'pending'
             }
         ] as any);
-        console.log('Medicamentos creados.');
+        console.log('💊 Medicamentos demo creados');
     } else {
-        const m = await db.medicamentos.toCollection().first();
-        medId = m!.id;
+        medId = (await db.medicamentos.toCollection().first())!.id;
+        console.log('💊 Usando medicamento existente');
     }
 
-    // 6. Crear Atenciones (Últimos 3 días) vinculadas a Paciente y Perfil
+    // Atenciones recientes con movimientos de stock
     const countAtts = await db.atenciones.count();
-    if (countAtts === 0 && perfilId) {
+
+    if (countAtts === 0 && userId) {
         const now = new Date();
         const attentions: Atencion[] = [];
         const movements: MovimientoStock[] = [];
 
+        // Crear 3 atenciones de los últimos 3 días
         for (let i = 0; i < 3; i++) {
             const date = new Date();
             date.setDate(now.getDate() - i);
@@ -186,7 +192,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 id: attId,
                 business_id: currentBusinessId!,
                 paciente_id: patientId,
-                perfil_id: perfilId,
+                perfil_id: userId,
                 fecha_atencion: dateStr,
                 motivo_consulta: 'Gripe estacional',
                 observacion: 'Reposo sugerido',
@@ -197,6 +203,7 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 sync_status: 'pending'
             });
 
+            // Movimiento de stock por cada atención
             movements.push({
                 id: generateUUID(),
                 business_id: currentBusinessId!,
@@ -214,9 +221,9 @@ export async function seedDatabase(userEmail: string, userId: string) {
 
         await db.atenciones.bulkAdd(attentions);
         await db.movimientos_stock.bulkAdd(movements);
-        console.log('Atenciones y movimientos creados.');
+        console.log('📋 Atenciones demo creadas');
     }
 
-    console.log('--- Seed de Datos Finalizado ---');
+    console.log('✅ Seed de datos completado');
     window.location.reload();
 }

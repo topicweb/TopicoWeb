@@ -18,6 +18,11 @@ import { useNetwork } from "@/core/providers/NetworkProvider";
 import { UserProfileCard } from "@/shared/components/UserProfileCard";
 import { secondaryMenuItems } from "./navigation.config";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// MENÚ DESLIZANTE MÓVIL
+// Sheet despleable desde abajo con opciones secundarias, perfil y logout
+// ───────────────────────────────────────────────────────────────────────────────
+
 export const MobileMenuSheet = () => {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();

@@ -3,6 +3,11 @@
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// LAYOUT PRINCIPAL
+// Estructura base de la aplicación con Sidebar (desktop) y BottomNav (móvil)
+// ───────────────────────────────────────────────────────────────────────────────
+
 export default function MainLayout({
   children,
 }: {

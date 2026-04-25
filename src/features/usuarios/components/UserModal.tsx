@@ -5,6 +5,11 @@ import { X, Save, UserPlus, Mail, Shield, ShieldCheck, LucideIcon } from "lucide
 import { Perfil } from "../types";
 import { motion, AnimatePresence } from "framer-motion";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// MODAL DE USUARIO
+// Formulario para crear y editar perfiles de personal médico
+// ───────────────────────────────────────────────────────────────────────────────
+
 interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -12,7 +17,9 @@ interface UserModalProps {
   onSave: (data: Partial<Perfil> & { password?: string }) => Promise<void>;
 }
 
-// Componente interno para reducir duplicación
+// ───────────────────────────────────────────────────────────────────────────────
+// Componente interno para reducir duplicación de campos de input
+// ───────────────────────────────────────────────────────────────────────────────
 function InputField({
   icon: Icon,
   label,

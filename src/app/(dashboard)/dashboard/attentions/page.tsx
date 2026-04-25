@@ -4,8 +4,14 @@ import { useAtenciones } from '@/features/atenciones/hooks/useAtenciones';
 import { useAtencionesFilter } from '@/features/atenciones/hooks/useAtencionesFilter';
 import { AtencionesFilterBar } from '@/features/atenciones/components/AtencionesFilterBar';
 import { AtencionCard } from '@/features/atenciones/components/AtencionCard';
+import type { AtencionConDetallesExtendida } from '@/features/atenciones/types';
 import Link from 'next/link';
 import { Plus, FileText, Stethoscope } from 'lucide-react';
+
+// ───────────────────────────────────────────────────────────────────────────────
+// ATTENTIONS LISTING PAGE
+// Gestión de atenciones médicas con filtrado avanzado y flujo de historial
+// ───────────────────────────────────────────────────────────────────────────────
 
 // E2E TEST: Botón de prueba temporal (eliminar en producción)
 const runE2ETest = async () => {
@@ -13,16 +19,8 @@ const runE2ETest = async () => {
   await simularAtencionCompleta();
   window.location.reload(); // Recargar para ver los nuevos datos
 };
-
-/**
- * Página de listado de atenciones médicas
- *
- * Características:
- * - Filtrado por rango de fechas, paciente específico y búsqueda textual
- * - Flujo "Ver historial": clic en nombre del paciente para filtrar sus atenciones
- * - UI responsiva con filtros en barra dedicada
- */
 export default function AttentionsPage() {
+  // Hooks con lógica de negocio separada
   const { atencionesConDetalles, isLoading } = useAtenciones();
   const {
     filteredData,
@@ -37,19 +35,20 @@ export default function AttentionsPage() {
     resultCount,
   } = useAtencionesFilter(atencionesConDetalles);
 
-  /**
-   * Handler para ver historial de un paciente específico
-   * Se activa al hacer clic en el nombre del paciente en cualquier card
-   */
+  // ── EVENT HANDLERS ─────────────────────────────────────────────────────────
+
+  // Handler para ver historial de paciente específico
   const handleViewHistorial = (pacienteId: string, pacienteNombre: string) => {
     setPacienteId(pacienteId);
-    // Scroll al top para mostrar el indicador de filtro activo
+    // Scroll al top para mostrar indicador de filtro activo
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  // Estado de carga: skeletons optimizados
   if (isLoading) {
     return (
       <div className="space-y-6">
+        {/* Header skeleton */}
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -59,8 +58,12 @@ export default function AttentionsPage() {
           </div>
           <div className="h-10 w-40 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
         </div>
+
+        {/* Filtros skeleton */}
         <div className="h-40 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+
+        {/* Grid de cards skeleton */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
           {[...Array(6)].map((_, i) => (
             <div
               key={i}
@@ -74,7 +77,7 @@ export default function AttentionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header con estadísticas y acciones */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -85,7 +88,7 @@ export default function AttentionsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* E2E TEST: Botón temporal para probar flujo completo */}
+          {/* E2E TEST: Botón temporal para pruebas */}
           {process.env.NODE_ENV === 'development' && (
             <button
               onClick={runE2ETest}
@@ -105,7 +108,7 @@ export default function AttentionsPage() {
         </div>
       </div>
 
-      {/* Barra de filtros */}
+      {/* Barra de filtros avanzados */}
       <AtencionesFilterBar
         filters={filters}
         onSearchTermChange={setSearchTerm}
@@ -117,8 +120,8 @@ export default function AttentionsPage() {
         resultCount={resultCount}
       />
 
-      {/* Grid de atenciones */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* Grid de atenciones con flujo de historial */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
         {filteredData.map((atencion, index) => (
           <AtencionCard
             key={atencion.id}
@@ -129,10 +132,11 @@ export default function AttentionsPage() {
         ))}
       </div>
 
-      {/* Estados vacíos */}
+      {/* Estados vacíos: con/sin filtros activos */}
       {filteredData.length === 0 && (
         <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
           {hasActiveFilters ? (
+            // Estado: con filtros activos pero sin resultados
             <>
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
                 <FileText size={32} className="text-slate-400" />
@@ -151,6 +155,7 @@ export default function AttentionsPage() {
               </p>
             </>
           ) : (
+            // Estado: sin atenciones registradas
             <>
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-100 dark:bg-teal-900/30">
                 <Stethoscope size={32} className="text-teal-600 dark:text-teal-400" />

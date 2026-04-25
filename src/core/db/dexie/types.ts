@@ -1,7 +1,11 @@
+// ───────────────────────────────────────────────────────────────────────────────
+// CORE TYPES
+// ÚNICA fuente de verdad para BaseEntity y SyncStatus.
+// Todas las features deben importar desde aquí, NO redefinir localmente.
+// ───────────────────────────────────────────────────────────────────────────────
+
 /**
  * @module core/db/dexie/types
- * ÚNICA fuente de verdad para BaseEntity y SyncStatus.
- * Todas las features deben importar desde aquí, NO redefinir localmente.
  */
 
 export type SyncStatus = 'synced' | 'pending' | 'failed';

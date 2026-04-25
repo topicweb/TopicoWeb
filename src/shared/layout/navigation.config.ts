@@ -1,8 +1,7 @@
-/**
- * Configuración centralizada de navegación
- * - Single source of truth para Sidebar (desktop) y BottomNav (mobile)
- * - Cambios aquí se reflejan automáticamente en ambas vistas
- */
+// ───────────────────────────────────────────────────────────────────────────────
+// CONFIGURACIÓN DE NAVEGACIÓN
+// Single source of truth para Sidebar (desktop) y BottomNav (mobile)
+// ───────────────────────────────────────────────────────────────────────────────
 
 import {
   Users,
@@ -14,20 +13,25 @@ import {
   LucideIcon,
 } from "lucide-react";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Interfaz de Item de Menú
+// ───────────────────────────────────────────────────────────────────────────────
 export interface MenuItem {
   href: string;
   icon: LucideIcon;
   label: string;
-  labelShort?: string;  // Versión corta para mobile bottom nav
-  highlight?: boolean;  // Destacar visualmente (ej: "Nueva Atención")
-  adminOnly?: boolean; // Visible solo para admins
-  /** Para MobileMenuSheet - descripción del item */
+  labelShort?: string;
+  highlight?: boolean;
+  adminOnly?: boolean;
   description?: string;
-  /** Para MobileMenuSheet - colores del icono */
   color?: string;
   bgColor?: string;
 }
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Items de Menú Primarios
+// Visibles en Sidebar y BottomNav
+// ───────────────────────────────────────────────────────────────────────────────
 export const primaryMenuItems: MenuItem[] = [
   {
     href: "/dashboard",
@@ -60,6 +64,10 @@ export const primaryMenuItems: MenuItem[] = [
   },
 ];
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Items de Menú Secundarios
+// Visibles solo en MobileMenuSheet
+// ───────────────────────────────────────────────────────────────────────────────
 export const secondaryMenuItems: MenuItem[] = [
   {
     href: "/dashboard/users",

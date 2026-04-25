@@ -1,3 +1,8 @@
+// ───────────────────────────────────────────────────────────────────────────────
+// TIPOS PARA HOOK DE MOVIMIENTOS
+// Define la estructura de estado y retorno del hook useMovimientos
+// ───────────────────────────────────────────────────────────────────────────────
+
 import { useState, useCallback, useMemo, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useAuth } from "@/core/providers/AuthProvider";
@@ -9,30 +14,30 @@ import {
 } from "../types";
 import { movimientoRepository } from "../data/dexieMovimientoRepository";
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// Estado de movimientos
+// ───────────────────────────────────────────────────────────────────────────────
 
 export interface MovimientosEstado {
-  /** Lista de movimientos con información del medicamento */
   movimientos: MovimientoConMedicamento[];
-  /** Indica si hay operaciones en progreso */
   loading: boolean;
-  /** Error actual de la operación, si existe */
   error: string | null;
 }
 
+// ───────────────────────────────────────────────────────────────────────────────
+// Retorno del hook useMovimientos
+// ───────────────────────────────────────────────────────────────────────────────
+
 export interface UseMovimientosReturn extends MovimientosEstado {
-  /**
-   * Registra un nuevo movimiento de stock
-   * @returns Resultado de la operación o null si falla
-   */
   registrarMovimiento: (
     input: CrearMovimientoInput
   ) => Promise<RegistroMovimientoResult | null>;
-  /** Limpia el error actual */
   clearError: () => void;
 }
 
-// ── Constants ─────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// Mensajes de error
+// ───────────────────────────────────────────────────────────────────────────────
 
 const ERROR_MESSAGES = {
   AUTH_REQUIRED: "Se requiere autenticación para registrar movimientos",
@@ -41,45 +46,27 @@ const ERROR_MESSAGES = {
   REGISTRO_FALLIDO: "No se pudo registrar el movimiento. Intente nuevamente.",
 } as const;
 
-/**
- * Hook para gestionar movimientos de stock
- *
- * Arquitectura:
- * - Presentation Layer: Este hook (orquestación de UI)
- * - Domain Layer: Tipos y contratos en ../types
- * - Data Layer: DexieMovimientoRepository en ../data
- *
- * El hook delega todas las operaciones de datos al repositorio,
- * manteniendo solo estado de UI y manejo de errores.
- */
+// ───────────────────────────────────────────────────────────────────────────────
+// Hook useMovimientos
+// Gestiona movimientos de stock con queries reactivas y manejo de errores
+// ───────────────────────────────────────────────────────────────────────────────
+
 export function useMovimientos(): UseMovimientosReturn {
   const { businessId } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Ref para tracking de montado (evita setState en componente desmontado)
   const isMountedRef = useRef(true);
 
-  // Query reactiva: se actualiza automáticamente cuando cambian los datos
   const movimientosData = useLiveQuery(async () => {
     if (typeof window === "undefined" || !businessId) {
       return [];
     }
-
     return movimientoRepository.listarTodosConMedicamento(businessId);
   }, [businessId]);
 
   const movimientos = movimientosData ?? [];
-
-  // El estado de carga es true si:
-  // - Hay una operación de escritura en progreso (isSubmitting)
-  // - Los datos aún no han cargado por primera vez (undefined)
-  // NOTA: Lista vacía ([] ) es un estado válido, no de carga
   const loading = isSubmitting || movimientosData === undefined;
 
-  /**
-   * Manejo centralizado de errores del StockError
-   */
   const handleStockError = useCallback((err: StockError): string => {
     switch (err.code) {
       case "STOCK_INSUFICIENTE":
@@ -95,18 +82,8 @@ export function useMovimientos(): UseMovimientosReturn {
     }
   }, []);
 
-  /**
-   * Registra un nuevo movimiento de stock
-   *
-   * Flujo:
-   * 1. Valida autenticación
-   * 2. Ejecuta registro vía repositorio (con transacción)
-   * 3. Maneja errores específicos de StockError
-   * 4. Actualiza estado de UI
-   */
   const registrarMovimiento = useCallback(
     async (input: CrearMovimientoInput): Promise<RegistroMovimientoResult | null> => {
-      // Guard: requiere autenticación
       if (!businessId) {
         setError(ERROR_MESSAGES.AUTH_REQUIRED);
         return null;
@@ -117,11 +94,9 @@ export function useMovimientos(): UseMovimientosReturn {
 
       try {
         const resultado = await movimientoRepository.registrar(input, businessId);
-
         if (isMountedRef.current) {
           setError(null);
         }
-
         return resultado;
       } catch (err) {
         const errorMessage =
@@ -130,11 +105,9 @@ export function useMovimientos(): UseMovimientosReturn {
             : err instanceof Error
               ? err.message
               : ERROR_MESSAGES.REGISTRO_FALLIDO;
-
         if (isMountedRef.current) {
           setError(errorMessage);
         }
-
         console.error("[useMovimientos] Error al registrar:", err);
         return null;
       } finally {
@@ -150,7 +123,6 @@ export function useMovimientos(): UseMovimientosReturn {
     setError(null);
   }, []);
 
-  // Estado memoizado para evitar re-renders innecesarios
   const estado = useMemo(
     () => ({
       movimientos,

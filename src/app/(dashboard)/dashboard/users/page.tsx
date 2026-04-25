@@ -9,11 +9,15 @@ import { useAuth } from "@/core/providers/AuthProvider";
 import { ConfirmationModal } from "@/shared/ui/ConfirmationModal";
 import { toast } from "sonner";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// USERS MANAGEMENT PAGE
+// CRUD de usuarios con búsqueda y modales de confirmación
+// ───────────────────────────────────────────────────────────────────────────────
+
 export default function UsersPage() {
   const { role } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Perfil | null>(null);
-  // Estado para el modal de eliminación
   const [deleteModal, setDeleteModal] = useState<{
     isOpen: boolean;
     id: string | null;
@@ -23,16 +27,18 @@ export default function UsersPage() {
   });
   const [searchTerm, setSearchTerm] = useState("");
 
-  // Usamos el hook para obtener datos y funciones (Clean Architecture)
-  const { usuarios, crearUsuario, actualizarUsuario, eliminarUsuario } =
-    useUsuarios();
+  // Hook con lógica de negocio separada
+  const { usuarios, crearUsuario, actualizarUsuario, eliminarUsuario } = useUsuarios();
 
+  // Filtrado local por nombre o email
   const filteredUsers = usuarios.filter(
     (u) =>
       u.activo !== 0 &&
       ((u.nombre || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
         (u.email || "").toLowerCase().includes(searchTerm.toLowerCase())),
   );
+
+  // ── EVENT HANDLERS ─────────────────────────────────────────────────────────
 
   const handleDeleteClick = (id: string) => {
     setDeleteModal({ isOpen: true, id });
@@ -72,14 +78,13 @@ export default function UsersPage() {
       }
       setIsModalOpen(false);
     } catch (error: any) {
-      // Mostrar error como toast
       toast.error(error.message || "Error al guardar usuario");
-      // No cerrar el modal para que el usuario pueda corregir
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Header con botón de creación */}
       <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
           Gestión de Usuarios
@@ -95,7 +100,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Search Bar */}
+      {/* Barra de búsqueda */}
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
         <input
@@ -107,7 +112,7 @@ export default function UsersPage() {
         />
       </div>
 
-      {/* Users List */}
+      {/* Grid de usuarios */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {filteredUsers.map((user) => (
           <div
@@ -164,7 +169,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      {/* Modal Form */}
+      {/* Modal de creación/edición */}
       {isModalOpen && (
         <UserModal
           isOpen={isModalOpen}
@@ -174,7 +179,7 @@ export default function UsersPage() {
         />
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Modal de confirmación de eliminación */}
       <ConfirmationModal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, id: null })}

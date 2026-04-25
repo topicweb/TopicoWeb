@@ -1,6 +1,11 @@
 "use client";
 import { AlertTriangle } from "lucide-react";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// MODAL DE CONFIRMACIÓN
+// Componente reutilizable para acciones destructivas con estado de carga
+// ───────────────────────────────────────────────────────────────────────────────
+
 interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;

@@ -1,20 +1,21 @@
 @import "tailwindcss";
 
-/**
- * Sistema de diseño médico profesional
- * Paleta optimizada para entornos clínicos: alta legibilidad, baja fatiga visual
- */
+/* ─────────────────────────────────────────────────────────────────────────────── */
+/* DESIGN SYSTEM */
+/* Paleta médica profesional optimizada para legibilidad y accesibilidad */
+/* ─────────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  /* === Core: Superficie y texto === */
+  /* Core colors: superficie y texto */
   --background: #fdfdfd;
   --foreground: #1e293b;
 
-  /* === Primarios: Teal 600 === */
+  /* Primary palette: Teal 600 */
   --primary: #0d9488;
   --primary-hover: #0f766e;
   --primary-glow: rgba(13, 148, 136, 0.1);
 
-  /* === Semánticos: Estados === */
+  /* Semantic states */
   --success: #059669;
   /* Emerald 600 */
   --warning: #d97706;
@@ -22,7 +23,7 @@
   --danger: #dc2626;
   /* Red 600 */
 
-  /* === Escala Slate === */
+  /* Slate scale for UI components */
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
   --slate-200: #e2e8f0;
@@ -30,12 +31,12 @@
   --slate-800: #1e293b;
   --slate-900: #0f172a;
 
-  /* === Glassmorphism: Tarjetas y modales === */
+  /* Glassmorphism effects */
   --glass-bg: rgba(255, 255, 255, 0.85);
   --glass-border: rgba(226, 232, 240, 0.8);
   --glass-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
 
-  /* === Radios de borde === */
+  /* Border radius scale */
   --radius-xl: 1rem;
   --radius-2xl: 1.5rem;
 }

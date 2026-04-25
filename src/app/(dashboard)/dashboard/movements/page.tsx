@@ -12,6 +12,11 @@ import {
   MovementSkeleton,
 } from "@/features/movimientos/components";
 
+// ───────────────────────────────────────────────────────────────────────────────
+// MOVEMENTS HISTORY PAGE
+// Kardex de inventario con búsqueda, filtros y vistas responsive
+// ───────────────────────────────────────────────────────────────────────────────
+
 export default function MovementsPage() {
   const { movimientos, loading } = useMovimientos();
   const [searchTerm, setSearchTerm] = useState("");
@@ -19,7 +24,9 @@ export default function MovementsPage() {
   const [filterType, setFilterType] = useState<"all" | "entrada" | "salida">("all");
   const [isSearching, setIsSearching] = useState(false);
 
-  // Debounce para el buscador
+  // ── PERFORMANCE Y FILTRADO ─────────────────────────────────────────────────────
+
+  // Debounce para búsqueda (300ms)
   useEffect(() => {
     setIsSearching(true);
     const timer = setTimeout(() => {
@@ -30,7 +37,7 @@ export default function MovementsPage() {
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Filtrado optimizado con useMemo
+  // Filtrado optimizado con memoización
   const filteredMovements = useMemo(() => {
     return movimientos.filter((m) => {
       const matchesSearch = !debouncedTerm ||
@@ -44,7 +51,7 @@ export default function MovementsPage() {
     });
   }, [movimientos, debouncedTerm, filterType]);
 
-  // Estadísticas calculadas
+  // Estadísticas del kardex
   const stats = useMemo(() => {
     const entradas = movimientos.filter(m => m.tipo === "ENTRADA").length;
     const salidas = movimientos.filter(m => m.tipo === "SALIDA").length;
@@ -53,7 +60,7 @@ export default function MovementsPage() {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-4 sm:space-y-8 sm:p-6 lg:p-8">
-      {/* Header Section */}
+      {/* Header con estadísticas y filtros */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -75,7 +82,7 @@ export default function MovementsPage() {
             </p>
           </div>
 
-          {/* Stats Cards - Desktop */}
+          {/* Estadísticas desktop */}
           <div className="hidden sm:flex items-center gap-3">
             <div className="rounded-xl bg-white px-4 py-2 shadow-sm border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
               <div className="flex items-center gap-2">
@@ -107,7 +114,7 @@ export default function MovementsPage() {
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filtros de búsqueda */}
         <SearchFilter
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -115,7 +122,7 @@ export default function MovementsPage() {
           onFilterChange={setFilterType}
         />
 
-        {/* Stats Cards - Mobile */}
+        {/* Estadísticas mobile */}
         <div className="grid grid-cols-3 gap-2 sm:hidden">
           <div className="rounded-xl bg-white p-3 text-center shadow-sm border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
             <div className="text-xs text-slate-500 dark:text-slate-400">Total</div>
@@ -132,7 +139,7 @@ export default function MovementsPage() {
         </div>
       </motion.div>
 
-      {/* Results Count */}
+      {/* Contador de resultados */}
       {!loading && !isSearching && filteredMovements.length > 0 && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -143,7 +150,7 @@ export default function MovementsPage() {
         </motion.div>
       )}
 
-      {/* Content */}
+      {/* Contenido principal con vistas responsive */}
       {loading || isSearching ? (
         <>
           <div className="hidden sm:block">
@@ -155,12 +162,12 @@ export default function MovementsPage() {
         </>
       ) : filteredMovements.length > 0 ? (
         <>
-          {/* Desktop: Table View */}
+          {/* Vista desktop: tabla */}
           <div className="hidden sm:block">
             <MovementTable movements={filteredMovements} />
           </div>
 
-          {/* Mobile: Card View */}
+          {/* Vista mobile: cards */}
           <div className="grid gap-3 sm:hidden">
             {filteredMovements.map((movement, index) => (
               <MovementCard

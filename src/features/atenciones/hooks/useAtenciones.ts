@@ -7,16 +7,20 @@ import type {
   Atencion,
   AtencionFormData,
   AtencionConDetalles,
+  AtencionConDetallesExtendida,
   DispensacionMedicamento,
   AtencionResultado,
 } from '../types';
 import { AtencionError } from '../types';
 
-// ── Types ────────────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────────────────────────────────────────
+// HOOK DE ATENCIONES
+// Gestión de atenciones médicas con repository pattern y manejo de errores
+// ───────────────────────────────────────────────────────────────────────────────
 
 export interface UseAtencionesReturn {
   atenciones: Atencion[];
-  atencionesConDetalles: AtencionConDetalles[];
+  atencionesConDetalles: AtencionConDetallesExtendida[];
   isLoading: boolean;
   error: string | null;
   registrarAtencion: (datos: AtencionFormData, dispensaciones?: DispensacionMedicamento[]) => Promise<AtencionResultado | null>;
@@ -25,15 +29,15 @@ export interface UseAtencionesReturn {
   clearError: () => void;
 }
 
-// ── Hook ─────────────────────────────────────────────────────────────────────
-
 export function useAtenciones(): UseAtencionesReturn {
   const { businessId, user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Queries reactivas via repositorio - undefined mientras carga
-  const atencionesData = useLiveQuery<AtencionConDetalles[]>(
+  // ── CONSULTAS DE DATOS ─────────────────────────────────────────────────────────────
+
+  // Queries reactivas via repositorio
+  const atencionesData = useLiveQuery<AtencionConDetallesExtendida[]>(
     async () => {
       if (!businessId) return [];
       return atencionRepository.listarConDetalles(businessId, 1000);
@@ -45,12 +49,16 @@ export function useAtenciones(): UseAtencionesReturn {
   const atenciones: Atencion[] = [...atencionesConDetalles]; // Copia para evitar mutación compartida
   const isLoading = atencionesData === undefined;
 
+  // ── MANEJO DE ERRORES ───────────────────────────────────────────────────────────
+
   const handleError = (err: unknown): string => {
     if (err instanceof AtencionError) return err.message;
     if (err instanceof StockError) return err.message;
     if (err instanceof Error) return err.message;
     return 'Error inesperado';
   };
+
+  // ── OPERACIONES CRUD ─────────────────────────────────────────────────────────
 
   const registrarAtencion = useCallback(
     async (datos: AtencionFormData, dispensaciones: DispensacionMedicamento[] = []): Promise<AtencionResultado | null> => {

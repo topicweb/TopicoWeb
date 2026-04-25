@@ -1,13 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { supabase } from "@/core/db/supabase/client";
+import { supabase } from "@/core/db/supabase";
 import { Session, User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
-import { syncService } from "@/core/services/syncService";
-import { useDataMigrations } from "@/core/hooks/useSimpleSync";
+import { syncService } from "@/core/db/sync";
 import type { Perfil, RolUsuario } from "@/features/usuarios/types";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -28,8 +27,6 @@ interface AuthContextType {
   businessId: string | null;
   /** true mientras se resuelve la sesión inicial */
   isLoading: boolean;
-  /** true mientras se está sincronizando datos iniciales */
-  isInitialSync: boolean;
   signOut: () => Promise<void>;
 }
 
@@ -42,7 +39,6 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   businessId: null,
   isLoading: true,
-  isInitialSync: false,
   signOut: async () => { },
 });
 
@@ -54,12 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitialSync, setIsInitialSync] = useState(false);
-  const [hasInitialPull, setHasInitialPull] = useState(false);
   const router = useRouter();
-
-  // Ejecutar migraciones de datos al iniciar la aplicación
-  useDataMigrations();
 
   // Reactivo: se actualiza automáticamente cuando el SyncService escribe el perfil en Dexie.
   // Esto garantiza que businessId esté disponible incluso en modo offline (tras primera sync).
@@ -70,6 +61,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const role = perfil?.rol ?? null;
   const businessId = perfil?.business_id ?? null;
+
+  // Validar que el usuario esté activo y no eliminado
+  useEffect(() => {
+    if (perfil && (!perfil.activo || perfil.deleted_at)) {
+      console.warn('[AuthProvider] Usuario inactivo o eliminado, cerrando sesión');
+      supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+    }
+  }, [perfil]);
 
   useEffect(() => {
     // Resuelve la sesión persistida en localStorage al cargar la app
@@ -87,58 +88,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       setIsLoading(false);
 
-      // Al hacer login, ejecutar PULL inicial si no se ha hecho
-      if (_event === 'SIGNED_IN' && session?.user && !hasInitialPull) {
+      // Al hacer login, obtener perfil de Supabase si no existe en Dexie
+      if (_event === 'SIGNED_IN' && session?.user) {
         setTimeout(async () => {
           try {
-            // Obtener perfil de Supabase para conseguir business_id
-            // FIX: Usar .maybeSingle() para no lanzar error si el perfil no existe todavía
-            const { data: perfiles, error: perfilError } = await supabase
-              .from('perfiles')
-              .select('*')
-              .eq('email', session.user.email!)
-              .maybeSingle();
+            // Verificar si el perfil ya existe en Dexie
+            const localPerfil = await db.perfiles.where('email').equals(session.user.email!).first();
 
-            if (perfilError) {
-              console.warn('[AuthProvider] Error obteniendo perfil:', perfilError);
-              return;
-            }
+            if (!localPerfil) {
+              // Perfil no existe en Dexie - limpiar solo datos corruptos
+              console.log('[AuthProvider] Primer login - limpiando datos corruptos');
 
-            if (perfiles?.business_id) {
-              setIsInitialSync(true);
-              await syncService.pullFromSupabase(perfiles.business_id);
-              setHasInitialPull(true);
-            } else {
-              // Perfil no existe todavía (puede pasar en primer login)
-              // Esperar a que el trigger de Supabase lo cree
-              console.log('[AuthProvider] Perfil no encontrado, esperando creación por trigger...');
-              // Opcional: reintentar después de unos segundos
-              setTimeout(async () => {
-                const { data: retryPerfil } = await supabase
-                  .from('perfiles')
-                  .select('business_id')
-                  .eq('email', session.user.email!)
-                  .maybeSingle();
+              // Eliminar programas locales para forzar PULL desde Supabase
+              await db.programas_estudio.clear();
+              console.log('[AuthProvider] Programas locales eliminados');
 
-                if (retryPerfil?.business_id) {
-                  setIsInitialSync(true);
-                  await syncService.pullFromSupabase(retryPerfil.business_id);
-                  setHasInitialPull(true);
-                  setIsInitialSync(false);
-                }
-              }, 2000);
+              // Eliminar pacientes con programa_id inválido
+              const pacientes = await db.pacientes.toArray();
+              console.log(`[AuthProvider] Total pacientes: ${pacientes.length}`);
+              const pacientesCorruptos = pacientes.filter((p: any) => p.programa_id);
+              console.log(`[AuthProvider] Pacientes con programa_id: ${pacientesCorruptos.length}`);
+
+              if (pacientesCorruptos.length > 0) {
+                console.log(`[AuthProvider] Eliminando ${pacientesCorruptos.length} pacientes corruptos`);
+                const pacienteIds = pacientesCorruptos.map((p: any) => p.id);
+                await db.pacientes.bulkDelete(pacienteIds);
+              }
+
+              // Perfil no existe en Dexie, obtener de Supabase
+              const { data: remotePerfil, error: perfilError } = await supabase
+                .from('perfiles')
+                .select('*')
+                .eq('email', session.user.email!)
+                .maybeSingle();
+
+              if (perfilError) {
+                console.warn('[AuthProvider] Error obteniendo perfil de Supabase:', perfilError);
+                return;
+              }
+
+              if (remotePerfil?.business_id) {
+                // Ejecutar PULL inicial para descargar todos los datos
+                await syncService.pullFromSupabase(remotePerfil.business_id);
+              }
             }
           } catch (error) {
             console.error('[AuthProvider] Error en PULL inicial:', error);
-          } finally {
-            setIsInitialSync(false);
           }
         }, 500);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [hasInitialPull]);
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -147,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, session, perfil, role, businessId, isLoading, isInitialSync, signOut }}
+      value={{ user, session, perfil, role, businessId, isLoading, signOut }}
     >
       {children}
     </AuthContext.Provider>

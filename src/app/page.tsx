@@ -6,10 +6,16 @@ import { useAuth } from '@/core/providers/AuthProvider';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 
+// ───────────────────────────────────────────────────────────────────────────────
+// LANDING PAGE
+// Página principal con redirección automática para usuarios autenticados
+// ───────────────────────────────────────────────────────────────────────────────
+
 export default function LandingPage() {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
+  // Redirigir al dashboard si ya está autenticado
   useEffect(() => {
     if (!isLoading && user) {
       router.replace('/dashboard');

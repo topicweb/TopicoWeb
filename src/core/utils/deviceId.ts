@@ -5,6 +5,8 @@
  * para identificar el dispositivo en sincronizaciones incrementales
  */
 
+import { generateUUID } from '@/shared/utils/uuid';
+
 const DEVICE_ID_KEY = 'topico_device_id';
 
 /**
@@ -18,8 +20,8 @@ export function getDeviceId(): string {
     let deviceId = localStorage.getItem(DEVICE_ID_KEY);
 
     if (!deviceId) {
-      // Generar nuevo deviceId
-      deviceId = generateDeviceId();
+      // Generar nuevo deviceId usando la función compartida
+      deviceId = `device-${generateUUID()}`;
       try {
         localStorage.setItem(DEVICE_ID_KEY, deviceId);
       } catch (storageError) {
@@ -34,22 +36,8 @@ export function getDeviceId(): string {
   } catch (error) {
     // Error accediendo a localStorage (ej: Safari incógnito)
     console.warn('[DeviceId] Error accediendo a localStorage, generando ID temporal:', error);
-    return generateDeviceId();
+    return `device-${generateUUID()}`;
   }
-}
-
-/**
- * Genera un deviceId único usando crypto.randomUUID o fallback
- */
-function generateDeviceId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return `device-${crypto.randomUUID()}`;
-  }
-  // Fallback simple
-  return `device-${'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  })}`;
 }
 
 /**

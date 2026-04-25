@@ -1,13 +1,13 @@
 "use client";
 
-/**
- * Layout del route group (auth).
- * Si el usuario ya está autenticado Y tiene business_id asignado,
- * redirige automáticamente al dashboard para evitar mostrar el login.
- */
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+
+// ───────────────────────────────────────────────────────────────────────────────
+// AUTH LAYOUT GUARD
+// Redirige usuarios autenticados al dashboard y evita flash de login
+// ───────────────────────────────────────────────────────────────────────────────
 
 export default function AuthLayout({
   children,
@@ -17,14 +17,14 @@ export default function AuthLayout({
   const { user, businessId, isLoading } = useAuth();
   const router = useRouter();
 
+  // Redirigir si ya está autenticado con tenant asignado
   useEffect(() => {
     if (!isLoading && user && businessId) {
       router.replace("/dashboard");
     }
   }, [user, businessId, isLoading, router]);
 
-  // Mientras se resuelve la sesión no renderizamos nada
-  // (evita el flash del formulario de login si ya está autenticado)
+  // Evitar flash del login mientras carga la sesión
   if (isLoading) return null;
 
   return <>{children}</>;

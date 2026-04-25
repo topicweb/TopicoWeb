@@ -1,7 +1,14 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useAuth } from '@/core/providers/AuthProvider';
 import { db } from '@/core/db';
+import { useAuth } from '@/core/providers/AuthProvider';
+import { useNetwork } from '@/core/providers/NetworkProvider';
+import { syncService } from '@/core/db/sync';
 import type { Paciente, PacienteFormData, ProgramaEstudio } from '../types';
+
+// ───────────────────────────────────────────────────────────────────────────────
+// GESTIÓN DE PACIENTES
+// CRUD de pacientes y programas de estudio con sincronización offline-first
+// ───────────────────────────────────────────────────────────────────────────────
 
 interface UsePacientesReturn {
   pacientes: Paciente[];
@@ -16,6 +23,7 @@ interface UsePacientesReturn {
 
 export function usePacientes(): UsePacientesReturn {
   const { businessId } = useAuth();
+  const { isOnline } = useNetwork();
 
   const pacientes = useLiveQuery<Paciente[]>(
     async () => {
@@ -67,6 +75,9 @@ export function usePacientes(): UsePacientesReturn {
     };
 
     await db.pacientes.add(paciente);
+    if (isOnline) {
+      syncService.pushToSupabase().catch(console.error);
+    }
     return paciente.id;
   };
 
@@ -81,6 +92,9 @@ export function usePacientes(): UsePacientesReturn {
       actualizado_at: new Date().toISOString(),
       sync_status: 'pending',
     });
+    if (isOnline) {
+      syncService.pushToSupabase().catch(console.error);
+    }
   };
 
   const eliminarPaciente = async (id: string): Promise<void> => {
@@ -94,6 +108,9 @@ export function usePacientes(): UsePacientesReturn {
       actualizado_at: new Date().toISOString(),
       sync_status: 'pending',
     });
+    if (isOnline) {
+      syncService.pushToSupabase().catch(console.error);
+    }
   };
 
   const buscarPorDni = (dni: string): Paciente | undefined =>

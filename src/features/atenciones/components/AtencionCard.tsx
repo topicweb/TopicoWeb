@@ -1,29 +1,23 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Calendar, User, Clock, History, Stethoscope, CheckCircle2, CloudOff } from 'lucide-react';
-import type { AtencionConDetalles } from '../types';
+import { Calendar, User, Clock, History, Stethoscope, CheckCircle2, CloudOff, Pill, Activity } from 'lucide-react';
+import type { AtencionConDetallesExtendida } from '../types';
+
+// ───────────────────────────────────────────────────────────────────────────────
+// ATENCION CARD
+// Card individual para atención médica con diseño consistente
+// ───────────────────────────────────────────────────────────────────────────────
 
 interface AtencionCardProps {
-  atencion: AtencionConDetalles;
+  atencion: AtencionConDetallesExtendida;
   index?: number;
-  /** Callback cuando el usuario quiere ver historial del paciente */
   onViewHistorial?: (pacienteId: string, pacienteNombre: string) => void;
 }
 
-/**
- * Card individual para atención médica - Diseño consistente con MovementTable
- *
- * Características:
- * - Paleta slate consistente con el resto de la app
- * - Animación de entrada con framer-motion
- * - Badge de sync con colores emerald/amber (igual que MovementTable)
- * - Layout con mejor jerarquía visual y espaciado
- */
 export function AtencionCard({ atencion, index = 0, onViewHistorial }: AtencionCardProps) {
   const fecha = new Date(atencion.fecha_atencion);
 
-  // Formato de fecha: "15 ene, 10:30"
+  // Formato de fecha y tiempo relativo
   const fechaFormateada = fecha.toLocaleString('es-ES', {
     day: '2-digit',
     month: 'short',
@@ -31,7 +25,6 @@ export function AtencionCard({ atencion, index = 0, onViewHistorial }: AtencionC
     minute: '2-digit',
   });
 
-  // Calcular tiempo transcurrido
   const ahora = new Date();
   const diffMs = ahora.getTime() - fecha.getTime();
   const diffHoras = Math.floor(diffMs / (1000 * 60 * 60));
@@ -53,14 +46,16 @@ export function AtencionCard({ atencion, index = 0, onViewHistorial }: AtencionC
   };
 
   const isSynced = atencion.sync_status === 'synced';
+  const hasMedicamentos = atencion.dispensaciones && atencion.dispensaciones.length > 0;
+  const hasObservacion = atencion.observacion && atencion.observacion.trim() !== '';
+  const hasSignosVitales = atencion.signos_vitales && (
+    atencion.signos_vitales.temp ||
+    atencion.signos_vitales.presion ||
+    atencion.signos_vitales.saturacion
+  );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2, delay: index * 0.05 }}
-      className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-teal-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-teal-800"
-    >
+    <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-teal-200 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-teal-800">
       {/* Header: Fecha y Status */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
@@ -80,8 +75,8 @@ export function AtencionCard({ atencion, index = 0, onViewHistorial }: AtencionC
         {/* Badge de sync status - Compacto en móvil */}
         <span
           className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold sm:px-2.5 sm:py-1 ${isSynced
-              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-              : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
             }`}
           title={isSynced ? 'Sincronizado con el servidor' : 'Pendiente de sincronización'}
         >
@@ -126,6 +121,59 @@ export function AtencionCard({ atencion, index = 0, onViewHistorial }: AtencionC
         </div>
       </div>
 
+      {/* Medicamentos dispensados */}
+      {hasMedicamentos && (
+        <div className="mt-4 flex items-start gap-2.5">
+          <Pill size={16} className="mt-0.5 shrink-0 text-slate-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Medicamentos ({atencion.dispensaciones.length})
+            </p>
+            <p className="mt-0.5 text-sm text-slate-700 dark:text-slate-300">
+              {atencion.dispensaciones.map((d, i) => (
+                <span key={i} className="inline-block mr-1">
+                  {d.medicamento_nombre}{i < atencion.dispensaciones.length - 1 ? ', ' : ''}
+                </span>
+              ))}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Observación */}
+      {hasObservacion && (
+        <div className="mt-4 flex items-start gap-2.5">
+          <div className="mt-0.5 shrink-0 flex h-4 w-4 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400">O</span>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Observación
+            </p>
+            <p className="mt-0.5 line-clamp-2 text-sm text-slate-700 dark:text-slate-300">
+              {atencion.observacion}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Signos vitales */}
+      {hasSignosVitales && (
+        <div className="mt-4 flex items-start gap-2.5">
+          <Activity size={16} className="mt-0.5 shrink-0 text-slate-400" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              Signos Vitales
+            </p>
+            <p className="mt-0.5 text-sm text-slate-700 dark:text-slate-300">
+              {atencion.signos_vitales.temp && `T: ${atencion.signos_vitales.temp}°C `}
+              {atencion.signos_vitales.presion && `P: ${atencion.signos_vitales.presion} `}
+              {atencion.signos_vitales.saturacion && `S: ${atencion.signos_vitales.saturacion}%`}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Footer: Staff */}
       <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
         <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
@@ -140,6 +188,6 @@ export function AtencionCard({ atencion, index = 0, onViewHistorial }: AtencionC
           </span>
         </span>
       </div>
-    </motion.div>
+    </div>
   );
 }

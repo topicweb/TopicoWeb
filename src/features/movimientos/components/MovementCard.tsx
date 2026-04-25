@@ -39,8 +39,8 @@ export function MovementCard({ movement, index }: MovementCardProps) {
       {/* Background gradient indicator */}
       <div
         className={`absolute left-0 top-0 h-full w-1 ${isEntrada
-            ? "bg-linear-to-b from-emerald-400 to-emerald-600"
-            : "bg-linear-to-b from-rose-400 to-rose-600"
+          ? "bg-linear-to-b from-emerald-400 to-emerald-600"
+          : "bg-linear-to-b from-rose-400 to-rose-600"
           }`}
       />
 
@@ -53,8 +53,8 @@ export function MovementCard({ movement, index }: MovementCardProps) {
           </div>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isEntrada
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+              : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
               }`}
           >
             {isEntrada ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
@@ -79,15 +79,15 @@ export function MovementCard({ movement, index }: MovementCardProps) {
           <div className="flex items-center gap-2">
             <div
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 ${isEntrada
-                  ? "bg-emerald-50 dark:bg-emerald-900/20"
-                  : "bg-rose-50 dark:bg-rose-900/20"
+                ? "bg-emerald-50 dark:bg-emerald-900/20"
+                : "bg-rose-50 dark:bg-rose-900/20"
                 }`}
             >
               <Tag size={14} className={isEntrada ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"} />
               <span
                 className={`text-sm font-bold ${isEntrada
-                    ? "text-emerald-700 dark:text-emerald-400"
-                    : "text-rose-700 dark:text-rose-400"
+                  ? "text-emerald-700 dark:text-emerald-400"
+                  : "text-rose-700 dark:text-rose-400"
                   }`}
               >
                 {isEntrada ? "+" : "-"}
@@ -100,8 +100,8 @@ export function MovementCard({ movement, index }: MovementCardProps) {
           <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
             <Hash size={12} />
             <span className="truncate max-w-30">
-              {movement.atencion_id
-                ? `Atención ${movement.atencion_id.slice(-6)}`
+              {movement.atencionPacienteNombre
+                ? `Atención - ${movement.atencionPacienteNombre}`
                 : "Ajuste Manual"}
             </span>
           </div>

@@ -3,18 +3,17 @@ import withPWAInit from "@ducanh2912/next-pwa";
 
 const withPWA = withPWAInit({
   dest: "public",
-  cacheOnFrontEndNav: true,
-  aggressiveFrontEndNavCaching: true,
+  cacheOnFrontEndNav: false,
+  aggressiveFrontEndNavCaching: false,
   reloadOnOnline: true,
   disable: process.env.NODE_ENV === "development",
+  register: true,
 });
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // Esto silencia el error indicando que somos conscientes del uso de Turbopack
-  // aunque existan configuraciones de Webpack (del plugin PWA).
-  turbopack: {
-  },
+  // Turbopack deshabilitado temporalmente para que el plugin PWA funcione correctamente
+  // El plugin @ducanh2912/next-pwa usa Webpack y no es compatible con Turbopack
 };
 
 export default withPWA(nextConfig);

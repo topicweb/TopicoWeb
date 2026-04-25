@@ -3,15 +3,11 @@
 import { Search, Calendar, X, Filter, UserCircle, AlertCircle } from 'lucide-react';
 import type { AtencionesFilterBarProps } from '../types/filters';
 
-/**
- * Barra de filtros para lista de atenciones - Diseño consistente con la app
- *
- * Características:
- * - Paleta slate consistente con MovementTable y SearchFilter
- * - Inputs con ring focus y bordes redondeados (rounded-xl)
- * - Layout compacto con iconos integrados
- * - Badge de paciente activo con estilo premium
- */
+// ───────────────────────────────────────────────────────────────────────────────
+// ATENCIONES FILTER BAR
+// Barra de filtros avanzados con diseño consistente y responsive
+// ───────────────────────────────────────────────────────────────────────────────
+
 export function AtencionesFilterBar({
   filters,
   onSearchTermChange,
@@ -50,9 +46,9 @@ export function AtencionesFilterBar({
         )}
       </div>
 
-      {/* Filtros - Apilados en móvil, en línea en desktop */}
+      {/* Filtros principales */}
       <div className="space-y-3">
-        {/* Búsqueda textual - Full width en todos los tamaños */}
+        {/* Búsqueda textual */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <input
@@ -72,7 +68,7 @@ export function AtencionesFilterBar({
           )}
         </div>
 
-        {/* Fechas - Apiladas en móvil, lado a lado en sm+ */}
+        {/* Rango de fechas */}
         <div className="flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
             <Calendar className={`absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${isDateRangeInvalid ? 'text-rose-400' : 'text-slate-400'}`} />
@@ -81,8 +77,8 @@ export function AtencionesFilterBar({
               value={filters.fechaDesde || ''}
               onChange={(e) => onFechaDesdeChange(e.target.value || null)}
               className={`w-full min-w-0 rounded-xl border bg-white py-3 pl-10 pr-3 text-base text-slate-900 focus:ring-4 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 sm:py-2.5 sm:text-sm ${isDateRangeInvalid
-                  ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-700'
-                  : 'border-slate-200 focus:border-teal-500 focus:ring-teal-500/10 dark:border-slate-700'
+                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-700'
+                : 'border-slate-200 focus:border-teal-500 focus:ring-teal-500/10 dark:border-slate-700'
                 }`}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 text-xs text-slate-400 sm:block">
@@ -96,8 +92,8 @@ export function AtencionesFilterBar({
               value={filters.fechaHasta || ''}
               onChange={(e) => onFechaHastaChange(e.target.value || null)}
               className={`w-full min-w-0 rounded-xl border bg-white py-3 pl-10 pr-3 text-base text-slate-900 focus:ring-4 outline-none transition-all dark:bg-slate-900 dark:text-slate-100 sm:py-2.5 sm:text-sm ${isDateRangeInvalid
-                  ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-700'
-                  : 'border-slate-200 focus:border-teal-500 focus:ring-teal-500/10 dark:border-slate-700'
+                ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/10 dark:border-rose-700'
+                : 'border-slate-200 focus:border-teal-500 focus:ring-teal-500/10 dark:border-slate-700'
                 }`}
             />
             <span className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 text-xs text-slate-400 sm:block">
@@ -106,7 +102,7 @@ export function AtencionesFilterBar({
           </div>
         </div>
 
-        {/* Error de rango de fechas inválido */}
+        {/* Error de validación */}
         {isDateRangeInvalid && (
           <div className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-900/20 dark:text-rose-300">
             <AlertCircle size={16} />
@@ -115,7 +111,7 @@ export function AtencionesFilterBar({
         )}
       </div>
 
-      {/* Filtro activo: Paciente */}
+      {/* Filtro activo de paciente */}
       {filters.pacienteId && (
         <div className="flex items-center justify-between rounded-xl bg-teal-50 px-4 py-3 dark:bg-teal-900/20">
           <div className="flex items-center gap-2">
