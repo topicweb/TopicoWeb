@@ -1,6 +1,7 @@
 [build]
   command = "pnpm build"
   publish = ".next"
+  installCommand = "pnpm install"
 
 [dev]
   command = "pnpm dev"
