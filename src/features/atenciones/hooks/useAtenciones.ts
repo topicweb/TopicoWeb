@@ -6,7 +6,6 @@ import { atencionRepository } from '../data';
 import type {
   Atencion,
   AtencionFormData,
-  AtencionConDetalles,
   AtencionConDetallesExtendida,
   DispensacionMedicamento,
   AtencionResultado,

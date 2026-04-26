@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { usePacientes } from '@/features/pacientes/hooks/usePacientes';
 import { usePatientSearch } from '@/features/pacientes/hooks/usePatientSearch';
 import { useAuth } from '@/core/providers/AuthProvider';

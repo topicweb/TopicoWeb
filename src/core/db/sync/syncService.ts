@@ -15,6 +15,8 @@
 import { db } from '@/core/db';
 import { supabase } from '@/core/db/supabase';
 import { getDeviceId } from '@/core/utils/deviceId';
+import { logger } from '@/core/utils/logger';
+import { withRetry } from '@/core/utils/retry';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTES DE CONFIGURACIÓN
@@ -51,6 +53,9 @@ export class SyncService {
   private isPulling = false;
   private isPushing = false;
   private pendingPulls: string[] = []; // CRITICAL: Cola de businessIds pendientes
+  private readonly MAX_QUEUE_SIZE = 10; // Límite de cola para evitar memory leaks
+  private lastFullSyncTime = 0;
+  private readonly SYNC_COOLDOWN = 60000; // 1 minuto mínimo entre syncs completos
 
   private constructor() { }
 
@@ -101,6 +106,10 @@ export class SyncService {
     // CRITICAL FIX: Si ya está sincronizando, encolar para procesar después
     if (this.isPulling) {
       if (!this.pendingPulls.includes(businessId)) {
+        // Limitar tamaño de cola
+        if (this.pendingPulls.length >= this.MAX_QUEUE_SIZE) {
+          this.pendingPulls.shift(); // Remover el más antiguo
+        }
         this.pendingPulls.push(businessId);
       }
       return;
@@ -113,12 +122,16 @@ export class SyncService {
       const { isKnown, lastSync } = await this.getDeviceSyncStatus(businessId);
 
       // 1. Primero fetch todas las instituciones (sin filtro, siempre completo)
-      const { data: instituciones, error: institucionesError } = await supabase
-        .from('instituciones')
-        .select('*');
+      const { data: instituciones, error: institucionesError } = await withRetry(
+        async () => {
+          const result = await supabase.from('instituciones').select('*');
+          return result;
+        },
+        { maxRetries: 2 }
+      );
 
       if (institucionesError) {
-        console.error('[SyncService] Error PULL instituciones:', institucionesError);
+        logger.error('[SyncService] Error PULL instituciones:', institucionesError);
       } else if (instituciones && instituciones.length > 0) {
         await db.instituciones.bulkPut(instituciones);
       }
@@ -134,10 +147,16 @@ export class SyncService {
           query = query.gt('actualizado_at', lastSync);
         }
 
-        const { data, error } = await query;
+        const { data, error } = await withRetry(
+          async () => {
+            const result = await query;
+            return result;
+          },
+          { maxRetries: 2, shouldRetry: (err) => !String(err).includes('404') }
+        );
 
         if (error) {
-          console.error(`[SyncService] Error PULL ${tableName}:`, error);
+          logger.error(`[SyncService] Error PULL ${tableName}:`, error);
           continue;
         }
 
@@ -145,9 +164,9 @@ export class SyncService {
           continue;
         }
 
-        // LOG: Mostrar datos descargados
-        if (tableName === 'programas_estudio') {
-          console.log('[SyncService] Programas descargados de Supabase:', data.map((p: any) => ({ id: p.id, nombre: p.nombre })));
+        // LOG: Mostrar datos descargados (solo en desarrollo)
+        if (process.env.NODE_ENV === 'development' && tableName === 'programas_estudio') {
+          logger.debug('[SyncService] Programas descargados de Supabase:', data.map((p: any) => ({ id: p.id, nombre: p.nombre })));
         }
 
         // Normalizar datos de Supabase para Dexie
@@ -163,17 +182,17 @@ export class SyncService {
         const table = (db as any)[tableName];
         await table.bulkPut(normalizedData);
 
-        // LOG: Verificar datos en Dexie después de bulkPut
-        if (tableName === 'programas_estudio') {
+        // LOG: Verificar datos en Dexie después de bulkPut (solo en desarrollo)
+        if (process.env.NODE_ENV === 'development' && tableName === 'programas_estudio') {
           const localPrograms = await db.programas_estudio.toArray();
-          console.log('[SyncService] Programas en Dexie después de bulkPut:', localPrograms.map((p: any) => ({ id: p.id, nombre: p.nombre })));
+          logger.debug('[SyncService] Programas en Dexie después de bulkPut:', localPrograms.map((p: any) => ({ id: p.id, nombre: p.nombre })));
         }
       }
 
       // Actualizar timestamp de última sincronización
       await this.updateLastSync(businessId);
     } catch (error) {
-      console.error('[SyncService] Error en PULL:', error);
+      logger.error('[SyncService] Error en PULL:', error);
       throw error;
     } finally {
       this.isPulling = false;
@@ -197,12 +216,12 @@ export class SyncService {
    */
   async pushToSupabase(): Promise<void> {
     if (this.isPushing) {
-      console.log('[SyncService] ⚠️ PUSH ya en progreso, omitiendo');
+      logger.warn('[SyncService] ⚠️ PUSH ya en progreso, omitiendo');
       return;
     }
 
     this.isPushing = true;
-    console.log('[SyncService] 📤 Iniciando PUSH a Supabase');
+    logger.info('[SyncService] 📤 Iniciando PUSH a Supabase');
 
     try {
       let totalPending = 0;
@@ -211,11 +230,11 @@ export class SyncService {
         let pending = await table.where('sync_status').equals('pending').toArray();
 
         if (pending.length === 0) {
-          console.log(`[SyncService] ✓ Tabla ${tableName}: 0 registros pendientes`);
+          logger.debug(`[SyncService] ✓ Tabla ${tableName}: 0 registros pendientes`);
           continue;
         }
 
-        console.log(`[SyncService] 📋 Tabla ${tableName}: ${pending.length} registros pendientes`);
+        logger.info(`[SyncService] 📋 Tabla ${tableName}: ${pending.length} registros pendientes`);
         totalPending += pending.length;
 
         // VALIDACIÓN DE FOREIGN KEY: Filtrar movimientos con medicamento_id inválido
@@ -263,28 +282,34 @@ export class SyncService {
           return rest;
         });
 
-        const { error } = await supabase.from(tableName).upsert(cleanData, { onConflict: 'id' });
+        const { error } = await withRetry(
+          async () => {
+            const result = await supabase.from(tableName).upsert(cleanData, { onConflict: 'id' });
+            return result;
+          },
+          { maxRetries: 2 }
+        );
 
         if (error) {
-          console.error(`[SyncService] Error PUSH ${tableName}:`, error);
+          logger.error(`[SyncService] Error PUSH ${tableName}:`, error);
           continue;
         }
 
-        console.log(`[SyncService] ✅ ${tableName}: upsert exitoso`);
+        logger.debug(`[SyncService] ✅ ${tableName}: upsert exitoso`);
 
         // Marcar como sincronizado
         const ids = pending.map((p: any) => p.id);
         await table.bulkUpdate(ids.map((id: string) => ({ key: id, changes: { sync_status: 'synced' } })));
-        console.log(`[SyncService] ✅ ${tableName}: ${ids.length} registros marcados como synced`);
+        logger.debug(`[SyncService] ✅ ${tableName}: ${ids.length} registros marcados como synced`);
       }
 
-      console.log(`[SyncService] 📊 Total registros sincronizados: ${totalPending}`);
+      logger.info(`[SyncService] 📊 Total registros sincronizados: ${totalPending}`);
     } catch (error) {
-      console.error('[SyncService] ❌ Error en PUSH:', error);
+      logger.error('[SyncService] ❌ Error en PUSH:', error);
       throw error;
     } finally {
       this.isPushing = false;
-      console.log('[SyncService] 🏁 PUSH finalizado');
+      logger.debug('[SyncService] 🏁 PUSH finalizado');
     }
   }
 
@@ -322,9 +347,19 @@ export class SyncService {
   }
 
   /**
-   * Sincronización completa: PULL + PUSH
+   * Sincronización completa: PULL + PUSH con rate limiting
    */
   async fullSync(businessId: string): Promise<void> {
+    const now = Date.now();
+    const timeSinceLastSync = now - this.lastFullSyncTime;
+
+    // Rate limiting: no permitir sync completos más frecuentes que SYNC_COOLDOWN
+    if (timeSinceLastSync < this.SYNC_COOLDOWN) {
+      logger.warn(`[SyncService] ⚠️ Sync en cooldown (${Math.ceil((this.SYNC_COOLDOWN - timeSinceLastSync) / 1000)}s restantes)`);
+      return;
+    }
+
+    this.lastFullSyncTime = now;
     await this.pullFromSupabase(businessId);
     await this.pushToSupabase();
   }

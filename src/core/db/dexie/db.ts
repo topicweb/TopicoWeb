@@ -9,8 +9,6 @@ import type { Paciente, ProgramaEstudio } from '@/features/pacientes/types';
 import type { Medicamento, MovimientoStock } from '@/features/inventario/types';
 import type { Atencion } from '@/features/atenciones/types';
 import { generateUUID as generateUUIDUtil } from '@/shared/utils/uuid';
-import { clearDatabase as clearDatabaseUtil } from './utils/clearDatabase';
-import { migrateV16, migrateV17, migrateV18 } from './migrations';
 
 // ───────────────────────────────────────────────────────────────────────────────
 // DATABASE INSTANCE
@@ -40,8 +38,9 @@ const db = new Dexie('TopicoDatabase') as Dexie & {
 // v17: Agrega tabla sync_metadata para sincronización incremental (device tracking)
 // v18: Sistema de vencimiento - Agrega fecha_vencimiento a movimientos_stock y corrige lógica de "stock por vencer"
 // v19: Corrección de índice duplicado fecha_vencimiento en movimientos_stock
+// NOTA: Migraciones eliminadas para despliegue limpio - estructura se crea desde cero
 
-db.version(19).stores({
+db.version(1).stores({
   instituciones: 'id, nombre, activo, creado_at, sync_status',
   perfiles: 'id, business_id, rol, email, sync_status, deleted_at, [business_id+activo]',
   programas_estudio: 'id, business_id, nombre, sync_status, deleted_at, [business_id+activo]',
@@ -54,15 +53,6 @@ db.version(19).stores({
   movimientos_stock: 'id, business_id, medicamento_id, atencion_id, tipo, tipo_medida, fecha_movimiento, fecha_vencimiento, creado_at, sync_status, deleted_at, [business_id+medicamento_id], [business_id+atencion_id], [medicamento_id+fecha_movimiento], [business_id+tipo+fecha_movimiento], [business_id+fecha_vencimiento]',
   // v17: Tabla para rastrear dispositivos y última sincronización
   sync_metadata: 'deviceId, businessId, lastSync, [deviceId+businessId]',
-}).upgrade(async (tx) => {
-  // v16: Migración definitiva para corregir tipo_medida NULL en movimientos_stock
-  await migrateV16(tx);
-}).upgrade(async (tx) => {
-  // v18: Migración para sistema de vencimiento - convertir fechas en descripcion_movimiento
-  await migrateV18(tx);
-}).upgrade(async (tx) => {
-  // v17: Crear tabla sync_metadata para sincronización incremental
-  await migrateV17();
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -72,5 +62,4 @@ db.version(19).stores({
 export { db };
 
 // Re-exportar utilidades para backward compatibility
-export { clearDatabaseUtil as clearDatabase };
 export { generateUUIDUtil as generateUUID };

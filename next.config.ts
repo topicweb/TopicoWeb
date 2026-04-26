@@ -12,8 +12,7 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   /* config options here */
-  // Turbopack deshabilitado temporalmente para que el plugin PWA funcione correctamente
-  // El plugin @ducanh2912/next-pwa usa Webpack y no es compatible con Turbopack
+  turbopack: {}, // Configuración vacía para silenciar error de Turbopack con Webpack
 };
 
 export default withPWA(nextConfig);

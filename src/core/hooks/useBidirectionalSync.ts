@@ -12,6 +12,7 @@ import { useAuth } from '@/core/providers/AuthProvider';
 import { useNetwork } from '@/core/providers/NetworkProvider';
 import { syncService } from '@/core/db/sync';
 import { supabase } from '@/core/db/supabase';
+import { logger } from '@/core/utils/logger';
 
 export function useBidirectionalSync() {
   const { user, businessId } = useAuth();
@@ -42,7 +43,7 @@ export function useBidirectionalSync() {
         // PUSH cambios locales
         await syncService.pushToSupabase();
       } catch (error) {
-        console.error('[useBidirectionalSync] Error en sincronización:', error);
+        logger.error('[useBidirectionalSync] Error en sincronización:', error);
       } finally {
         setIsSyncing(false);
         syncInProgress.current = false;
@@ -51,11 +52,12 @@ export function useBidirectionalSync() {
 
     sync();
 
-    // Sincronizar periódicamente cada 5 minutos para no consumir recursos excesivos
-    const interval = setInterval(sync, 300000);
-
+    // NOTA: Sync periódico eliminado para optimizar consumo del plan gratuito
+    // La sincronización se realiza:
+    // - Inmediatamente después de cambios locales (sync inmediato en hooks)
+    // - Cuando el dispositivo vuelve online (evento 'online')
+    // - Manualmente con forceSync()
     return () => {
-      clearInterval(interval);
       syncInProgress.current = false;
     };
   }, [user, businessId, isOnline]);
@@ -65,10 +67,10 @@ export function useBidirectionalSync() {
     if (!isOnline || !user || !businessId) return;
 
     const handleOnline = async () => {
-      console.log('[useBidirectionalSync] 🟢 Evento online detectado - esperando conexión real...');
+      logger.info('[useBidirectionalSync] 🟢 Evento online detectado - esperando conexión real...');
 
       if (syncInProgress.current) {
-        console.log('[useBidirectionalSync] ⚠️ Sync ya en progreso, omitiendo');
+        logger.warn('[useBidirectionalSync] ⚠️ Sync ya en progreso, omitiendo');
         return;
       }
 
@@ -80,26 +82,26 @@ export function useBidirectionalSync() {
       try {
         const { error } = await supabase.from('instituciones').select('id').limit(1);
         if (error) {
-          console.log('[useBidirectionalSync] ⚠️ Conexión a Supabase no disponible aún, reintentando en 3s...');
+          logger.warn('[useBidirectionalSync] ⚠️ Conexión a Supabase no disponible aún, reintentando en 3s...');
           setTimeout(handleOnline, 3000);
           return;
         }
       } catch (err) {
-        console.log('[useBidirectionalSync] ⚠️ Error verificando conexión, reintentando en 3s...');
+        logger.warn('[useBidirectionalSync] ⚠️ Error verificando conexión, reintentando en 3s...');
         setTimeout(handleOnline, 3000);
         return;
       }
 
-      console.log('[useBidirectionalSync] ✅ Conexión verificada - iniciando sync');
+      logger.info('[useBidirectionalSync] ✅ Conexión verificada - iniciando sync');
       syncInProgress.current = true;
       setIsSyncing(true);
 
       try {
-        console.log('[useBidirectionalSync] 📤 Iniciando fullSync para businessId:', businessId);
+        logger.info('[useBidirectionalSync] 📤 Iniciando fullSync para businessId:', businessId);
         await syncService.fullSync(businessId);
-        console.log('[useBidirectionalSync] ✅ fullSync completado');
+        logger.info('[useBidirectionalSync] ✅ fullSync completado');
       } catch (error) {
-        console.error('[useBidirectionalSync] ❌ Error al volver online:', error);
+        logger.error('[useBidirectionalSync] ❌ Error al volver online:', error);
         // Reintentar después de 5 segundos si falla
         setTimeout(handleOnline, 5000);
       } finally {
@@ -108,11 +110,11 @@ export function useBidirectionalSync() {
       }
     };
 
-    console.log('[useBidirectionalSync] 🎧 Registrando listener para evento online');
+    logger.debug('[useBidirectionalSync] 🎧 Registrando listener para evento online');
     window.addEventListener('online', handleOnline);
 
     return () => {
-      console.log('[useBidirectionalSync] 🚫 Removiendo listener para evento online');
+      logger.debug('[useBidirectionalSync] 🚫 Removiendo listener para evento online');
       window.removeEventListener('online', handleOnline);
     };
   }, [isOnline, user, businessId]);
@@ -135,7 +137,7 @@ export function useBidirectionalSync() {
     try {
       await syncService.pushToSupabase();
     } catch (error) {
-      console.error('[useBidirectionalSync] Error en triggerPush:', error);
+      logger.error('[useBidirectionalSync] Error en triggerPush:', error);
     }
   };
 

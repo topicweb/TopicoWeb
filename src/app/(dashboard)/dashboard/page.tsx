@@ -1,16 +1,14 @@
 "use client";
 
-import { useState } from "react";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useNetwork } from "@/core/providers/NetworkProvider";
 import { motion } from "framer-motion";
-import { Wifi, WifiOff, Trash2 } from "lucide-react";
+import { Wifi, WifiOff } from "lucide-react";
 import { useLiveQuery } from "dexie-react-hooks";
-import { db, clearDatabase } from "@/core/db/dexie/db";
+import { db } from "@/core/db/dexie/db";
 import { StatCards } from "@/shared/dashboard/StatCards";
 import { RecentActivity } from "@/shared/dashboard/RecentActivity";
 import { ExpiringStock } from "@/shared/dashboard/ExpiringStock";
-import { ConfirmationModal } from "@/shared/ui/ConfirmationModal";
 import { Users, Pill, ClipboardList, AlertTriangle } from "lucide-react";
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -19,8 +17,6 @@ import { Users, Pill, ClipboardList, AlertTriangle } from "lucide-react";
 // ───────────────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [isClearing, setIsClearing] = useState(false);
   const { businessId, user } = useAuth();
   const { isOnline } = useNetwork();
 
@@ -89,19 +85,9 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowConfirmModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 dark:bg-rose-900/30 dark:text-rose-300"
-            title="Limpiar base de datos local"
-          >
-            <Trash2 size={16} />
-          </button>
-
-          <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isOnline ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"}`}>
-            {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-            {isOnline ? "Online" : "Offline"}
-          </div>
+        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isOnline ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"}`}>
+          {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
+          {isOnline ? "Online" : "Offline"}
         </div>
       </div>
 
@@ -113,18 +99,6 @@ export default function DashboardPage() {
 
       {/* Actividad reciente */}
       <RecentActivity activities={recentActivity} />
-
-      <ConfirmationModal
-        isOpen={showConfirmModal}
-        onClose={() => setShowConfirmModal(false)}
-        onConfirm={async () => {
-          setIsClearing(true);
-          clearDatabase();
-        }}
-        title="Limpiar Base de Datos"
-        message="¿Estás seguro? Esto borrará TODOS los datos locales y recargará la página."
-        isLoading={isClearing}
-      />
     </motion.div>
   );
 }

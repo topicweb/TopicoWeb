@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
 import { syncService } from "@/core/db/sync";
+import { logger } from "@/core/utils/logger";
 import type { Perfil, RolUsuario } from "@/features/usuarios/types";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Validar que el usuario esté activo y no eliminado
   useEffect(() => {
     if (perfil && (!perfil.activo || perfil.deleted_at)) {
-      console.warn('[AuthProvider] Usuario inactivo o eliminado, cerrando sesión');
+      logger.warn('[AuthProvider] Usuario inactivo o eliminado, cerrando sesión');
       supabase.auth.signOut();
       setUser(null);
       setSession(null);
@@ -97,20 +98,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!localPerfil) {
               // Perfil no existe en Dexie - limpiar solo datos corruptos
-              console.log('[AuthProvider] Primer login - limpiando datos corruptos');
+              logger.debug('[AuthProvider] Primer login - limpiando datos corruptos');
 
               // Eliminar programas locales para forzar PULL desde Supabase
               await db.programas_estudio.clear();
-              console.log('[AuthProvider] Programas locales eliminados');
+              logger.debug('[AuthProvider] Programas locales eliminados');
 
               // Eliminar pacientes con programa_id inválido
               const pacientes = await db.pacientes.toArray();
-              console.log(`[AuthProvider] Total pacientes: ${pacientes.length}`);
+              logger.debug(`[AuthProvider] Total pacientes: ${pacientes.length}`);
               const pacientesCorruptos = pacientes.filter((p: any) => p.programa_id);
-              console.log(`[AuthProvider] Pacientes con programa_id: ${pacientesCorruptos.length}`);
+              logger.debug(`[AuthProvider] Pacientes con programa_id: ${pacientesCorruptos.length}`);
 
               if (pacientesCorruptos.length > 0) {
-                console.log(`[AuthProvider] Eliminando ${pacientesCorruptos.length} pacientes corruptos`);
+                logger.debug(`[AuthProvider] Eliminando ${pacientesCorruptos.length} pacientes corruptos`);
                 const pacienteIds = pacientesCorruptos.map((p: any) => p.id);
                 await db.pacientes.bulkDelete(pacienteIds);
               }
@@ -123,7 +124,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 .maybeSingle();
 
               if (perfilError) {
-                console.warn('[AuthProvider] Error obteniendo perfil de Supabase:', perfilError);
+                logger.warn('[AuthProvider] Error obteniendo perfil de Supabase:', perfilError);
                 return;
               }
 
@@ -133,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
             }
           } catch (error) {
-            console.error('[AuthProvider] Error en PULL inicial:', error);
+            logger.error('[AuthProvider] Error en PULL inicial:', error);
           }
         }, 500);
       }

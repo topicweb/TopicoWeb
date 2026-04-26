@@ -36,7 +36,6 @@ export function MedicineDispenser({
     medicamentosFiltrados,
     porTipo,
     totalesPorTipo,
-    estaSeleccionado,
     getCantidad,
     agregarMedicamento,
     removerMedicamento,

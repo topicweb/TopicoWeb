@@ -4,6 +4,7 @@ import { useAuth } from '@/core/providers/AuthProvider';
 import { useNetwork } from '@/core/providers/NetworkProvider';
 import { syncService } from '@/core/db/sync';
 import { updateMedicamentoStock } from '@/core/db/dexie/logic/stock';
+import { logger } from '@/core/utils/logger';
 import type { Medicamento, MedicamentoFormData, MovimientoStock } from '../types';
 
 interface UseMedicamentosReturn {
@@ -69,7 +70,7 @@ export function useMedicamentos() {
 
     await db.medicamentos.add(medicamento);
     if (isOnline) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.pushToSupabase().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
     }
     return medicamento.id;
   };
@@ -86,7 +87,7 @@ export function useMedicamentos() {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.pushToSupabase().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
     }
   };
 
@@ -102,7 +103,7 @@ export function useMedicamentos() {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.pushToSupabase().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
     }
   };
 

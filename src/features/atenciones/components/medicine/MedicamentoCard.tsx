@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Check, Plus, Minus, X } from "lucide-react";
-import { Medicamento, TipoMedida } from "@/features/inventario/types";
+import { Medicamento } from "@/features/inventario/types";
 import { COLORES_POR_TIPO, ICONOS_POR_TIPO, getUnidad, getEtiqueta } from "@/features/atenciones/constants/medicamento";
 
 interface MedicamentoCardProps {
@@ -66,20 +66,20 @@ export function MedicamentoCard({
               <button
                 type="button"
                 onClick={() => onActualizarCantidad(cantidad - 1)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                className={`w-10 h-10 rounded-full ${colores.bg} ${colores.border} border-2 flex items-center justify-center hover:opacity-80 transition-all shadow-sm`}
               >
-                <Minus className="w-4 h-4" />
+                <Minus className={`w-5 h-5 ${colores.text}`} />
               </button>
-              <span className={`text-2xl font-bold ${colores.text}`}>
+              <span className={`text-2xl font-bold ${colores.text} min-w-[3ch] text-center`}>
                 {cantidad}
                 <span className="text-sm font-normal text-slate-500 ml-1">{unidad}</span>
               </span>
               <button
                 type="button"
                 onClick={() => onActualizarCantidad(cantidad + 1)}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center hover:bg-slate-200 transition-colors"
+                className={`w-10 h-10 rounded-full ${colores.bg} ${colores.border} border-2 flex items-center justify-center hover:opacity-80 transition-all shadow-sm`}
               >
-                <Plus className="w-4 h-4" />
+                <Plus className={`w-5 h-5 ${colores.text}`} />
               </button>
             </div>
             <button

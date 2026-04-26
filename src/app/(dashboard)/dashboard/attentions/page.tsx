@@ -4,7 +4,6 @@ import { useAtenciones } from '@/features/atenciones/hooks/useAtenciones';
 import { useAtencionesFilter } from '@/features/atenciones/hooks/useAtencionesFilter';
 import { AtencionesFilterBar } from '@/features/atenciones/components/AtencionesFilterBar';
 import { AtencionCard } from '@/features/atenciones/components/AtencionCard';
-import type { AtencionConDetallesExtendida } from '@/features/atenciones/types';
 import Link from 'next/link';
 import { Plus, FileText, Stethoscope } from 'lucide-react';
 

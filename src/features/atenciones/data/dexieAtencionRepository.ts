@@ -2,7 +2,6 @@ import { db } from "@/core/db/dexie/db";
 import { syncService } from '@/core/db/sync';
 import {
   updateMedicamentoStock,
-  StockError,
   verificarStockDisponible,
   generarDescripcionMovimiento,
 } from "@/core/db/dexie/logic/stock";
@@ -10,7 +9,6 @@ import type { Medicamento, MovimientoStock } from "@/features/inventario/types";
 import type {
   Atencion,
   AtencionFormData,
-  AtencionConDetalles,
   AtencionConDetallesExtendida,
   AtencionExtendida,
   DispensacionMedicamento,
