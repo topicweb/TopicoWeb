@@ -2,7 +2,7 @@
   "name": "Sistema de Gestión de Tópico Médico",
   "short_name": "Tópico",
   "start_url": "/",
-  "display": "standalone",
+  "display": "minimal-ui",
   "background_color": "#0f172a",
   "theme_color": "#0f172a",
   "orientation": "portrait",
