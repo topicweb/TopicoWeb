@@ -16,11 +16,6 @@ import { ArrowLeft, User, Stethoscope, PillBottle } from "lucide-react";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 
-// ───────────────────────────────────────────────────────────────────────────────
-// NEW ATTENTION WIZARD PAGE
-// Flujo guiado de 3 pasos para registrar nuevas atenciones médicas
-// ───────────────────────────────────────────────────────────────────────────────
-
 const STEPS = [
   { id: 1, label: "Paciente", icon: User },
   { id: 2, label: "Consulta", icon: Stethoscope },
@@ -31,7 +26,6 @@ export default function NewAttentionPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  // ── WIZARD HOOK ───────────────────────────────────────────────────────────────
   const {
     currentStep,
     direction,
@@ -51,13 +45,11 @@ export default function NewAttentionPage() {
     slideVariants,
   } = useAttentionWizard();
 
-  // ── DATA HOOKS ───────────────────────────────────────────────────────────────
   const { registrarAtencion, error: atencionError, clearError } = useAtenciones();
   const { medicamentos } = useMedicamentos();
   const { pacientes } = usePacientes();
   const { usuarios } = useUsuarios();
 
-  // ── FILTERING ─────────────────────────────────────────────────────────────────
   const filteredPacientes = getFilteredPacientes(pacientes);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,28 +84,29 @@ export default function NewAttentionPage() {
   };
 
   return (
-    <div className="h-full flex flex-col max-w-5xl mx-auto">
-      {/* Header con navegación */}
-      <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-4 mb-4 shrink-0">
+    <div className="mx-auto flex h-full max-w-5xl flex-col">
+      <div className="mb-4 flex shrink-0 items-center gap-3 border-b border-border pb-4">
         <Link
           href="/dashboard/attentions"
-          className="h-9 w-9 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-teal-600 transition-all"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-white text-muted-foreground shadow-sm transition-all hover:border-primary/30 hover:bg-[var(--primary-soft)] hover:text-primary"
         >
           <ArrowLeft size={18} />
         </Link>
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Nueva Atención
+          <h1 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">
+            Nueva <span className="text-gradient">Atención</span>
           </h1>
-          <p className="text-xs md:text-sm text-slate-500">Paso {currentStep} de 3</p>
+          <p className="text-xs text-muted md:text-sm">Paso {currentStep} de 3</p>
         </div>
       </div>
 
-      {/* Stepper de navegación */}
       <WizardStepper steps={STEPS} currentStep={currentStep} onStepClick={goToStep} />
 
-      {/* Content del wizard con animaciones */}
-      <form onSubmit={handleSubmit} onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <form
+        onSubmit={handleSubmit}
+        onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
+        className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
             key={currentStep}
@@ -125,7 +118,6 @@ export default function NewAttentionPage() {
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="flex-1 overflow-y-auto"
           >
-            {/* Paso 1: Selección de paciente */}
             {currentStep === 1 && (
               <PatientSelectorStep
                 selectedPatient={selectedPatient}
@@ -137,8 +129,6 @@ export default function NewAttentionPage() {
                 onNextStep={() => goToStep(2)}
               />
             )}
-
-            {/* Paso 2: Datos de consulta */}
             {currentStep === 2 && (
               <ConsultaFormStep
                 selectedPatient={selectedPatient}
@@ -146,8 +136,6 @@ export default function NewAttentionPage() {
                 onFormDataChange={setFormData}
               />
             )}
-
-            {/* Paso 3: Dispensación de medicamentos */}
             {currentStep === 3 && (
               <MedicamentosStep
                 selectedPatient={selectedPatient}
@@ -161,7 +149,6 @@ export default function NewAttentionPage() {
           </motion.div>
         </AnimatePresence>
 
-        {/* Botones de navegación del wizard */}
         <WizardNavigation
           currentStep={currentStep}
           totalSteps={3}

@@ -36,12 +36,12 @@ export function MedicamentoGrid({
 
         return (
           <div key={tipo}>
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 flex items-center gap-2">
+            <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
               {ICONOS_POR_TIPO[tipo]}
               {TIPO_LABELS[tipo]}
-              <span className="text-xs font-normal text-slate-400">({meds.length})</span>
+              <span className="text-xs font-normal text-muted">({meds.length})</span>
             </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               <AnimatePresence mode="popLayout">
                 {meds.map((med) => (
                   <motion.div key={med.id} layout>
@@ -63,17 +63,17 @@ export function MedicamentoGrid({
       })}
 
       {hayMedicamentosSinTipo && (
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4">
+        <div className="rounded-xl border border-[var(--warning)]/30 bg-[var(--warning-soft)] p-4">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-warning" />
             <div>
-              <h4 className="font-medium text-amber-800 dark:text-amber-300 mb-1">Medicamentos sin categoría</h4>
-              <p className="text-sm text-amber-700 dark:text-amber-400">
-                Se encontraron {medicamentosFiltrados.length} medicamentos sin <strong>tipo de medida</strong> definido.
+              <h4 className="mb-1 font-medium text-foreground">Medicamentos sin categoría</h4>
+              <p className="text-sm text-muted">
+                Se encontraron {medicamentosFiltrados.length} medicamentos sin tipo de medida definido.
               </p>
-              <p className="text-sm text-amber-700 dark:text-amber-400 mt-2">
+              <p className="mt-2 text-sm text-muted">
                 Edítalos en el{" "}
-                <Link href="/dashboard/inventory" className="underline font-medium hover:text-amber-900">
+                <Link href="/dashboard/inventory" className="font-medium text-primary underline hover:text-primary-hover">
                   Inventario
                 </Link>{" "}
                 y asigna un tipo.
@@ -84,8 +84,8 @@ export function MedicamentoGrid({
       )}
 
       {medicamentosFiltrados.length === 0 && (
-        <div className="text-center py-8 text-slate-500 dark:text-slate-400">
-          <Pill className="w-12 h-12 mx-auto mb-3 opacity-50" />
+        <div className="py-8 text-center text-muted">
+          <Pill className="mx-auto mb-3 h-12 w-12 opacity-40" />
           <p>No se encontraron medicamentos</p>
         </div>
       )}

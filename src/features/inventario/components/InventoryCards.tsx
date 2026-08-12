@@ -11,10 +11,10 @@ function getVencimientoColor(fecha: string): string {
   const vencimiento = new Date(fecha);
   const diffDays = Math.ceil((vencimiento.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return "text-gray-400 line-through";
-  if (diffDays <= 7) return "text-red-600 font-bold";
-  if (diffDays <= 30) return "text-amber-600";
-  return "text-gray-600";
+  if (diffDays < 0) return "text-muted-foreground line-through";
+  if (diffDays <= 7) return "text-danger font-bold";
+  if (diffDays <= 30) return "text-warning";
+  return "text-muted-foreground";
 }
 
 // Función auxiliar para formatear fecha
@@ -72,7 +72,7 @@ export function InventoryCards({
       {isSearching ? (
         // Skeletons durante búsqueda
         Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+          <div key={i} className="glass-card p-4">
             <Skeleton className="h-5 w-3/4 mb-2" />
             <Skeleton className="h-4 w-1/2 mb-3" />
             <div className="flex justify-between items-center">
@@ -88,22 +88,22 @@ export function InventoryCards({
           return (
             <div
               key={item.id}
-              className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800"
+              className="glass-card p-4 transition-all hover:border-primary/20 hover:shadow-[var(--card-shadow)]"
             >
               {/* Header: nombre y estado de sincronización */}
-              <div className="flex justify-between items-start gap-2 mb-2">
+              <div className="mb-2 flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-gray-900 dark:text-white text-base leading-tight">
+                  <h3 className="text-base font-semibold leading-tight text-foreground">
                     {item.nombre}
                   </h3>
                   {item.descripcion && (
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">
+                    <p className="mt-0.5 line-clamp-1 text-xs text-muted">
                       {item.descripcion}
                     </p>
                   )}
                 </div>
                 <span
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium shrink-0 ${item.sync_status === "synced" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                  className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${item.sync_status === "synced" ? "bg-[var(--success-soft)] text-success" : "bg-[var(--warning-soft)] text-warning"}`}
                 >
                   {item.sync_status === "synced" ? "Sync" : "Pendiente"}
                 </span>
@@ -111,19 +111,19 @@ export function InventoryCards({
 
               {/* Grid de información */}
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">Stock</p>
+                <div className="rounded-lg bg-muted p-2">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground">Stock</p>
                   <div className="flex items-center gap-1.5">
-                    <span className={`font-bold text-sm ${isLowStock ? "text-red-500" : "text-gray-900 dark:text-white"}`}>
+                    <span className={`text-sm font-bold ${isLowStock ? "text-red-500" : "text-foreground"}`}>
                       {item.stock_actual ?? 0}
                     </span>
-                    <span className="text-xs text-slate-500">{item.unidad_medida}</span>
+                    <span className="text-xs text-muted">{item.unidad_medida}</span>
                     {isLowStock && <AlertTriangle size={14} className="text-red-500" />}
                   </div>
                 </div>
-                <div className="bg-slate-50 dark:bg-slate-900/50 rounded-lg p-2">
-                  <p className="text-[10px] text-slate-500 uppercase font-bold">Ubicación</p>
-                  <p className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                <div className="rounded-lg bg-muted p-2">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground">Ubicación</p>
+                  <p className="truncate text-sm font-medium text-foreground">
                     {item.anaquel || "-"}
                   </p>
                 </div>
@@ -132,8 +132,8 @@ export function InventoryCards({
               {/* Próximo vencimiento */}
               {proximoVencimiento[item.id] && (
                 <div className="flex items-center gap-1.5 mb-3 px-2">
-                  <Calendar size={12} className="text-slate-400" />
-                  <span className="text-xs text-slate-600 dark:text-slate-400">Vence:</span>
+                  <Calendar size={12} className="text-muted-foreground" />
+                  <span className="text-xs text-muted">Vence:</span>
                   <span
                     className={`text-xs font-medium ${getVencimientoColor(proximoVencimiento[item.id]!)}`}
                   >
@@ -143,24 +143,24 @@ export function InventoryCards({
               )}
 
               {/* Botones de acción */}
-              <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex gap-2 border-t border-border pt-2">
                 <button
                   onClick={() => onAdjustStock(item)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-green-50 text-green-700 text-xs font-semibold dark:bg-green-900/20 dark:text-green-400"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-50 px-3 py-2 text-xs font-semibold text-green-700"
                 >
                   <ArrowRightLeft size={14} />
                   Stock
                 </button>
                 <button
                   onClick={() => onEdit(item)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-blue-50 text-blue-700 text-xs font-semibold dark:bg-blue-900/20 dark:text-blue-400"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--primary-soft)] px-3 py-2 text-xs font-semibold text-primary"
                 >
                   <Edit2 size={14} />
                   Editar
                 </button>
                 <button
                   onClick={() => handleDeleteClick(item.id)}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg bg-red-50 text-red-700 text-xs font-semibold dark:bg-red-900/20 dark:text-red-400"
+                  className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--danger-soft)] px-3 py-2 text-xs font-semibold text-danger"
                 >
                   <Trash2 size={14} />
                   Eliminar
@@ -171,8 +171,8 @@ export function InventoryCards({
         })
       ) : (
         // Estado vacío
-        <div className="rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-gray-700 dark:bg-gray-800">
-          <p className="text-slate-500">No se encontraron medicamentos.</p>
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted p-8 text-center">
+          <p className="text-muted">No se encontraron medicamentos.</p>
         </div>
       )}
 

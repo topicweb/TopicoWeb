@@ -12,16 +12,16 @@ export function InventoryHeader({ searchTerm, onSearchChange, onAddNew }: Invent
   return (
     <>
       {/* Header principal */}
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center border-b border-slate-100 dark:border-slate-800 pb-5">
+      <div className="flex flex-col justify-between gap-4 border-b border-border pb-5 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Inventario de Farmacia
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Inventario de <span className="text-gradient">Farmacia</span>
           </h1>
-          <p className="text-sm text-slate-500 mt-1">Control de stock y suministros</p>
+          <p className="mt-1 text-sm text-muted">Control de stock y suministros</p>
         </div>
         <button
           onClick={onAddNew}
-          className="flex items-center gap-2 rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-700 shadow-lg shadow-teal-600/20 transition-all active:scale-95"
+          className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-accent-hover active:scale-[0.98]"
         >
           <Plus size={18} />
           <span>Nuevo Medicamento</span>
@@ -30,13 +30,16 @@ export function InventoryHeader({ searchTerm, onSearchChange, onAddNew }: Invent
 
       {/* Barra de búsqueda */}
       <div className="relative w-full md:max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search
+          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary"
+          aria-hidden="true"
+        />
         <input
           type="text"
           placeholder="Buscar medicamento..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:border-slate-800 dark:bg-slate-900 dark:text-white"
+          className="input-premium w-full border-l-4 border-l-primary py-2.5 pl-10 pr-4 text-sm"
         />
       </div>
     </>

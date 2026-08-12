@@ -11,10 +11,10 @@ function getVencimientoColor(fecha: string): string {
   const vencimiento = new Date(fecha);
   const diffDays = Math.ceil((vencimiento.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-  if (diffDays < 0) return "text-gray-400 line-through";
-  if (diffDays <= 7) return "text-red-600 font-bold";
-  if (diffDays <= 30) return "text-amber-600";
-  return "text-gray-600";
+  if (diffDays < 0) return "text-muted-foreground line-through";
+  if (diffDays <= 7) return "text-danger font-bold";
+  if (diffDays <= 30) return "text-warning";
+  return "text-muted-foreground";
 }
 
 // Función auxiliar para formatear fecha
@@ -68,10 +68,10 @@ export function InventoryTable({
   };
   return (
     <>
-      <div className="hidden md:block overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800">
+      <div className="glass-card hidden overflow-hidden md:block">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600 dark:text-slate-400">
-            <thead className="bg-slate-50 dark:bg-slate-900/50 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-500">
+          <table className="w-full text-left text-sm text-muted-foreground">
+            <thead className="bg-muted text-xs font-bold uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-6 py-4">Medicamento</th>
                 <th className="px-6 py-4">Ubicación</th>
@@ -85,7 +85,7 @@ export function InventoryTable({
               {isSearching ? (
                 // Skeletons durante búsqueda
                 Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b dark:border-gray-700">
+                  <tr key={i} className="border-b border-border">
                     <td className="px-6 py-4">
                       <Skeleton className="h-4 w-32 mb-2" />
                       <Skeleton className="h-3 w-20" />
@@ -112,12 +112,12 @@ export function InventoryTable({
                 medicamentos.map((item: Medicamento) => (
                   <tr
                     key={item.id}
-                    className="border-b hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-700/50"
+                    className="border-b border-border transition-colors hover:bg-muted"
                   >
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 font-medium text-foreground">
                       {item.nombre}
                       {item.descripcion && (
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <p className="mt-0.5 text-xs text-muted">
                           {item.descripcion}
                         </p>
                       )}
@@ -128,7 +128,7 @@ export function InventoryTable({
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         <span
-                          className={`font-bold ${(item.stock_actual ?? 0) <= item.stock_minimo ? "text-red-500" : "text-gray-900 dark:text-gray-100"}`}
+                          className={`font-bold ${(item.stock_actual ?? 0) <= item.stock_minimo ? "text-red-500" : "text-foreground"}`}
                         >
                           {item.stock_actual ?? 0} {item.unidad_medida}
                         </span>
@@ -149,12 +149,12 @@ export function InventoryTable({
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs text-gray-400">-</span>
+                        <span className="text-xs text-muted-foreground">-</span>
                       )}
                     </td>
                     <td className="px-6 py-4">
                       <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${item.sync_status === "synced" ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"}`}
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${item.sync_status === "synced" ? "bg-[var(--success-soft)] text-success" : "bg-[var(--warning-soft)] text-warning"}`}
                       >
                         {item.sync_status === "synced"
                           ? "Sincronizado"
@@ -165,20 +165,20 @@ export function InventoryTable({
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => onAdjustStock(item)}
-                          className="p-2 rounded-lg text-green-600 hover:bg-green-50 hover:text-green-700 dark:hover:bg-green-900/20 dark:hover:text-green-400 transition-colors"
+                          className="rounded-lg p-2 text-green-600 transition-colors hover:bg-green-50 hover:text-green-700"
                           title="Ajustar Stock"
                         >
                           <ArrowRightLeft size={18} />
                         </button>
                         <button
                           onClick={() => onEdit(item)}
-                          className="p-2 rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-900/20 dark:hover:text-blue-400 transition-colors"
+                          className="rounded-lg p-2 text-primary transition-colors hover:bg-[var(--primary-soft)] hover:text-primary-hover"
                         >
                           <Edit2 size={18} />
                         </button>
                         <button
                           onClick={() => handleDeleteClick(item.id)}
-                          className="p-2 rounded-lg text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-colors"
+                          className="rounded-lg p-2 text-danger transition-colors hover:bg-[var(--danger-soft)] hover:text-danger"
                         >
                           <Trash2 size={18} />
                         </button>
@@ -189,7 +189,7 @@ export function InventoryTable({
               ) : (
                 // Estado vacío
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-muted">
                     No se encontraron medicamentos.
                   </td>
                 </tr>

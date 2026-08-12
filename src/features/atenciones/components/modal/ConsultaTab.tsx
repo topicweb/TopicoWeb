@@ -1,4 +1,4 @@
-import { ClipboardList, Stethoscope } from "lucide-react";
+import { ClipboardList, Stethoscope, Activity } from "lucide-react";
 import { SignosVitalesInput } from "@/features/atenciones/components/SignosVitalesInput";
 import { SignosVitales } from "@/features/atenciones/types";
 
@@ -12,47 +12,36 @@ interface ConsultaTabProps {
   updateField: <K extends keyof ConsultaTabProps["form"]>(field: K, value: ConsultaTabProps["form"][K]) => void;
 }
 
-const inputBaseClass =
-  "w-full rounded-2xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 text-base font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-4 focus:ring-teal-500/5 transition-all outline-none";
-
-const textareaBaseClass = `${inputBaseClass} min-h-[100px] resize-none`;
-
 export function ConsultaTab({ form, updateField }: ConsultaTabProps) {
   return (
     <div className="space-y-5">
-      {/* Fecha */}
-      <FormField label="Fecha de Atención" icon={<ClipboardList size={14} className="text-teal-500" />}>
+      <FormField label="Fecha de Atención" icon={<ClipboardList size={14} className="text-accent" />}>
         <input
           type="date"
           required
-          className={inputBaseClass}
+          className="input-premium w-full px-4 py-3 text-sm font-medium"
           value={form.fecha_atencion}
           onChange={(e) => updateField("fecha_atencion", e.target.value)}
         />
       </FormField>
 
-      {/* Motivo */}
-      <FormField
-        label="Motivo de Consulta"
-        icon={<Stethoscope size={14} className="text-teal-500" />}
-      >
+      <FormField label="Motivo de Consulta" icon={<Stethoscope size={14} className="text-accent" />}>
         <textarea
           required
           rows={3}
           placeholder="Describa el motivo de la consulta..."
-          className={textareaBaseClass}
+          className="input-premium w-full resize-none px-4 py-3 text-sm font-medium"
           value={form.motivo_consulta}
           onChange={(e) => updateField("motivo_consulta", e.target.value)}
         />
       </FormField>
 
-      {/* Signos Vitales */}
       <div className="space-y-3">
-        <label className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-          <ActivityIcon />
+        <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <Activity size={14} className="text-accent" />
           Signos Vitales
         </label>
-        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+        <div className="rounded-xl border border-border bg-muted p-4">
           <SignosVitalesInput
             value={form.signos_vitales}
             onChange={(sv) => updateField("signos_vitales", sv)}
@@ -60,12 +49,11 @@ export function ConsultaTab({ form, updateField }: ConsultaTabProps) {
         </div>
       </div>
 
-      {/* Observaciones */}
       <FormField label="Observaciones (Opcional)">
         <textarea
           rows={3}
           placeholder="Notas adicionales, diagnóstico, recomendaciones..."
-          className={textareaBaseClass}
+          className="input-premium w-full resize-none px-4 py-3 text-sm font-medium"
           value={form.observacion}
           onChange={(e) => updateField("observacion", e.target.value)}
         />
@@ -74,38 +62,14 @@ export function ConsultaTab({ form, updateField }: ConsultaTabProps) {
   );
 }
 
-interface FormFieldProps {
-  label: string;
-  icon?: React.ReactNode;
-  children: React.ReactNode;
-}
-
-function FormField({ label, icon, children }: FormFieldProps) {
+function FormField({ label, icon, children }: { label: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
         {icon}
         {label}
       </label>
       {children}
     </div>
-  );
-}
-
-function ActivityIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className="text-teal-500"
-    >
-      <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-    </svg>
   );
 }

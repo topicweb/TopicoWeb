@@ -1,11 +1,7 @@
+import { Users } from 'lucide-react';
 import { Skeleton } from '@/shared/ui/Skeleton';
 import type { Paciente } from '../types';
 import { PatientCard } from './PatientCard';
-
-// ───────────────────────────────────────────────────────────────────────────────
-// GRID DE PACIENTES
-// Muestra lista de pacientes en tarjetas con estados de carga y búsqueda
-// ───────────────────────────────────────────────────────────────────────────────
 
 interface PatientsGridProps {
   pacientes: Paciente[];
@@ -17,11 +13,11 @@ interface PatientsGridProps {
 }
 
 export function PatientsGrid({ pacientes, isSearching, searchTerm, onEdit, onDelete, canDelete = false }: PatientsGridProps) {
-  return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {isSearching ? (
-        Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="rounded-xl bg-white p-4 shadow-sm dark:bg-gray-800">
+  if (isSearching) {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="glass-card p-5">
             <div className="flex items-center gap-4">
               <Skeleton className="h-12 w-12 rounded-full" />
               <div className="space-y-2">
@@ -30,22 +26,36 @@ export function PatientsGrid({ pacientes, isSearching, searchTerm, onEdit, onDel
               </div>
             </div>
           </div>
-        ))
-      ) : pacientes.length > 0 ? (
-        pacientes.map((patient) => (
-          <PatientCard
-            key={patient.id}
-            patient={patient}
-            onEdit={onEdit}
-            onDelete={onDelete}
-            canDelete={canDelete}
-          />
-        ))
-      ) : (
-        <p className="col-span-full py-8 text-center text-gray-500">
-          No se encontraron pacientes con "{searchTerm}".
+        ))}
+      </div>
+    );
+  }
+
+  if (pacientes.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted)] py-16 text-center">
+        <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--primary-soft)] text-[var(--primary)]">
+          <Users size={28} />
+        </div>
+        <p className="font-medium text-[var(--foreground)]">No se encontraron pacientes</p>
+        <p className="mt-1 text-sm text-muted">
+          {searchTerm ? `Sin resultados para "${searchTerm}"` : 'Registra el primer paciente para comenzar'}
         </p>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {pacientes.map((patient) => (
+        <PatientCard
+          key={patient.id}
+          patient={patient}
+          onEdit={onEdit}
+          onDelete={onDelete}
+          canDelete={canDelete}
+        />
+      ))}
     </div>
   );
 }

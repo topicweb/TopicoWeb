@@ -32,23 +32,26 @@ export function MedicamentoCard({
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className={`relative rounded-xl border-2 p-4 cursor-pointer transition-all ${colores.bg} ${colores.border} ${seleccionado ? "ring-2 ring-offset-2 ring-indigo-500 shadow-lg" : "hover:shadow-md"
-        }`}
+      className={`relative cursor-pointer rounded-xl border-2 p-4 transition-all ${colores.bg} ${colores.border} ${
+        seleccionado ? "shadow-md ring-2 ring-primary ring-offset-2" : "hover:shadow-sm"
+      }`}
       onClick={() => !seleccionado && !validando && onAgregar()}
     >
-      <div className="flex items-start justify-between mb-2">
+      <div className="mb-2 flex items-start justify-between">
         <div className={colores.icon}>{ICONOS_POR_TIPO[medicamento.tipo_medida]}</div>
-        <span className={`text-xs font-medium px-2 py-1 rounded-full ${colores.bg} ${colores.text}`}>
+        <span className={`rounded-full px-2 py-1 text-xs font-medium ${colores.bg} ${colores.text}`}>
           {getEtiqueta(medicamento.tipo_medida)}
         </span>
       </div>
 
-      <h4 className={`font-semibold ${colores.text} mb-1 line-clamp-2`}>{medicamento.nombre}</h4>
-      {medicamento.presentacion && <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">{medicamento.presentacion}</p>}
+      <h4 className={`mb-1 line-clamp-2 font-semibold ${colores.text}`}>{medicamento.nombre}</h4>
+      {medicamento.presentacion && (
+        <p className="mb-2 text-xs text-muted">{medicamento.presentacion}</p>
+      )}
 
       {stockBajo && (
-        <div className="flex items-center gap-1 mt-2 text-rose-500 text-xs">
-          <AlertCircle className="w-3 h-3" />
+        <div className="mt-2 flex items-center gap-1 text-xs text-danger">
+          <AlertCircle className="h-3 w-3" />
           <span>Stock bajo</span>
         </div>
       )}
@@ -59,35 +62,35 @@ export function MedicamentoCard({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="absolute inset-0 bg-white/95 dark:bg-slate-900/95 rounded-xl flex flex-col items-center justify-center p-2"
+            className="absolute inset-0 flex flex-col items-center justify-center rounded-xl bg-white/95 p-2"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 mb-3">
+            <div className="mb-3 flex items-center gap-3">
               <button
                 type="button"
                 onClick={() => onActualizarCantidad(cantidad - 1)}
-                className={`w-10 h-10 rounded-full ${colores.bg} ${colores.border} border-2 flex items-center justify-center hover:opacity-80 transition-all shadow-sm`}
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 shadow-sm transition-all hover:opacity-80 ${colores.bg} ${colores.border}`}
               >
-                <Minus className={`w-5 h-5 ${colores.text}`} />
+                <Minus className={`h-5 w-5 ${colores.text}`} />
               </button>
-              <span className={`text-2xl font-bold ${colores.text} min-w-[3ch] text-center`}>
+              <span className={`min-w-[3ch] text-center text-2xl font-bold ${colores.text}`}>
                 {cantidad}
-                <span className="text-sm font-normal text-slate-500 ml-1">{unidad}</span>
+                <span className="ml-1 text-sm font-normal text-muted">{unidad}</span>
               </span>
               <button
                 type="button"
                 onClick={() => onActualizarCantidad(cantidad + 1)}
-                className={`w-10 h-10 rounded-full ${colores.bg} ${colores.border} border-2 flex items-center justify-center hover:opacity-80 transition-all shadow-sm`}
+                className={`flex h-10 w-10 items-center justify-center rounded-full border-2 shadow-sm transition-all hover:opacity-80 ${colores.bg} ${colores.border}`}
               >
-                <Plus className={`w-5 h-5 ${colores.text}`} />
+                <Plus className={`h-5 w-5 ${colores.text}`} />
               </button>
             </div>
             <button
               type="button"
               onClick={onRemover}
-              className="flex items-center gap-1 text-rose-500 text-sm hover:text-rose-600 transition-colors"
+              className="flex items-center gap-1 text-sm text-danger transition-colors hover:text-[var(--danger)]"
             >
-              <X className="w-4 h-4" />
+              <X className="h-4 w-4" />
               Remover
             </button>
           </motion.div>
@@ -95,8 +98,8 @@ export function MedicamentoCard({
       </AnimatePresence>
 
       {seleccionado && (
-        <div className="absolute -top-2 -right-2 w-6 h-6 bg-indigo-500 text-white rounded-full flex items-center justify-center shadow-md">
-          <Check className="w-4 h-4" />
+        <div className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-accent text-white shadow-sm">
+          <Check className="h-4 w-4" />
         </div>
       )}
     </motion.div>

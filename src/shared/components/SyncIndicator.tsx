@@ -15,10 +15,8 @@ interface SyncIndicatorProps {
 }
 
 export const SyncIndicator = ({ size = "md" }: SyncIndicatorProps) => {
-  // Obtener estado de conexión actual
   const { isOnline } = useNetwork();
 
-  // Obtener cantidad de cambios pendientes de sincronizar
   const pendingCount = useLiveQuery(async () => {
     const [pacientes, atenciones, movimientos, medicamentos] = await Promise.all([
       db.pacientes.where("sync_status").equals("pending").count(),
@@ -39,16 +37,19 @@ export const SyncIndicator = ({ size = "md" }: SyncIndicatorProps) => {
 
   const { icon, container } = sizeClasses[size];
 
+  const onlineIconClass = isOnline
+    ? "bg-[var(--accent-soft)] text-[var(--accent)]"
+    : "bg-[var(--danger-soft)] text-[var(--danger)]";
+
   if (size === "sm") {
     return (
       <div className="flex flex-col items-center gap-0.5">
         <div
-          className={`${container} rounded-lg flex items-center justify-center ${isOnline ? "bg-emerald-500/20 text-emerald-400" : "bg-rose-500/20 text-rose-400"
-            }`}
+          className={`${container} flex items-center justify-center rounded-lg ${onlineIconClass}`}
         >
           {isOnline ? (
             hasPending ? (
-              <RefreshCw size={icon} className="animate-spin" />
+              <RefreshCw size={icon} className="animate-spin text-[var(--warning)]" />
             ) : (
               <Cloud size={icon} />
             )
@@ -56,7 +57,7 @@ export const SyncIndicator = ({ size = "md" }: SyncIndicatorProps) => {
             <CloudOff size={icon} />
           )}
         </div>
-        <span className="text-[9px] text-slate-400 leading-none">
+        <span className="text-[9px] leading-none text-slate-500">
           {isOnline ? (hasPending ? `${pendingCount} sync` : "Online") : "Offline"}
         </span>
       </div>
@@ -66,8 +67,7 @@ export const SyncIndicator = ({ size = "md" }: SyncIndicatorProps) => {
   return (
     <div className="flex items-center gap-2">
       <div
-        className={`${container} rounded-xl flex items-center justify-center ${isOnline ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"
-          }`}
+        className={`${container} flex items-center justify-center rounded-xl ${onlineIconClass}`}
       >
         {isOnline ? <Cloud size={icon} /> : <CloudOff size={icon} />}
       </div>
@@ -75,7 +75,7 @@ export const SyncIndicator = ({ size = "md" }: SyncIndicatorProps) => {
         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
           {isOnline ? "Online" : "Offline"}
         </span>
-        <span className="text-xs font-medium text-slate-300">
+        <span className="text-xs font-medium text-slate-700">
           {hasPending ? `${pendingCount} pendientes` : "Al día"}
         </span>
       </div>

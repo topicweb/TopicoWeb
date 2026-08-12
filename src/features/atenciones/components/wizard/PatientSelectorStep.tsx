@@ -22,23 +22,23 @@ export function PatientSelectorStep({
   onNextStep,
 }: PatientSelectorStepProps) {
   return (
-    <div className="h-full flex flex-col items-center p-4 lg:p-2 pt-8 lg:pt-4 pb-25 lg:pb-32">
+    <div className="flex h-full flex-col items-center p-4 pb-25 pt-8 lg:p-2 lg:pb-32 lg:pt-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-6 lg:mb-3">
-          <div className="h-14 w-14 lg:h-12 lg:w-12 mx-auto rounded-2xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center mb-4 lg:mb-3">
-            <User size={28} className="text-teal-600 lg:size-24" />
+        <div className="mb-6 text-center lg:mb-3">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--primary-soft)] lg:mb-3 lg:h-12 lg:w-12">
+            <User size={28} className="text-primary lg:size-6" />
           </div>
-          <h2 className="text-xl lg:text-lg font-bold text-slate-900 dark:text-white mb-2 lg:mb-1">Seleccionar Paciente</h2>
-          <p className="text-sm lg:text-xs text-slate-500">Busque por DNI o nombre del paciente</p>
+          <h2 className="mb-2 text-xl font-bold text-foreground lg:mb-1 lg:text-lg">Seleccionar Paciente</h2>
+          <p className="text-sm text-muted lg:text-xs">Busque por DNI o nombre del paciente</p>
         </div>
 
         {!selectedPatient ? (
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary" />
             <input
               type="text"
               placeholder="Buscar DNI o nombre..."
-              className="w-full rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 py-4 lg:py-3 pl-12 pr-4 text-base text-slate-700 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:text-white shadow-sm"
+              className="input-premium w-full border-l-4 border-l-primary py-3 pl-12 pr-4 text-base lg:py-2.5"
               value={searchTerm}
               onChange={(e) => onSearchChange(e.target.value)}
               autoFocus
@@ -49,7 +49,7 @@ export function PatientSelectorStep({
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 10 }}
-                  className="absolute z-50 mt-2 max-h-48 w-full overflow-auto rounded-xl border border-slate-200 bg-white shadow-xl dark:bg-slate-800 dark:border-slate-700"
+                  className="absolute z-50 mt-2 max-h-48 w-full overflow-auto rounded-xl border border-border bg-white shadow-lg"
                 >
                   {filteredPacientes.map((p: Paciente) => (
                     <button
@@ -60,25 +60,25 @@ export function PatientSelectorStep({
                         onSearchChange("");
                         setTimeout(() => onNextStep(), 300);
                       }}
-                      className="w-full px-4 py-3.5 text-left hover:bg-teal-50 dark:hover:bg-teal-900/20 transition-colors border-b border-slate-100 dark:border-slate-700/50 last:border-0"
+                      className="w-full border-b border-border px-4 py-3.5 text-left transition-colors last:border-0 hover:bg-[var(--primary-soft)]"
                     >
-                      <div className="flex justify-between items-center">
+                      <div className="flex items-center justify-between">
                         <div className="min-w-0 flex-1">
-                          <span className="font-semibold text-slate-800 dark:text-white block truncate">
+                          <span className="block truncate font-semibold text-foreground">
                             {p.nombres} {p.apellidos}
                           </span>
-                          <span className="text-xs text-slate-500">
+                          <span className="text-xs text-muted">
                             {p.categoria} • DNI: {p.dni}
                           </span>
                         </div>
-                        <Plus size={20} className="text-teal-500 shrink-0 ml-2" />
+                        <Plus size={20} className="ml-2 shrink-0 text-accent" />
                       </div>
                     </button>
                   ))}
                   {filteredPacientes.length === 0 && (
-                    <div className="p-6 text-center text-slate-500">
+                    <div className="p-6 text-center text-muted">
                       <p className="font-medium">Sin resultados</p>
-                      <p className="text-xs mt-1">Intente con otro término</p>
+                      <p className="mt-1 text-xs">Intente con otro término</p>
                     </div>
                   )}
                 </motion.div>
@@ -89,17 +89,17 @@ export function PatientSelectorStep({
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="rounded-2xl bg-linear-to-br from-teal-500 to-teal-600 p-5 lg:p-4 text-white shadow-xl shadow-teal-500/25"
+            className="rounded-2xl bg-linear-to-br from-primary to-[var(--primary-hover)] p-5 text-white shadow-lg lg:p-4"
           >
             <div className="flex items-center gap-4 lg:gap-3">
-              <div className="h-12 w-12 lg:h-10 lg:w-10 rounded-xl bg-white/20 flex items-center justify-center">
-                <User size={24} className="text-white lg:size-20" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 lg:h-10 lg:w-10">
+                <User size={24} className="text-white lg:size-5" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-lg lg:text-base truncate">
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-lg font-bold lg:text-base">
                   {selectedPatient.nombres} {selectedPatient.apellidos}
                 </p>
-                <p className="text-teal-100 text-sm lg:text-xs">
+                <p className="text-sm text-white/80 lg:text-xs">
                   {selectedPatient.categoria} • DNI: {selectedPatient.dni}
                 </p>
               </div>
@@ -107,7 +107,7 @@ export function PatientSelectorStep({
             <button
               type="button"
               onClick={onPatientClear}
-              className="mt-4 lg:mt-3 w-full py-2.5 lg:py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm lg:text-xs font-medium transition-colors"
+              className="mt-4 w-full rounded-lg bg-white/10 py-2.5 text-sm font-medium transition-colors hover:bg-white/20 lg:mt-3 lg:py-2 lg:text-xs"
             >
               Cambiar paciente
             </button>

@@ -77,15 +77,17 @@ export default function DashboardPage() {
   return (
     <motion.div className="space-y-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {/* Header con controles de sistema */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-4 border-b border-slate-200 dark:border-slate-800">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between pb-4 border-b border-accent">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Panel Principal</h1>
-          <p className="text-slate-500 dark:text-slate-400 mt-1">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-primary">Panel Principal</h1>
+          <p className="text-slate-500 dark:text-primary mt-1">
             Bienvenido, <span className="font-semibold text-teal-600">{user?.email?.split("@")[0]}</span>
           </p>
         </div>
 
-        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium ${isOnline ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300" : "bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"}`}>
+        <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium 
+          ${isOnline ? "bg-emerald-50 text-emerald-900 dark:bg-emerald-600/30 dark:text-emerald-900" 
+          : "bg-rose-50 text-rose-900 dark:bg-rose-600/30 dark:text-rose-900"}`}>
           {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
           {isOnline ? "Online" : "Offline"}
         </div>

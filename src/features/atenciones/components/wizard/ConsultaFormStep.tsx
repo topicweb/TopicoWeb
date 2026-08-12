@@ -19,46 +19,42 @@ export function ConsultaFormStep({
   onFormDataChange,
 }: ConsultaFormStepProps) {
   return (
-    <div className="p-4 md:p-6 pb-32 h-full flex flex-col max-w-6xl mx-auto">
-      {/* Header compacto con info del paciente */}
-      <div className="flex items-center gap-3 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700 shrink-0">
-        <div className="h-10 w-10 rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center shrink-0">
-          <User size={20} className="text-teal-600" />
+    <div className="mx-auto flex h-full max-w-6xl flex-col p-4 pb-32 md:p-6">
+      <div className="mb-3 flex shrink-0 items-center gap-3 border-b border-border pb-2">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[var(--primary-soft)]">
+          <User size={20} className="text-primary" />
         </div>
         <div className="min-w-0">
-          <p className="font-bold text-slate-900 dark:text-white truncate">
+          <p className="truncate font-bold text-foreground">
             {selectedPatient?.nombres} {selectedPatient?.apellidos}
           </p>
-          <p className="text-xs text-slate-500">{selectedPatient?.categoria} • DNI: {selectedPatient?.dni}</p>
+          <p className="text-xs text-muted">{selectedPatient?.categoria} • DNI: {selectedPatient?.dni}</p>
         </div>
       </div>
 
-      {/* Layout PC: Motivo arriba, Signos vitales en fila, Observación abajo */}
-      <div className="flex-1 flex flex-col gap-3 min-h-0">
-        <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-2">
-          {/* Motivo - ancho completo, altura moderada */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm shrink-0">
-            <label className="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">
-              <FileText size={14} className="text-teal-500" />
-              Motivo <span className="text-red-500">*</span>
+      <div className="flex min-h-0 flex-1 flex-col gap-3">
+        <div className="grid shrink-0 gap-2 md:grid-cols-2">
+          <div className="glass-card p-3">
+            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <FileText size={14} className="text-accent" />
+              Motivo <span className="text-danger">*</span>
             </label>
             <textarea
               required
               rows={2}
-              className="w-full rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 text-sm text-slate-800 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
+              className="input-premium w-full resize-none p-3 text-sm"
               value={formData.motivo}
               onChange={(e) => onFormDataChange({ ...formData, motivo: e.target.value })}
               placeholder="Describa el motivo de consulta..."
               autoFocus
             />
           </div>
-          {/* Observación - toma el espacio restante */}
-          <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm flex-1 flex flex-col min-h-0">
-            <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 shrink-0">
+          <div className="glass-card flex min-h-0 flex-1 flex-col p-3">
+            <label className="mb-2 shrink-0 text-sm font-semibold text-foreground">
               Tratamiento / Observación
             </label>
             <textarea
-              className="w-full flex-1 min-h-100px rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-3 text-sm text-slate-800 dark:text-white focus:border-teal-500 focus:ring-2 focus:ring-teal-500/10 outline-none transition-all resize-none"
+              className="input-premium min-h-[100px] w-full flex-1 resize-none p-3 text-sm"
               value={formData.observacion}
               onChange={(e) => onFormDataChange({ ...formData, observacion: e.target.value })}
               placeholder="Describa el tratamiento o observaciones adicionales..."
@@ -66,9 +62,8 @@ export function ConsultaFormStep({
           </div>
         </div>
 
-        {/* Signos Vitales - fila horizontal compacta */}
-        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-3 shadow-sm shrink-0">
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
+        <div className="glass-card shrink-0 p-3">
+          <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Signos Vitales
           </label>
           <SignosVitalesInput

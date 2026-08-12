@@ -3,12 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, Save, UserPlus, Mail, Shield, ShieldCheck, LucideIcon } from "lucide-react";
 import { Perfil } from "../types";
-import { motion, AnimatePresence } from "framer-motion";
-
-// ───────────────────────────────────────────────────────────────────────────────
-// MODAL DE USUARIO
-// Formulario para crear y editar perfiles de personal médico
-// ───────────────────────────────────────────────────────────────────────────────
+import { motion, AnimatePresence, Variants } from "framer-motion";
 
 interface UserModalProps {
   isOpen: boolean;
@@ -17,9 +12,6 @@ interface UserModalProps {
   onSave: (data: Partial<Perfil> & { password?: string }) => Promise<void>;
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Componente interno para reducir duplicación de campos de input
-// ───────────────────────────────────────────────────────────────────────────────
 function InputField({
   icon: Icon,
   label,
@@ -41,12 +33,10 @@ function InputField({
   minLength?: number;
   autoComplete?: string;
 }) {
-  const baseInputClass = "w-full rounded-2xl bg-white dark:bg-slate-950 border border-slate-100 dark:border-slate-800 p-4 text-base font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-4 focus:ring-teal-500/5 transition-all outline-none";
-
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-        <Icon size={14} className="text-teal-500" />
+      <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <Icon size={14} className="text-accent" />
         {label}
       </label>
       <input
@@ -55,13 +45,20 @@ function InputField({
         minLength={minLength}
         placeholder={placeholder}
         autoComplete={autoComplete}
-        className={baseInputClass}
+        className="input-premium w-full px-4 py-3 text-sm font-medium"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
     </div>
   );
 }
+
+const overlayVariants: Variants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
+const modalVariants: Variants = {
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 25, stiffness: 300 } },
+  exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
+};
 
 export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => {
   const [formData, setFormData] = useState<Partial<Perfil> & { password?: string }>({
@@ -94,22 +91,6 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
     }
   };
 
-  const overlayVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1 },
-  };
-
-  const modalVariants = {
-    hidden: { opacity: 0, scale: 0.95, y: 20 },
-    visible: {
-      opacity: 1,
-      scale: 1,
-      y: 0,
-      transition: { type: "spring", damping: 25, stiffness: 300 }
-    },
-    exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } }
-  } as const;
-
   return (
     <AnimatePresence>
       {isOpen && (
@@ -120,7 +101,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
             animate="visible"
             exit="hidden"
             onClick={onClose}
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+            className="absolute inset-0 bg-[var(--foreground)]/20 backdrop-blur-sm"
           />
 
           <motion.div
@@ -128,41 +109,32 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="relative w-full max-w-md overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900 border border-white dark:border-slate-800 shadow-2xl"
+            className="glass-modal relative max-h-[90vh] w-full max-w-md overflow-y-auto"
           >
-            {/* Background Aesthetic Decoration for Modal */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute top-0 left-0 w-full h-32 bg-linear-to-b from-teal-500/5 to-transparent" />
-              <div className="absolute -right-20 -top-20 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl" />
-              <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl" />
+            <div className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[var(--primary-glow)] blur-3xl" />
+              <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-[var(--accent-soft)] blur-3xl" />
             </div>
 
-            {/* Header */}
-            <div className="relative p-8 pb-4">
-              <div className="absolute top-0 right-0 p-8 opacity-[0.05] pointer-events-none">
-                <UserPlus size={120} className="text-teal-500 transform -rotate-12" />
-              </div>
-
-              <div className="flex justify-between items-center relative z-10">
+            <div className="sticky top-0 z-20 border-b border-border bg-white/95 px-6 pb-4 pt-6 backdrop-blur-sm">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                  <h2 className="text-xl font-bold tracking-tight text-foreground">
                     {item ? "Actualizar Perfil" : "Añadir Usuario"}
                   </h2>
-                  <p className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-1">
-                    Control de Personal Médico
-                  </p>
+                  <p className="badge-accent mt-1.5">Control de personal</p>
                 </div>
                 <button
                   type="button"
                   onClick={onClose}
-                  className="h-10 w-10 flex items-center justify-center rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all text-slate-500"
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-[var(--primary-soft)] hover:text-primary"
                 >
-                  <X size={20} />
+                  <X size={18} />
                 </button>
               </div>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-8 pt-4 space-y-5 relative z-10">
+            <form onSubmit={handleSubmit} className="relative z-10 space-y-5 px-6 py-5">
               <InputField
                 icon={UserPlus}
                 label="Nombre Completo"
@@ -199,53 +171,55 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
               )}
 
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                  <ShieldCheck size={14} className="text-teal-500" />
+                <label className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  <ShieldCheck size={14} className="text-accent" />
                   Privilegios de Sistema
                 </label>
-                <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className="flex rounded-xl border border-border bg-muted p-1 shadow-inner">
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, rol: "personal" })}
-                    className={`px-4 py-3 rounded-xl text-sm font-bold transition-all ${formData.rol === "personal"
-                      ? "bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-md scale-[1.02]"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-400"
-                      }`}
+                    className={`flex-1 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+                      formData.rol === "personal"
+                        ? "scale-[1.02] bg-white text-accent shadow-sm"
+                        : "text-[var(--slate-400)]"
+                    }`}
                   >
-                    PERSONAL
+                    Personal
                   </button>
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, rol: "admin" })}
-                    className={`px-4 py-3 rounded-xl text-sm font-bold transition-all ${formData.rol === "admin"
-                      ? "bg-white dark:bg-slate-800 text-teal-600 dark:text-teal-400 shadow-md scale-[1.02]"
-                      : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-400"
-                      }`}
+                    className={`flex-1 rounded-lg py-2.5 text-xs font-semibold transition-all ${
+                      formData.rol === "admin"
+                        ? "scale-[1.02] bg-white text-primary shadow-sm"
+                        : "text-[var(--slate-400)]"
+                    }`}
                   >
-                    ADMIN
+                    Admin
                   </button>
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3 pt-6">
+              <div className="flex justify-end gap-3 border-t border-border pt-5">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-6 py-3 text-sm font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors uppercase tracking-widest"
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 rounded-2xl bg-linear-to-r from-teal-600 to-teal-500 px-8 py-4 text-sm font-bold text-white hover:shadow-xl hover:shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-accent-hover active:scale-[0.98] disabled:opacity-50"
                 >
                   {saving ? (
-                    <div className="h-4 w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                   ) : (
-                    <Save size={18} />
+                    <Save size={16} />
                   )}
-                  {saving ? "PROCESANDO..." : "GUARDAR CAMBIOS"}
+                  {saving ? "Guardando..." : "Guardar"}
                 </button>
               </div>
             </form>

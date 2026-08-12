@@ -64,7 +64,7 @@ const TIPOS_MEDIDA = [
 ] as const;
 
 const inputBaseClass =
-  "w-full rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-3 focus:ring-teal-500/5 transition-all outline-none md:rounded-2xl md:p-4 md:text-base";
+  "input-premium w-full px-3 py-2.5 text-sm font-medium md:rounded-2xl md:p-4 md:text-base";
 
 export function MedicamentoModal({ isOpen, onClose, medicamento, onSave }: MedicamentoModalProps) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
@@ -114,7 +114,7 @@ export function MedicamentoModal({ isOpen, onClose, medicamento, onSave }: Medic
           animate="visible"
           exit="hidden"
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+          className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
         />
 
         <motion.div
@@ -122,33 +122,33 @@ export function MedicamentoModal({ isOpen, onClose, medicamento, onSave }: Medic
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="relative w-full max-w-lg md:max-w-2xl lg:max-w-4xl overflow-hidden rounded-2xl md:rounded-[2.5rem] bg-white dark:bg-slate-900 border border-white dark:border-slate-800 shadow-2xl max-h-[95dvh] md:max-h-[90vh] flex flex-col"
+          className="glass-modal relative flex max-h-[95dvh] w-full max-w-lg flex-col overflow-hidden md:max-h-[90vh] md:max-w-2xl lg:max-w-4xl"
         >
           {/* Background */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-0 left-0 w-full h-32 bg-linear-to-b from-teal-500/5 to-transparent" />
-            <div className="absolute -right-20 -top-20 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl" />
-            <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute left-0 top-0 h-32 w-full bg-linear-to-b from-[var(--primary-soft)] to-transparent" />
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--primary-glow)] blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[var(--accent-soft)] blur-3xl" />
           </div>
 
           {/* Header */}
           <div className="relative px-5 py-4 md:p-8 md:pb-4 shrink-0">
             <div className="absolute top-0 right-0 p-4 md:p-8 opacity-[0.05] pointer-events-none">
-              <Pill size={80} className="text-teal-500 transform -rotate-12 md:size-32" />
+              <Pill size={80} className="transform -rotate-12 text-primary md:size-32" />
             </div>
             <div className="flex justify-between items-center relative z-10">
               <div>
-                <h2 className="text-lg md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-lg font-bold tracking-tight text-foreground md:text-2xl">
                   {medicamento ? "Editar Medicamento" : "Nuevo Medicamento"}
                 </h2>
-                <p className="text-[10px] md:text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5 md:mt-1">
+                <p className="mt-0.5 text-[10px] font-bold uppercase tracking-widest text-primary md:mt-1 md:text-xs">
                   {medicamento ? "Modificar detalles del item" : "Registrar entrada al inventario"}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-xl md:rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all text-slate-500"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-all hover:bg-[var(--primary-soft)] hover:text-primary md:h-10 md:w-10 md:rounded-2xl"
               >
                 <X size={18} className="md:size-5" />
               </button>
@@ -157,7 +157,7 @@ export function MedicamentoModal({ isOpen, onClose, medicamento, onSave }: Medic
 
           <form onSubmit={handleSubmit} className="flex-1 min-h-0 px-5 py-4 md:p-8 md:pt-4 space-y-3 md:space-y-5 relative z-10 overflow-y-auto overscroll-contain">
             {/* Nombre */}
-            <FormField label="Nombre del Medicamento" icon={<Package size={14} className="text-teal-500" />}>
+            <FormField label="Nombre del Medicamento" icon={<Package size={14} className="text-primary" />}>
               <input
                 required
                 placeholder="Ej: Paracetamol 500mg"
@@ -168,16 +168,16 @@ export function MedicamentoModal({ isOpen, onClose, medicamento, onSave }: Medic
             </FormField>
 
             {/* Tipo de Medida */}
-            <FormField label="Tipo de Medida" icon={<Pill size={14} className="text-teal-500" />}>
+            <FormField label="Tipo de Medida" icon={<Pill size={14} className="text-primary" />}>
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                 {TIPOS_MEDIDA.map(({ value, label, icon }) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() => updateField("tipo_medida", value)}
-                    className={`flex items-center gap-2 p-2 md:p-3 rounded-lg md:rounded-xl border transition-all text-left ${form.tipo_medida === value
-                      ? "border-teal-500 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300"
-                      : "border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-teal-300 dark:hover:border-teal-700 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    className={`flex items-center gap-2 rounded-lg border p-2 text-left transition-all md:rounded-xl md:p-3 ${form.tipo_medida === value
+                      ? "border-primary bg-[var(--primary-soft)] text-primary"
+                      : "border-border text-foreground hover:border-primary/30 hover:bg-muted"
                       }`}
                   >
                     <span className="text-base md:text-lg">{icon}</span>
@@ -234,7 +234,7 @@ export function MedicamentoModal({ isOpen, onClose, medicamento, onSave }: Medic
 
             {/* Info Stock Actual - Solo desktop */}
             {medicamento && (
-              <div className="hidden md:flex items-start gap-3 rounded-2xl bg-teal-50 dark:bg-teal-900/20 p-4 text-teal-800 dark:text-teal-200">
+              <div className="hidden items-start gap-3 rounded-2xl bg-[var(--accent-soft)] p-4 text-accent md:flex">
                 <Info size={20} className="shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-semibold mb-1">
@@ -252,14 +252,14 @@ export function MedicamentoModal({ isOpen, onClose, medicamento, onSave }: Medic
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 md:px-6 md:py-3 text-xs md:text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors uppercase tracking-wider md:tracking-widest"
+                className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground md:px-6 md:py-3 md:text-sm md:tracking-widest"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="flex items-center gap-1.5 md:gap-2 rounded-xl md:rounded-2xl bg-linear-to-r from-teal-600 to-teal-500 px-5 py-2.5 md:px-8 md:py-4 text-xs md:text-sm font-bold text-white hover:shadow-lg md:hover:shadow-xl hover:shadow-teal-500/20 md:hover:shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50"
+                className="btn-primary gap-1.5 rounded-xl px-5 py-2.5 text-xs font-bold active:scale-[0.98] disabled:opacity-50 md:gap-2 md:rounded-2xl md:px-8 md:py-4 md:text-sm"
               >
                 {saving ? (
                   <div className="h-3.5 w-3.5 md:h-4 md:w-4 border-2 border-white/30 border-t-white animate-spin rounded-full" />
@@ -287,7 +287,7 @@ interface FormFieldProps {
 function FormField({ label, icon, children }: FormFieldProps) {
   return (
     <div className="space-y-2">
-      <label className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      <label className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">
         {icon}
         {label}
       </label>

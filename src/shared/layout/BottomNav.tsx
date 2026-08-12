@@ -10,12 +10,15 @@ import { primaryMenuItems } from "./navigation.config";
 // Barra de navegación fija en la parte inferior para dispositivos móviles
 // ───────────────────────────────────────────────────────────────────────────────
 
+const navItemBase =
+  "flex flex-col items-center justify-center min-w-14 py-2 px-1 rounded-xl transition-all duration-200";
+
 export const BottomNav = () => {
   const pathname = usePathname();
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
-      <div className="bg-slate-900/95 backdrop-blur-lg border-t border-slate-800 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+      <div className="border-t border-slate-200 bg-white/95 px-2 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_-4px_24px_rgba(15,23,42,0.08)] backdrop-blur-lg">
         <div className="flex items-center justify-around">
           {primaryMenuItems.map((item) => {
             const isActive = pathname === item.href;
@@ -25,16 +28,19 @@ export const BottomNav = () => {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex flex-col items-center justify-center min-w-14 py-2 px-1 rounded-xl transition-all duration-200 ${isActive
-                  ? item.highlight
-                    ? "bg-teal-600 text-white shadow-lg shadow-teal-600/25"
-                    : "bg-teal-600/10 text-teal-400"
-                  : "text-slate-400 hover:text-slate-200"
-                  }`}
+                className={`${navItemBase} ${
+                  isActive
+                    ? item.highlight
+                      ? "bg-[var(--primary)] text-white shadow-lg shadow-[var(--primary)]/25"
+                      : "bg-[var(--primary-soft)] text-[var(--primary)]"
+                    : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                }`}
               >
                 <Icon
                   size={22}
-                  className={isActive && !item.highlight ? "text-teal-500" : ""}
+                  className={
+                    isActive && !item.highlight ? "text-[var(--primary)]" : ""
+                  }
                   strokeWidth={isActive ? 2.5 : 2}
                 />
                 <span className="text-[10px] font-medium mt-0.5 leading-tight">
@@ -44,10 +50,9 @@ export const BottomNav = () => {
             );
           })}
 
-          {/* Mobile Menu Sheet Trigger (Usuarios + Logout + Sync) */}
           <MobileMenuSheet />
         </div>
       </div>
     </nav>
   );
-}
+};

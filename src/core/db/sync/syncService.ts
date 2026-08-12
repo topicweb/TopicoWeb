@@ -17,6 +17,7 @@ import { supabase } from '@/core/db/supabase';
 import { getDeviceId } from '@/core/utils/deviceId';
 import { logger } from '@/core/utils/logger';
 import { withRetry } from '@/core/utils/retry';
+import type { Paciente } from '@/features/pacientes/types';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTES DE CONFIGURACIÓN
@@ -211,6 +212,135 @@ export class SyncService {
   }
 
   /**
+   * Normaliza activo (Dexie 1/0 ↔ Supabase boolean)
+   */
+  private normalizeActivo(value: unknown): number {
+    return value === true || value === 1 ? 1 : 0;
+  }
+
+  /**
+   * Resuelve duplicados de paciente por (business_id, dni).
+   * Ocurre cuando el registro local tiene un id distinto al de Supabase
+   * (p. ej. creado offline antes del PULL o en otro dispositivo).
+   */
+  private async reconcilePacienteByDni(
+    local: Record<string, unknown>
+  ): Promise<void> {
+    const businessId = local.business_id as string | undefined;
+    const dni = local.dni as string | undefined;
+    const localId = local.id as string | undefined;
+
+    if (!businessId || !dni || !localId) return;
+
+    const { data: remote, error } = await supabase
+      .from('pacientes')
+      .select('*')
+      .eq('business_id', businessId)
+      .eq('dni', dni)
+      .maybeSingle();
+
+    if (error) {
+      logger.warn('[SyncService] No se pudo verificar paciente remoto por DNI:', error);
+      return;
+    }
+
+    if (!remote || remote.id === localId) return;
+
+    const remoteId = remote.id as string;
+    logger.info(
+      `[SyncService] Paciente DNI ${dni}: fusionando id local ${localId} → remoto ${remoteId}`
+    );
+
+    const atenciones = await db.atenciones
+      .where('paciente_id')
+      .equals(localId)
+      .toArray();
+
+    for (const atencion of atenciones) {
+      await db.atenciones.update(atencion.id, {
+        paciente_id: remoteId,
+        sync_status: 'pending',
+      });
+    }
+
+    const localTime = new Date(
+      (local.actualizado_at as string) || (local.creado_at as string)
+    ).getTime();
+    const remoteTime = new Date(
+      (remote.actualizado_at as string) || (remote.creado_at as string)
+    ).getTime();
+
+    if (localTime >= remoteTime) {
+      const merged: Paciente = {
+        ...(local as unknown as Paciente),
+        id: remoteId,
+        activo: this.normalizeActivo(local.activo),
+        sync_status: 'pending',
+      };
+      await db.pacientes.put(merged);
+    } else {
+      const adopted: Paciente = {
+        ...(remote as unknown as Paciente),
+        activo: this.normalizeActivo(remote.activo),
+        sync_status: 'synced',
+      };
+      await db.pacientes.put(adopted);
+    }
+
+    await db.pacientes.delete(localId);
+  }
+
+  /**
+   * Limpia metadatos locales antes de enviar a Supabase
+   */
+  private cleanRecordForPush(tableName: string, item: Record<string, unknown>): Record<string, unknown> {
+    const { sync_status, deleted_at, ...rest } = item;
+
+    if ('activo' in rest) {
+      rest.activo = rest.activo === 1 || rest.activo === true;
+    }
+
+    if (TABLES_WITHOUT_TIMESTAMPS.includes(tableName)) {
+      delete rest.creado_at;
+      delete rest.actualizado_at;
+    }
+
+    if (tableName === 'movimientos_stock' && !rest.tipo_medida) {
+      rest.tipo_medida = 'UNIDAD';
+    }
+
+    return rest;
+  }
+
+  /**
+   * Ejecuta upsert y marca registros como synced
+   */
+  private async upsertAndMarkSynced(
+    tableName: string,
+    table: { bulkUpdate: (updates: { key: string; changes: { sync_status: string } }[]) => Promise<number> },
+    pending: Record<string, unknown>[]
+  ): Promise<{ error: { code?: string; message?: string } | null }> {
+    const cleanData = pending.map((item) => this.cleanRecordForPush(tableName, item));
+
+    const { error } = await withRetry(
+      async () => {
+        const result = await supabase.from(tableName).upsert(cleanData, { onConflict: 'id' });
+        return result;
+      },
+      { maxRetries: 2 }
+    );
+
+    if (error) return { error };
+
+    const ids = pending.map((p) => p.id as string);
+    await table.bulkUpdate(
+      ids.map((id) => ({ key: id, changes: { sync_status: 'synced' } }))
+    );
+
+    return { error: null };
+  }
+
+  /**
    * PUSH: Subir datos locales pendientes a Supabase
    * Similar a useSimpleSync pero como servicio reutilizable
    */
@@ -259,36 +389,33 @@ export class SyncService {
           if (pending.length === 0) continue;
         }
 
-        // Limpiar metadatos locales antes de enviar
-        const cleanData = pending.map((item: any) => {
-          const { sync_status, deleted_at, ...rest } = item;
-
-          // Convertir activo a boolean para Supabase (soporta 1/0 y true/false)
-          if ('activo' in rest) {
-            rest.activo = rest.activo === 1 || rest.activo === true;
+        // Pacientes: resolver duplicados por (business_id, dni) antes del upsert
+        if (tableName === 'pacientes') {
+          for (const item of pending) {
+            await this.reconcilePacienteByDni(item);
           }
-
-          // Eliminar timestamps de tablas que no los tienen en Supabase
-          if (TABLES_WITHOUT_TIMESTAMPS.includes(tableName)) {
-            delete rest.creado_at;
-            delete rest.actualizado_at;
+          pending = await table.where('sync_status').equals('pending').toArray();
+          if (pending.length === 0) {
+            logger.debug('[SyncService] ✓ Tabla pacientes: conflictos DNI resueltos, nada pendiente');
+            continue;
           }
+        }
 
-          // Asignar valor por defecto para tipo_medida si es NULL
-          if (tableName === 'movimientos_stock' && !rest.tipo_medida) {
-            rest.tipo_medida = 'UNIDAD';
+        let { error } = await this.upsertAndMarkSynced(tableName, table, pending);
+
+        // Reintento si persiste conflicto de DNI único en Supabase
+        if (error?.code === '23505' && tableName === 'pacientes') {
+          logger.warn('[SyncService] Conflicto DNI en pacientes — reintentando con reconciliación');
+          for (const item of pending) {
+            await this.reconcilePacienteByDni(item);
           }
-
-          return rest;
-        });
-
-        const { error } = await withRetry(
-          async () => {
-            const result = await supabase.from(tableName).upsert(cleanData, { onConflict: 'id' });
-            return result;
-          },
-          { maxRetries: 2 }
-        );
+          pending = await table.where('sync_status').equals('pending').toArray();
+          if (pending.length > 0) {
+            ({ error } = await this.upsertAndMarkSynced(tableName, table, pending));
+          } else {
+            error = null;
+          }
+        }
 
         if (error) {
           logger.error(`[SyncService] Error PUSH ${tableName}:`, error);
@@ -296,11 +423,7 @@ export class SyncService {
         }
 
         logger.debug(`[SyncService] ✅ ${tableName}: upsert exitoso`);
-
-        // Marcar como sincronizado
-        const ids = pending.map((p: any) => p.id);
-        await table.bulkUpdate(ids.map((id: string) => ({ key: id, changes: { sync_status: 'synced' } })));
-        logger.debug(`[SyncService] ✅ ${tableName}: ${ids.length} registros marcados como synced`);
+        logger.debug(`[SyncService] ✅ ${tableName}: ${pending.length} registros marcados como synced`);
       }
 
       logger.info(`[SyncService] 📊 Total registros sincronizados: ${totalPending}`);

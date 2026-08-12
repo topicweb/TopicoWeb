@@ -9,13 +9,13 @@ export function ShiftButton({ value, selected, onClick }: ShiftButtonProps) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex-1 py-2.5 text-xs font-bold rounded-xl transition-all ${
+      className={`flex-1 rounded-lg py-2.5 text-xs font-semibold transition-all ${
         selected
-          ? 'bg-white dark:bg-slate-800 shadow-md text-teal-600 dark:text-teal-400 scale-[1.02]'
-          : 'text-slate-400'
+          ? 'scale-[1.02] bg-white text-accent shadow-sm'
+          : 'text-[var(--slate-400)]'
       }`}
     >
-      {value.toUpperCase()}
+      {value}
     </button>
   );
 }

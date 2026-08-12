@@ -60,7 +60,7 @@ const TIPO_CONFIG = {
 } as const;
 
 const inputBaseClass =
-  "w-full rounded-xl bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-sm font-medium text-slate-800 dark:text-white shadow-sm focus:border-teal-500/50 focus:ring-3 focus:ring-teal-500/5 transition-all outline-none md:rounded-2xl md:p-4 md:text-base";
+  "input-premium w-full px-3 py-2.5 text-sm font-medium md:rounded-2xl md:p-4 md:text-base";
 
 export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }: MovimientoStockModalProps) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
@@ -102,7 +102,7 @@ export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }
           animate="visible"
           exit="hidden"
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+          className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
         />
 
         <motion.div
@@ -110,7 +110,7 @@ export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="relative w-full max-w-md lg:max-w-lg overflow-hidden rounded-2xl md:rounded-[2.5rem] bg-white dark:bg-slate-900 border border-white dark:border-slate-800 shadow-2xl max-h-[95dvh] flex flex-col"
+          className="glass-modal relative flex max-h-[95dvh] w-full max-w-md flex-col overflow-hidden lg:max-w-lg"
         >
           {/* Background */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -122,21 +122,21 @@ export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }
           {/* Header */}
           <div className="relative px-5 py-4 md:p-8 md:pb-4 shrink-0">
             <div className="absolute top-0 right-0 p-4 md:p-8 opacity-[0.05] pointer-events-none">
-              <ArrowRightLeft size={80} className="text-teal-500 transform -rotate-12 md:size-32" />
+              <ArrowRightLeft size={80} className="transform -rotate-12 text-primary md:size-32" />
             </div>
             <div className="flex justify-between items-center relative z-10">
               <div className="min-w-0 flex-1">
-                <h2 className="text-lg md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                <h2 className="text-lg font-bold tracking-tight text-foreground md:text-2xl">
                   Ajustar Stock
                 </h2>
-                <p className="text-[10px] md:text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-0.5 md:mt-1 truncate">
+                <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-widest text-primary md:mt-1 md:text-xs">
                   {medicamento.nombre}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-xl md:rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all text-slate-500 shrink-0 ml-2"
+                className="ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-all hover:bg-[var(--primary-soft)] hover:text-primary md:h-10 md:w-10 md:rounded-2xl"
               >
                 <X size={18} className="md:size-5" />
               </button>
@@ -145,13 +145,13 @@ export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }
 
           <form onSubmit={handleSubmit} className="flex-1 min-h-0 px-5 py-4 md:p-8 md:pt-4 space-y-3 md:space-y-6 relative z-10 overflow-y-auto overscroll-contain">
             {/* Stock Actual Info */}
-            <div className="flex items-center gap-2 md:gap-3 p-3 md:p-4 rounded-xl md:rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-              <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg md:rounded-xl bg-teal-100 dark:bg-teal-900/30 flex items-center justify-center shrink-0">
-                <StockIcon size={18} className="text-teal-600 dark:text-teal-400 md:size-5" />
+            <div className="flex items-center gap-2 rounded-xl border border-border bg-muted p-3 md:gap-3 md:rounded-2xl md:p-4">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--primary-soft)] md:h-10 md:w-10 md:rounded-xl">
+                <StockIcon size={18} className="text-primary md:size-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[10px] md:text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Stock Actual</p>
-                <p className="text-base md:text-lg font-bold text-slate-900 dark:text-white truncate">
+                <p className="text-[10px] font-bold uppercase text-muted-foreground md:text-xs">Stock Actual</p>
+                <p className="truncate text-base font-bold text-foreground md:text-lg">
                   {medicamento.stock_actual} {medicamento.unidad_medida}
                 </p>
               </div>
@@ -212,7 +212,7 @@ export function MovimientoStockModal({ isOpen, onClose, medicamento, onGuardar }
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 md:px-6 md:py-3 text-xs md:text-sm font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 transition-colors uppercase tracking-wider md:tracking-widest"
+                className="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-muted transition-colors hover:text-foreground md:px-6 md:py-3 md:text-sm md:tracking-widest"
               >
                 Cancelar
               </button>
@@ -246,7 +246,7 @@ interface FormFieldProps {
 function FormField({ label, children }: FormFieldProps) {
   return (
     <div className="space-y-2">
-      <label className="block text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      <label className="block text-sm font-bold uppercase tracking-wider text-muted-foreground">
         {label}
       </label>
       {children}
@@ -269,11 +269,11 @@ function TypeSelector({ type, selected, onSelect }: TypeSelectorProps) {
     <button
       type="button"
       onClick={() => onSelect(type)}
-      className={`relative p-3 md:p-4 rounded-lg md:rounded-xl border-2 flex flex-col items-center gap-1.5 md:gap-2 transition-all duration-200 ${isSelected
+      className={`relative flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 transition-all duration-200 md:gap-2 md:rounded-xl md:p-4 ${isSelected
         ? type === "ENTRADA"
-          ? "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-          : "border-rose-500 bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/50"
+          ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+          : "border-rose-500 bg-rose-50 text-rose-700"
+        : "border-border bg-surface text-foreground hover:border-border hover:bg-muted"
         }`}
     >
       <Icon size={24} className="md:size-7" />

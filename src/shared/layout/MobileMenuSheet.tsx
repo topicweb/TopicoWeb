@@ -11,7 +11,6 @@ import {
   Wifi,
   WifiOff,
   ChevronRight,
-  Stethoscope,
 } from "lucide-react";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { useNetwork } from "@/core/providers/NetworkProvider";
@@ -20,7 +19,7 @@ import { secondaryMenuItems } from "./navigation.config";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // MENÚ DESLIZANTE MÓVIL
-// Sheet despleable desde abajo con opciones secundarias, perfil y logout
+// Sheet desplegable desde abajo con opciones secundarias, perfil y logout
 // ───────────────────────────────────────────────────────────────────────────────
 
 export const MobileMenuSheet = () => {
@@ -36,30 +35,29 @@ export const MobileMenuSheet = () => {
 
   return (
     <>
-      {/* Menu Button in BottomNav */}
       <button
         onClick={() => setIsOpen(true)}
-        className={`flex flex-col items-center justify-center min-w-14 py-2 px-1 rounded-xl transition-all duration-200 ${isOpen
-          ? "bg-slate-700 text-white"
-          : "text-slate-400 hover:text-slate-200"
-          }`}
+        className={`flex flex-col items-center justify-center min-w-14 py-2 px-1 rounded-xl transition-all duration-200 ${
+          isOpen
+            ? "bg-[var(--primary-soft)] text-[var(--primary)]"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+        }`}
       >
         <div className="relative">
           <User
             size={22}
             strokeWidth={isOpen ? 2.5 : 2}
-            className={isOpen ? "text-teal-400" : ""}
+            className={isOpen ? "text-[var(--primary)]" : ""}
           />
-          {/* Online indicator dot */}
           <span
-            className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-slate-900 ${isOnline ? "bg-emerald-500" : "bg-rose-500"
-              }`}
+            className={`absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border-2 border-white ${
+              isOnline ? "bg-[var(--accent)]" : "bg-[var(--danger)]"
+            }`}
           />
         </div>
         <span className="text-[10px] font-medium mt-0.5 leading-tight">Menú</span>
       </button>
 
-      {/* Backdrop */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -67,12 +65,11 @@ export const MobileMenuSheet = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsOpen(false)}
-            className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm md:hidden"
+            className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm md:hidden"
           />
         )}
       </AnimatePresence>
 
-      {/* Sheet */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -82,31 +79,37 @@ export const MobileMenuSheet = () => {
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
           >
-            <div className="bg-slate-900 rounded-t-3xl border-t border-slate-800 shadow-2xl shadow-slate-950/50">
-              {/* Handle bar */}
+            <div className="rounded-t-3xl border-t border-slate-200 bg-white shadow-[0_-8px_40px_rgba(15,23,42,0.12)]">
               <div className="flex justify-center pt-3 pb-1">
-                <div className="h-1 w-12 rounded-full bg-slate-700" />
+                <div className="h-1 w-12 rounded-full bg-slate-200" />
               </div>
 
-              {/* Header */}
-              <div className="px-5 py-4 border-b border-slate-800">
+              <div className="border-b border-slate-200 px-5 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-lg shadow-teal-600/20">
-                      <Stethoscope size={20} />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
+                      <img
+                        src="/logo.webp"
+                        alt="Logo Tópico"
+                        className="h-7 w-7 object-contain"
+                      />
                     </div>
                     <div>
-                      <h2 className="font-bold text-white">Tópico</h2>
+                      <h2 className="font-bold text-slate-900">Tópico</h2>
                       <div className="flex items-center gap-1.5">
                         {isOnline ? (
                           <>
-                            <Wifi size={12} className="text-emerald-400" />
-                            <span className="text-xs text-emerald-400">En línea</span>
+                            <Wifi size={12} className="text-[var(--accent)]" />
+                            <span className="text-xs font-medium text-[var(--accent)]">
+                              En línea
+                            </span>
                           </>
                         ) : (
                           <>
-                            <WifiOff size={12} className="text-rose-400" />
-                            <span className="text-xs text-rose-400">Sin conexión</span>
+                            <WifiOff size={12} className="text-[var(--danger)]" />
+                            <span className="text-xs font-medium text-[var(--danger)]">
+                              Sin conexión
+                            </span>
                           </>
                         )}
                       </div>
@@ -114,14 +117,13 @@ export const MobileMenuSheet = () => {
                   </div>
                   <button
                     onClick={() => setIsOpen(false)}
-                    className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-all"
+                    className="rounded-xl p-2 text-slate-500 transition-all hover:bg-slate-100 hover:text-slate-900"
                   >
                     <X size={20} />
                   </button>
                 </div>
               </div>
 
-              {/* User Profile Card */}
               <div className="px-5 py-4">
                 <UserProfileCard
                   email={user?.email}
@@ -130,9 +132,8 @@ export const MobileMenuSheet = () => {
                 />
               </div>
 
-              {/* Menu Items */}
               <div className="px-5 pb-2">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 px-1">
+                <p className="mb-3 px-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Opciones
                 </p>
                 <div className="space-y-1">
@@ -143,55 +144,62 @@ export const MobileMenuSheet = () => {
                         key={item.href}
                         href={item.href}
                         onClick={() => setIsOpen(false)}
-                        className={`flex items-center gap-4 p-4 rounded-xl transition-all ${isActive
-                          ? "bg-indigo-600/20 border border-indigo-600/30"
-                          : "bg-slate-800/50 border border-slate-700/50 hover:bg-slate-800"
-                          }`}
+                        className={`flex items-center gap-4 rounded-xl border p-4 transition-all ${
+                          isActive
+                            ? "border-[var(--primary)]/20 bg-[var(--primary-soft)]"
+                            : "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white"
+                        }`}
                       >
                         <div
-                          className={`h-10 w-10 rounded-xl flex items-center justify-center ${isActive ? "bg-indigo-600/30" : item.bgColor
-                            }`}
+                          className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                            isActive
+                              ? "bg-[var(--primary)]/15"
+                              : "bg-[var(--accent-soft)]"
+                          }`}
                         >
                           <item.icon
                             size={20}
-                            className={isActive ? "text-indigo-400" : item.color}
+                            className={
+                              isActive
+                                ? "text-[var(--primary)]"
+                                : "text-[var(--accent)]"
+                            }
                           />
                         </div>
                         <div className="flex-1">
                           <p
-                            className={`font-semibold ${isActive ? "text-indigo-300" : "text-white"
-                              }`}
+                            className={`font-semibold ${
+                              isActive ? "text-[var(--primary)]" : "text-slate-900"
+                            }`}
                           >
                             {item.label}
                           </p>
-                          <p className="text-xs text-slate-400">{item.description}</p>
+                          <p className="text-xs text-slate-500">
+                            {item.description}
+                          </p>
                         </div>
-                        <ChevronRight size={18} className="text-slate-500" />
+                        <ChevronRight size={18} className="text-slate-400" />
                       </Link>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Logout Button */}
-              <div className="px-5 py-4 border-t border-slate-800">
+              <div className="border-t border-slate-200 px-5 py-4">
                 <button
                   onClick={handleSignOut}
-                  className="w-full flex items-center gap-4 p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 transition-all active:scale-[0.98]"
+                  className="flex w-full items-center gap-4 rounded-xl border border-[var(--danger)]/20 bg-[var(--danger-soft)] p-4 text-[var(--danger)] transition-all hover:bg-red-100 active:scale-[0.98]"
                 >
-                  <div className="h-10 w-10 rounded-xl bg-rose-500/20 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--danger)]/10">
                     <LogOut size={20} />
                   </div>
                   <div className="flex-1 text-left">
                     <p className="font-semibold">Cerrar Sesión</p>
-                    <p className="text-xs text-rose-400/70">
-                      Finalizar sesión actual
-                    </p>
+                    <p className="text-xs opacity-80">Finalizar sesión actual</p>
                   </div>
                 </button>
               </div>
 
-              {/* Safe area padding */}
               <div className="h-[env(safe-area-inset-bottom)]" />
             </div>
           </motion.div>

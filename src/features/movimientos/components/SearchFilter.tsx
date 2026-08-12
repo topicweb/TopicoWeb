@@ -16,21 +16,24 @@ export function SearchFilter({
   onFilterChange,
 }: SearchFilterProps) {
   return (
-    <div className="space-y-3">
+    <div className="glass-card space-y-4 p-5">
       {/* Search Input */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+        <Search
+          className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary"
+          aria-hidden="true"
+        />
         <input
           type="text"
           placeholder="Buscar por insumo..."
           value={searchTerm}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-10 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:ring-4 focus:ring-teal-500/10 outline-none transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          className="input-premium w-full border-l-4 border-l-primary py-2.5 pl-10 pr-10 text-sm"
         />
         {searchTerm && (
           <button
             onClick={() => onSearchChange("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <X size={16} />
           </button>
@@ -43,8 +46,8 @@ export function SearchFilter({
           onClick={() => onFilterChange("all")}
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
             filterType === "all"
-              ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+              ? "bg-primary text-white"
+              : "bg-muted text-muted-foreground hover:bg-[var(--slate-100)]"
           }`}
         >
           <ArrowLeftRight size={14} />
@@ -55,7 +58,7 @@ export function SearchFilter({
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
             filterType === "entrada"
               ? "bg-emerald-600 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+              : "bg-muted text-muted-foreground hover:bg-[var(--slate-100)]"
           }`}
         >
           <ArrowDown size={14} />
@@ -66,7 +69,7 @@ export function SearchFilter({
           className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
             filterType === "salida"
               ? "bg-rose-600 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+              : "bg-muted text-muted-foreground hover:bg-[var(--slate-100)]"
           }`}
         >
           <ArrowUp size={14} />

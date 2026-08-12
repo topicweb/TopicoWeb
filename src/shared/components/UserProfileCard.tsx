@@ -14,6 +14,9 @@ interface UserProfileCardProps {
   variant?: "compact" | "expanded";
 }
 
+const avatarClass =
+  "flex shrink-0 items-center justify-center rounded-xl border border-[var(--primary)]/15 bg-[var(--primary-soft)] font-bold uppercase text-[var(--primary)]";
+
 export const UserProfileCard = ({
   email,
   role,
@@ -25,14 +28,14 @@ export const UserProfileCard = ({
 
   if (variant === "expanded") {
     return (
-      <div className="bg-slate-800/50 rounded-2xl p-4 border border-slate-700/50">
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-teal-600/20 rounded-xl flex items-center justify-center shrink-0 text-teal-400 border border-teal-600/20">
-            <span className="font-bold text-lg uppercase">{initial}</span>
+          <div className={`${avatarClass} h-12 w-12 text-lg`}>
+            {initial}
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-bold text-white truncate">{displayName}</p>
-            <p className="text-xs text-slate-400 uppercase tracking-wider">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-bold text-slate-900">{displayName}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[var(--accent)]">
               {role || "Personal"}
             </p>
           </div>
@@ -41,17 +44,16 @@ export const UserProfileCard = ({
     );
   }
 
-  // Compact variant (Sidebar)
   return (
-    <div className="bg-slate-900/50 rounded-2xl p-4 border border-slate-800/50">
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 bg-teal-600/20 rounded-lg flex items-center justify-center shrink-0 text-teal-400 border border-teal-600/10">
-            <span className="font-bold text-sm uppercase">{initial}</span>
+        <div className="flex min-w-0 items-center gap-3">
+          <div className={`${avatarClass} h-10 w-10 text-sm`}>
+            {initial}
           </div>
           <div className="min-w-0">
-            <p className="font-bold text-sm text-white truncate">{displayName}</p>
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+            <p className="truncate text-sm font-bold text-slate-900">{displayName}</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
               {role || "Personal"}
             </p>
           </div>
@@ -59,7 +61,7 @@ export const UserProfileCard = ({
         <button
           onClick={onSignOut}
           disabled={!onSignOut}
-          className="p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-400/10 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="rounded-lg p-2 text-slate-400 transition-all hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] disabled:cursor-not-allowed disabled:opacity-50"
           title="Cerrar Sesión"
         >
           <LogOut size={18} />

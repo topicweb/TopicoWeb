@@ -7,25 +7,21 @@ interface ModalHeaderProps {
 
 export function ModalHeader({ pacienteNombre, onClose }: ModalHeaderProps) {
   return (
-    <div className="relative p-8 pb-4 shrink-0">
-      <div className="absolute top-0 right-0 p-8 opacity-[0.05] pointer-events-none">
-        <Stethoscope size={120} className="text-teal-500 transform -rotate-12" />
-      </div>
-      <div className="flex justify-between items-center relative z-10">
+    <div className="sticky top-0 z-20 shrink-0 border-b border-border bg-white/95 px-6 pb-4 pt-6 backdrop-blur-sm md:px-8">
+      <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-            Nueva Atención
-          </h2>
-          <p className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest mt-1">
+          <h2 className="text-xl font-bold tracking-tight text-foreground md:text-2xl">Nueva Atención</h2>
+          <p className="badge-accent mt-1.5">
+            <Stethoscope size={12} className="mr-1 inline" />
             Paciente: {pacienteNombre}
           </p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="h-10 w-10 flex items-center justify-center rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 transition-all text-slate-500"
+          className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-[var(--primary-soft)] hover:text-primary"
         >
-          <X size={20} />
+          <X size={18} />
         </button>
       </div>
     </div>

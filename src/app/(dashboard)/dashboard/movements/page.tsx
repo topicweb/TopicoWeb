@@ -59,7 +59,7 @@ export default function MovementsPage() {
   }, [movimientos]);
 
   return (
-    <div className="mx-auto max-w-7xl space-y-6 p-4 sm:space-y-8 sm:p-6 lg:p-8">
+    <div className="space-y-6">
       {/* Header con estadísticas y filtros */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
@@ -67,46 +67,48 @@ export default function MovementsPage() {
         transition={{ duration: 0.4 }}
         className="space-y-4"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-border pb-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <div className="rounded-lg bg-linear-to-br from-teal-500 to-teal-600 p-2 shadow-lg shadow-teal-500/20">
-                <ArrowLeftRight className="h-5 w-5 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary-soft)] text-primary shadow-sm">
+                <ArrowLeftRight className="h-5 w-5" />
               </div>
-              <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
-                Historial de Movimientos
-              </h1>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                  Historial de <span className="text-gradient">Movimientos</span>
+                </h1>
+                <p className="text-sm text-muted">
+                  Kardex de entradas y salidas de inventario
+                </p>
+              </div>
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 pl-11">
-              Kardex de entradas y salidas de inventario
-            </p>
           </div>
 
           {/* Estadísticas desktop */}
-          <div className="hidden sm:flex items-center gap-3">
-            <div className="rounded-xl bg-white px-4 py-2 shadow-sm border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
+          <div className="hidden items-center gap-3 sm:flex">
+            <div className="glass-card px-4 py-2">
               <div className="flex items-center gap-2">
-                <Package size={16} className="text-slate-400" />
-                <span className="text-xs text-slate-500 dark:text-slate-400">Total</span>
-                <span className="text-sm font-semibold text-slate-900 dark:text-white">
+                <Package size={16} className="text-muted-foreground" />
+                <span className="text-xs text-muted">Total</span>
+                <span className="text-sm font-semibold text-foreground">
                   {stats.total}
                 </span>
               </div>
             </div>
-            <div className="rounded-xl bg-emerald-50 px-4 py-2 border border-emerald-100 dark:border-emerald-900/30 dark:bg-emerald-900/20">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-2">
               <div className="flex items-center gap-2">
-                <TrendingUp size={16} className="text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs text-emerald-700 dark:text-emerald-400">Entradas</span>
-                <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                <TrendingUp size={16} className="text-emerald-600" />
+                <span className="text-xs text-emerald-700">Entradas</span>
+                <span className="text-sm font-semibold text-emerald-700">
                   {stats.entradas}
                 </span>
               </div>
             </div>
-            <div className="rounded-xl bg-rose-50 px-4 py-2 border border-rose-100 dark:border-rose-900/30 dark:bg-rose-900/20">
+            <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-2">
               <div className="flex items-center gap-2">
-                <TrendingDown size={16} className="text-rose-600 dark:text-rose-400" />
-                <span className="text-xs text-rose-700 dark:text-rose-400">Salidas</span>
-                <span className="text-sm font-semibold text-rose-700 dark:text-rose-400">
+                <TrendingDown size={16} className="text-rose-600" />
+                <span className="text-xs text-rose-700">Salidas</span>
+                <span className="text-sm font-semibold text-rose-700">
                   {stats.salidas}
                 </span>
               </div>
@@ -124,17 +126,17 @@ export default function MovementsPage() {
 
         {/* Estadísticas mobile */}
         <div className="grid grid-cols-3 gap-2 sm:hidden">
-          <div className="rounded-xl bg-white p-3 text-center shadow-sm border border-slate-200 dark:border-slate-800 dark:bg-slate-900">
-            <div className="text-xs text-slate-500 dark:text-slate-400">Total</div>
-            <div className="text-lg font-bold text-slate-900 dark:text-white">{stats.total}</div>
+          <div className="glass-card p-3 text-center">
+            <div className="text-xs text-muted">Total</div>
+            <div className="text-lg font-bold text-foreground">{stats.total}</div>
           </div>
-          <div className="rounded-xl bg-emerald-50 p-3 text-center border border-emerald-100 dark:border-emerald-900/30 dark:bg-emerald-900/20">
-            <div className="text-xs text-emerald-700 dark:text-emerald-400">Entradas</div>
-            <div className="text-lg font-bold text-emerald-700 dark:text-emerald-400">{stats.entradas}</div>
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center">
+            <div className="text-xs text-emerald-700">Entradas</div>
+            <div className="text-lg font-bold text-emerald-700">{stats.entradas}</div>
           </div>
-          <div className="rounded-xl bg-rose-50 p-3 text-center border border-rose-100 dark:border-rose-900/30 dark:bg-rose-900/20">
-            <div className="text-xs text-rose-700 dark:text-rose-400">Salidas</div>
-            <div className="text-lg font-bold text-rose-700 dark:text-rose-400">{stats.salidas}</div>
+          <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-center">
+            <div className="text-xs text-rose-700">Salidas</div>
+            <div className="text-lg font-bold text-rose-700">{stats.salidas}</div>
           </div>
         </div>
       </motion.div>
@@ -144,7 +146,7 @@ export default function MovementsPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="text-xs text-slate-500 dark:text-slate-400"
+          className="text-xs text-muted"
         >
           Mostrando {filteredMovements.length} de {movimientos.length} movimientos
         </motion.div>

@@ -17,19 +17,19 @@ export function WizardNavigation({
   loading,
   onPrevious,
   onNext,
-  onSubmit,
 }: WizardNavigationProps) {
   return (
-    <div className="p-4 bg-white/80 dark:bg-slate-950/80 backdrop-blur-sm border-t border-slate-100 dark:border-slate-800 shrink-0">
-      <div className="flex justify-between items-center max-w-3xl mx-auto">
+    <div className="shrink-0 border-t border-border bg-white/95 p-4 backdrop-blur-sm">
+      <div className="mx-auto flex max-w-3xl items-center justify-between">
         <button
           type="button"
           onClick={onPrevious}
           disabled={currentStep === 1}
-          className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all ${currentStep === 1
-            ? "opacity-0 pointer-events-none"
-            : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
-            }`}
+          className={`flex items-center gap-2 rounded-xl px-5 py-3 font-semibold transition-all ${
+            currentStep === 1
+              ? "pointer-events-none opacity-0"
+              : "bg-muted text-foreground hover:bg-[var(--slate-100)]"
+          }`}
         >
           <ChevronLeft size={18} />
           Anterior
@@ -38,12 +38,9 @@ export function WizardNavigation({
         {currentStep < totalSteps ? (
           <button
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              onNext();
-            }}
+            onClick={(e) => { e.preventDefault(); onNext(); }}
             disabled={!canAdvance}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-teal-600 text-white font-semibold shadow-lg shadow-teal-500/25 hover:bg-teal-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 font-semibold text-white shadow-sm transition-all hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
             Siguiente
             <ChevronRight size={18} />
@@ -52,13 +49,9 @@ export function WizardNavigation({
           <button
             type="submit"
             disabled={loading}
-            className="flex items-center gap-2 px-8 py-3.5 rounded-xl bg-indigo-600 text-white font-bold shadow-xl shadow-indigo-500/30 hover:bg-indigo-700 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-accent px-8 py-3 font-semibold text-white shadow-sm transition-all hover:bg-accent-hover disabled:opacity-50"
           >
-            {loading ? (
-              <Loader2 className="animate-spin" size={18} />
-            ) : (
-              <Save size={18} />
-            )}
+            {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
             {loading ? "Guardando..." : "Guardar"}
           </button>
         )}

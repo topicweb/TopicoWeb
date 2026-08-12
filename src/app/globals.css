@@ -1,98 +1,260 @@
 @import "tailwindcss";
 
 /* ─────────────────────────────────────────────────────────────────────────────── */
-/* DESIGN SYSTEM */
-/* Paleta médica profesional optimizada para legibilidad y accesibilidad */
+/* DESIGN SYSTEM — Tópico IESTPPA                                                    */
+/* Paleta clínica: azul primario, verde sanitario, blancos limpios y alto contraste */
+/* Alineado con login / landing (#1D5DFF)                                            */
 /* ─────────────────────────────────────────────────────────────────────────────── */
 
+@theme inline {
+  /* Superficies */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+
+  /* Marca — azul clínico */
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+
+  /* Acento sanitario — verde enfermería */
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+
+  /* Estados semánticos */
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  /* Radios */
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+}
+
 :root {
-  /* Core colors: superficie y texto */
-  --background: #fdfdfd;
-  --foreground: #1e293b;
+  /* Superficies — predominio blanco, limpio */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --muted: #f8fafc;
+  --muted-foreground: #475569;
+  --border: #e2e8f0;
 
-  /* Primary palette: Teal 600 */
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
-  --primary-glow: rgba(13, 148, 136, 0.1);
+  /* Primario — azul del login (contraste ≥ 4.5:1 sobre blanco en texto grande) */
+  --primary: #1d5dff;
+  --primary-hover: #1648cc;
+  --primary-active: #0f3db8;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eef3ff;
+  --primary-glow: rgba(29, 93, 255, 0.14);
 
-  /* Semantic states */
-  --success: #059669;
-  /* Emerald 600 */
-  --warning: #d97706;
-  /* Amber 600 */
-  --danger: #dc2626;
-  /* Red 600 */
+  /* Acento — verde clínico / enfermería */
+  --accent: #059669;
+  --accent-hover: #047857;
+  --accent-soft: #ecfdf5;
+  --accent-muted: #d1fae5;
 
-  /* Slate scale for UI components */
+  /* Semánticos — contraste reforzado */
+  --success: #047857;
+  --success-soft: #ecfdf5;
+  --warning: #b45309;
+  --warning-soft: #fffbeb;
+  --danger: #b91c1c;
+  --danger-soft: #fef2f2;
+
+  /* Escala neutra */
   --slate-50: #f8fafc;
   --slate-100: #f1f5f9;
   --slate-200: #e2e8f0;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
   --slate-700: #334155;
   --slate-800: #1e293b;
   --slate-900: #0f172a;
 
-  /* Glassmorphism effects */
-  --glass-bg: rgba(255, 255, 255, 0.85);
-  --glass-border: rgba(226, 232, 240, 0.8);
-  --glass-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+  /* Tarjetas y elevación */
+  --glass-bg: rgba(255, 255, 255, 0.92);
+  --glass-border: rgba(226, 232, 240, 0.9);
+  --glass-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+  --card-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 
-  /* Border radius scale */
+  /* Radios */
+  --radius-lg: 0.5rem;
   --radius-xl: 1rem;
-  --radius-2xl: 1.5rem;
+  --radius-2xl: 1.25rem;
+
+  /* Accesibilidad — foco visible consistente */
+  --focus-ring: 0 0 0 3px var(--primary-glow);
+  --focus-border: var(--primary);
 }
+
+/* ─── Base ─────────────────────────────────────────────────────────────────── */
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  font-family: var(--font-geist-sans, ui-sans-serif), system-ui, -apple-system,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
+  line-height: 1.6;
 }
 
-/* === Utilidades: Componentes reutilizables (sin @apply por compatibilidad) === */
+::selection {
+  background-color: var(--primary-soft);
+  color: var(--foreground);
+}
 
-/** Efecto cristal para tarjetas - blur moderado */
+/* Enlaces — contraste y foco accesible */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+/* ─── Utilidades reutilizables ─────────────────────────────────────────────── */
+
+/** Tarjeta con efecto cristal — fondo blanco clínico */
 .glass-card {
   background: var(--glass-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   box-shadow: var(--glass-shadow);
+  border-radius: var(--radius-2xl);
 }
 
-/** Efecto cristal para modales - blur intenso con sombra elevada */
+/** Modal elevado */
 .glass-modal {
   background: var(--glass-bg);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.18);
+  border-radius: var(--radius-2xl);
 }
 
-/** Gradientes de texto - branding primario */
+/** Tarjeta sólida — login / landing */
+.card-elevated {
+  background: var(--surface);
+  border: 1px solid var(--slate-100);
+  box-shadow: var(--card-shadow);
+  border-radius: var(--radius-2xl);
+}
+
+/** Gradiente de marca — azul a verde sanitario */
 .text-gradient {
-  background: linear-gradient(135deg, #0d9488 0%, #0891b2 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
-/* === Inputs: Estados de enfoque accesibles === */
+/** Botón primario — tokens globales */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: var(--radius-lg);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+}
+
+.btn-primary:active {
+  background-color: var(--primary-active);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/** Inputs — barra azul y foco accesible (como login) */
 .input-premium {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   outline: none;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+  color: var(--foreground);
+}
+
+.input-premium::placeholder {
+  color: var(--slate-400);
 }
 
 .input-premium:focus {
-  border-color: rgba(13, 148, 136, 0.5);
-  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.1);
+  border-color: var(--focus-border);
+  box-shadow: var(--focus-ring);
 }
 
-/* === Scrollbar: Estilo unificado === */
+/** Input con acento lateral — patrón del login */
+.input-accent {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--surface);
+}
+
+.input-accent::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 6px;
+  background-color: var(--primary);
+}
+
+.input-accent:focus-within {
+  border-color: var(--focus-border);
+  box-shadow: var(--focus-ring);
+}
+
+/** Badge sanitario — verde enfermería */
+.badge-accent {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  background-color: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.625rem;
+}
+
+/** Texto secundario con contraste legible (≥ 4.5:1 sobre blanco) */
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+/** Superficie alterna suave */
+.bg-muted {
+  background-color: var(--muted);
+}
+
+/* ─── Scrollbar ────────────────────────────────────────────────────────────── */
+
 ::-webkit-scrollbar {
   width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -100,15 +262,37 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: var(--slate-200);
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: var(--slate-400);
 }
 
-/** Modo oscuro: Contraste ajustado */
 .dark ::-webkit-scrollbar-thumb {
-  background: #334155;
+  background: var(--slate-700);
+}
+
+/* ─── Accesibilidad ────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --foreground: #020617;
+    --muted-foreground: #334155;
+    --border: #94a3b8;
+    --primary: #0047e6;
+    --accent: #047857;
+  }
 }

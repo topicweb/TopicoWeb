@@ -10,10 +10,10 @@ interface MovementSkeletonProps {
 export function MovementSkeleton({ count = 6, viewMode = "cards" }: MovementSkeletonProps) {
   if (viewMode === "table") {
     return (
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
+            <thead className="bg-muted">
               <tr>
                 {Array.from({ length: 5 }).map((_, i) => (
                   <th key={i} className="px-6 py-4">
@@ -22,7 +22,7 @@ export function MovementSkeleton({ count = 6, viewMode = "cards" }: MovementSkel
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-border">
               {Array.from({ length: count }).map((_, i) => (
                 <tr key={i}>
                   <td className="px-6 py-4">
@@ -54,9 +54,9 @@ export function MovementSkeleton({ count = 6, viewMode = "cards" }: MovementSkel
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
+          className="glass-card relative overflow-hidden p-4"
         >
-          <div className="absolute left-0 top-0 h-full w-1 bg-slate-200 dark:bg-slate-700" />
+          <div className="absolute left-0 top-0 h-full w-1 bg-[var(--slate-200)]" />
           <div className="ml-3 space-y-3">
             <div className="flex items-center justify-between">
               <Skeleton className="h-3 w-28" />

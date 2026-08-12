@@ -20,10 +20,10 @@ export function DispensacionPreview({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 p-4"
+      className="rounded-xl border border-border bg-muted p-4"
     >
-      <h4 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-        <Check className="w-5 h-5 text-emerald-500" />
+      <h4 className="mb-3 flex items-center gap-2 font-semibold text-foreground">
+        <Check className="h-5 w-5 text-accent" />
         Resumen de Dispensación
       </h4>
 
@@ -35,10 +35,7 @@ export function DispensacionPreview({
           const tipoMedida = sel.tipo_medida as TipoMedida;
           const colores = COLORES_POR_TIPO[tipoMedida];
           return (
-            <div
-              key={sel.medicamento_id}
-              className={`flex items-center justify-between p-2 rounded-lg ${colores.bg}`}
-            >
+            <div key={sel.medicamento_id} className={`flex items-center justify-between rounded-lg p-2 ${colores.bg}`}>
               <div className="flex items-center gap-2">
                 <span className={colores.icon}>{ICONOS_POR_TIPO[tipoMedida]}</span>
                 <span className={`font-medium ${colores.text}`}>{med.nombre}</span>
@@ -51,17 +48,14 @@ export function DispensacionPreview({
         })}
       </div>
 
-      <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-700">
+      <div className="mt-4 border-t border-border pt-4">
         <div className="flex flex-wrap gap-2">
           {(Object.keys(TIPO_ABREV) as TipoMedida[]).map((tipo) => {
             const total = totalesPorTipo[tipo];
             if (total === 0) return null;
             const colores = COLORES_POR_TIPO[tipo];
             return (
-              <span
-                key={tipo}
-                className={`px-3 py-1 rounded-full text-sm font-medium ${colores.bg} ${colores.text}`}
-              >
+              <span key={tipo} className={`rounded-full px-3 py-1 text-sm font-medium ${colores.bg} ${colores.text}`}>
                 {total} {TIPO_ABREV[tipo]}
               </span>
             );

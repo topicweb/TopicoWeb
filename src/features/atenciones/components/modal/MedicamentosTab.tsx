@@ -13,7 +13,7 @@ export function MedicamentosTab({ dispensaciones, onDispensacionesChange }: Medi
   if (loadingMedicamentos) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="h-8 w-8 border-2 border-teal-500/30 border-t-teal-500 animate-spin rounded-full" />
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary/30 border-t-primary" />
       </div>
     );
   }

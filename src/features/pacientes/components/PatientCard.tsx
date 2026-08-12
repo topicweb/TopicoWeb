@@ -3,11 +3,6 @@ import { Edit2, Trash2, User } from 'lucide-react';
 import type { Paciente } from '../types';
 import { ConfirmationModal } from '@/shared/ui/ConfirmationModal';
 
-// ───────────────────────────────────────────────────────────────────────────────
-// TARJETA DE PACIENTE
-// Muestra información del paciente con acciones de edición y eliminación
-// ───────────────────────────────────────────────────────────────────────────────
-
 interface PatientCardProps {
   patient: Paciente;
   onEdit: (patient: Paciente) => void;
@@ -18,73 +13,64 @@ interface PatientCardProps {
 export function PatientCard({ patient, onEdit, onDelete, canDelete = false }: PatientCardProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleDelete = () => {
-    setShowConfirmModal(true);
-  };
+  const meta = patient.metadata as { ciclo?: string; turno?: string } | undefined;
 
   const handleConfirmDelete = async () => {
-    if (onDelete) {
-      setIsDeleting(true);
-      try {
-        await onDelete(patient);
-        setShowConfirmModal(false);
-      } finally {
-        setIsDeleting(false);
-      }
+    if (!onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(patient);
+      setShowConfirmModal(false);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   return (
     <>
-      <div className="group relative overflow-hidden rounded-2xl border border-slate-100 bg-white p-5 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-900/20">
-              <User size={24} />
+      <div className="glass-card group p-5 transition-all hover:border-primary/20 hover:shadow-[var(--card-shadow)]">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--primary-soft)] text-primary">
+              <User size={22} />
             </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+            <div className="min-w-0">
+              <h3 className="truncate font-semibold text-foreground">
                 {patient.nombres} {patient.apellidos}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">{patient.dni}</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300 capitalize">
+              <p className="text-sm text-muted">{patient.dni}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-xs font-medium capitalize text-muted-foreground">
                   {patient.categoria}
                 </span>
-                {(patient.metadata as any)?.ciclo && (
-                  <span className="inline-flex items-center rounded-md bg-blue-100 px-2 py-1 text-xs font-medium text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
-                    Ciclo {(patient.metadata as any).ciclo}
+                {meta?.ciclo && (
+                  <span className="inline-flex items-center rounded-md bg-[var(--primary-soft)] px-2 py-0.5 text-xs font-medium text-primary">
+                    Ciclo {meta.ciclo}
                   </span>
                 )}
-                {(patient.metadata as any)?.turno && (
-                  <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-1 text-xs font-medium text-purple-600 dark:bg-purple-900/30 dark:text-purple-400">
-                    {(patient.metadata as any).turno}
-                  </span>
-                )}
+                {meta?.turno && <span className="badge-accent">{meta.turno}</span>}
                 <span
-                  className={`inline-flex h-2 w-2 rounded-full ${patient.sync_status === 'synced' ? 'bg-green-500' : 'bg-amber-500'
-                    }`}
+                  className={`h-2 w-2 rounded-full ${patient.sync_status === 'synced' ? 'bg-accent' : 'bg-warning'}`}
                   title={patient.sync_status === 'synced' ? 'Sincronizado' : 'Pendiente de subir'}
                 />
               </div>
             </div>
           </div>
-          <div className="flex gap-1">
+          <div className="flex shrink-0 gap-0.5">
             <button
               onClick={() => onEdit(patient)}
-              className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-blue-600 dark:hover:bg-gray-700"
+              className="rounded-lg p-2 text-[var(--slate-400)] transition-colors hover:bg-[var(--primary-soft)] hover:text-primary"
               aria-label="Editar paciente"
             >
-              <Edit2 size={20} />
+              <Edit2 size={18} />
             </button>
             {canDelete && onDelete && (
               <button
-                onClick={handleDelete}
-                className="rounded-lg p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                onClick={() => setShowConfirmModal(true)}
+                className="rounded-lg p-2 text-[var(--slate-400)] transition-colors hover:bg-[var(--danger-soft)] hover:text-danger"
                 aria-label="Eliminar paciente"
               >
-                <Trash2 size={20} />
+                <Trash2 size={18} />
               </button>
             )}
           </div>

@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Stethoscope } from "lucide-react";
 import { useAuth } from "@/core/providers/AuthProvider";
 import { SyncMonitor } from "@/shared/components/SyncMonitor";
 import { UserProfileCard } from "@/shared/components/UserProfileCard";
@@ -13,24 +12,33 @@ import { primaryMenuItems, secondaryMenuItems } from "./navigation.config";
 // Barra lateral de navegación fija para pantallas de escritorio
 // ───────────────────────────────────────────────────────────────────────────────
 
+const navLinkBase =
+  "group w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 whitespace-nowrap text-base font-medium";
+
 export const Sidebar = () => {
   const pathname = usePathname();
   const { user, role, signOut } = useAuth();
-
-  // Combinar items primarios y secundarios para desktop
   const menuItems = [...primaryMenuItems, ...secondaryMenuItems];
 
   return (
-    <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 h-full w-64 flex-col bg-slate-950 text-slate-400 border-r border-slate-800">
+    <aside className="hidden md:flex fixed inset-y-0 left-0 z-30 h-full w-64 flex-col bg-white text-slate-600 border-r border-slate-200 shadow-sm">
       <div className="flex-1 overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-8">
-            <div className="h-10 w-10 rounded-xl bg-teal-600 flex items-center justify-center text-white shadow-lg shadow-teal-600/20">
-              <Stethoscope size={22} />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white shadow-sm">
+              <img
+                src="/logo.webp"
+                alt="Logo Tópico"
+                className="h-7 w-7 object-contain"
+              />
             </div>
             <div className="min-w-max">
-              <h1 className="text-lg font-bold text-white tracking-tight">Tópico</h1>
-              <p className="text-xs font-semibold text-teal-400 uppercase tracking-widest -mt-1">Servicio Médico</p>
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                Tópico
+              </h1>
+              <p className="text-xs font-semibold text-[var(--accent)] uppercase tracking-widest -mt-1">
+                Servicio Médico
+              </p>
             </div>
           </div>
 
@@ -41,12 +49,20 @@ export const Sidebar = () => {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`group w-full flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-200 whitespace-nowrap text-base font-medium ${isActive
-                    ? "bg-teal-600/10 text-teal-400 border border-teal-600/20 font-semibold"
-                    : "hover:bg-slate-900 hover:text-white"
-                    }`}
+                  className={`${navLinkBase} ${
+                    isActive
+                      ? "bg-[var(--primary-soft)] text-[var(--primary)] border border-[var(--primary)]/20 font-semibold shadow-sm"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                  }`}
                 >
-                  <item.icon size={20} className={isActive ? "text-teal-500" : "text-slate-500 group-hover:text-teal-400 transition-colors"} />
+                  <item.icon
+                    size={20}
+                    className={
+                      isActive
+                        ? "text-[var(--primary)]"
+                        : "text-slate-400 group-hover:text-[var(--primary)] transition-colors"
+                    }
+                  />
                   <span>{item.label}</span>
                 </Link>
               );
@@ -55,12 +71,11 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      {/* Estado de sincronización - Siempre visible en sidebar */}
       <div className="px-4 pb-2">
         <SyncMonitor variant="inline" />
       </div>
 
-      <div className="p-4 border-t border-slate-900">
+      <div className="p-4 border-t border-slate-200 bg-slate-50/50">
         <UserProfileCard
           email={user?.email}
           role={role}

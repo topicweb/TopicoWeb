@@ -17,19 +17,10 @@ interface AtencionModalProps {
   onSave: (atencion: AtencionFormData, dispensaciones: DispensacionMedicamento[]) => Promise<void>;
 }
 
-const overlayVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1 },
-};
-
+const overlayVariants: Variants = { hidden: { opacity: 0 }, visible: { opacity: 1 } };
 const modalVariants: Variants = {
   hidden: { opacity: 0, scale: 0.95, y: 20 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: { type: "spring", damping: 25, stiffness: 300 },
-  },
+  visible: { opacity: 1, scale: 1, y: 0, transition: { type: "spring", damping: 25, stiffness: 300 } },
   exit: { opacity: 0, scale: 0.95, y: 20, transition: { duration: 0.2 } },
 };
 
@@ -57,7 +48,7 @@ export function AtencionModal({ isOpen, onClose, pacienteId, pacienteNombre, onS
           animate="visible"
           exit="hidden"
           onClick={onClose}
-          className="absolute inset-0 bg-slate-900/60 backdrop-blur-md"
+          className="absolute inset-0 bg-[var(--foreground)]/20 backdrop-blur-sm"
         />
 
         <motion.div
@@ -65,20 +56,16 @@ export function AtencionModal({ isOpen, onClose, pacienteId, pacienteNombre, onS
           initial="hidden"
           animate="visible"
           exit="exit"
-          className="relative w-full max-w-3xl max-h-[90vh] overflow-hidden rounded-[2.5rem] bg-white dark:bg-slate-900 border border-white dark:border-slate-800 shadow-2xl flex flex-col"
+          className="glass-modal relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden"
         >
-          {/* Background */}
-          <div className="absolute inset-0 overflow-hidden pointer-events-none">
-            <div className="absolute top-0 left-0 w-full h-32 bg-linear-to-b from-teal-500/5 to-transparent" />
-            <div className="absolute -right-20 -top-20 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl" />
-            <div className="absolute -left-20 -bottom-20 w-64 h-64 bg-teal-500/5 rounded-full blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-[var(--primary-glow)] blur-3xl" />
+            <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-[var(--accent-soft)] blur-3xl" />
           </div>
 
-          {/* Header */}
           <ModalHeader pacienteNombre={pacienteNombre} onClose={onClose} />
 
-          {/* Tabs */}
-          <div className="relative z-10 px-8">
+          <div className="relative z-10 px-6 md:px-8">
             <ModalTabs
               activeTab={activeTab}
               onTabChange={setActiveTab}
@@ -86,34 +73,22 @@ export function AtencionModal({ isOpen, onClose, pacienteId, pacienteNombre, onS
             />
           </div>
 
-          {/* Content */}
-          <form onSubmit={(e) => handleSubmit(e, pacienteId, onSave, onClose)} className="flex-1 overflow-y-auto p-8 pt-4 space-y-5 relative z-10">
+          <form
+            onSubmit={(e) => handleSubmit(e, pacienteId, onSave, onClose)}
+            className="relative z-10 flex-1 space-y-5 overflow-y-auto p-6 pt-4 md:p-8"
+          >
             <AnimatePresence mode="wait">
               {activeTab === "datos" ? (
-                <motion.div
-                  key="datos"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                >
+                <motion.div key="datos" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
                   <ConsultaTab form={form} updateField={updateField} />
                 </motion.div>
               ) : (
-                <motion.div
-                  key="medicamentos"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                >
-                  <MedicamentosTab
-                    dispensaciones={dispensaciones}
-                    onDispensacionesChange={setDispensaciones}
-                  />
+                <motion.div key="medicamentos" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                  <MedicamentosTab dispensaciones={dispensaciones} onDispensacionesChange={setDispensaciones} />
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {/* Footer */}
             <ModalFooter
               error={error}
               saving={saving}

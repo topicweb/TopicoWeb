@@ -16,29 +16,29 @@ interface MovementTableProps {
 
 export function MovementTable({ movements }: MovementTableProps) {
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className="glass-card overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left">
-          <thead className="bg-slate-50 dark:bg-slate-800/50">
+          <thead className="bg-muted">
             <tr>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Fecha
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Insumo
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Operación
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Cantidad
               </th>
-              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <th className="px-6 py-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Referencia
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-border">
             {movements.map((movement, index) => {
               const isEntrada = movement.tipo === "ENTRADA";
               const formattedDate = new Date(
@@ -56,11 +56,11 @@ export function MovementTable({ movements }: MovementTableProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.2, delay: index * 0.03 }}
-                  className="group transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                  className="group transition-colors hover:bg-muted"
                 >
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                      <Calendar size={16} className="text-slate-400" />
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar size={16} className="text-muted-foreground" />
                       {formattedDate}
                     </div>
                   </td>
@@ -68,9 +68,9 @@ export function MovementTable({ movements }: MovementTableProps) {
                     <div className="flex items-center gap-2">
                       <Package
                         size={16}
-                        className="text-slate-400 dark:text-slate-500"
+                        className="text-muted-foreground"
                       />
-                      <span className="font-medium text-slate-900 dark:text-slate-100">
+                      <span className="font-medium text-foreground">
                         {movement.medicamentoNombre}
                       </span>
                     </div>
@@ -78,8 +78,8 @@ export function MovementTable({ movements }: MovementTableProps) {
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${isEntrada
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                        : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-rose-100 text-rose-700"
                         }`}
                     >
                       {isEntrada ? (
@@ -93,8 +93,8 @@ export function MovementTable({ movements }: MovementTableProps) {
                   <td className="px-6 py-4">
                     <span
                       className={`text-sm font-bold ${isEntrada
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : "text-rose-600 dark:text-rose-400"
+                        ? "text-emerald-600"
+                        : "text-rose-600"
                         }`}
                     >
                       {isEntrada ? "+" : "-"}
@@ -102,7 +102,7 @@ export function MovementTable({ movements }: MovementTableProps) {
                     </span>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400">
+                    <div className="flex items-center gap-1.5 text-sm text-muted">
                       <Hash size={14} />
                       <span>
                         {movement.atencionPacienteNombre
