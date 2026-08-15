@@ -45,6 +45,36 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = (): AuthContextType => useContext(AuthContext);
 
+/** Migra sesión del cliente antiguo (localStorage) al nuevo basado en cookies. */
+async function migrateLegacyLocalStorageSession() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) return;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) return;
+
+  const projectRef = new URL(supabaseUrl).hostname.split(".")[0];
+  const storageKey = `sb-${projectRef}-auth-token`;
+  const raw = localStorage.getItem(storageKey);
+  if (!raw) return;
+
+  try {
+    const parsed = JSON.parse(raw) as {
+      access_token?: string;
+      refresh_token?: string;
+      currentSession?: { access_token?: string; refresh_token?: string };
+    };
+    const access_token = parsed.access_token ?? parsed.currentSession?.access_token;
+    const refresh_token = parsed.refresh_token ?? parsed.currentSession?.refresh_token;
+
+    if (access_token && refresh_token) {
+      await supabase.auth.setSession({ access_token, refresh_token });
+    }
+  } catch {
+    // Sesión legacy corrupta; el usuario deberá iniciar sesión de nuevo.
+  }
+}
+
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -74,12 +104,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [perfil]);
 
   useEffect(() => {
-    // Resuelve la sesión persistida en localStorage al cargar la app
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    // Migra sesión legacy y resuelve la sesión en cookies
+    migrateLegacyLocalStorageSession()
+      .then(() => supabase.auth.getSession())
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      });
 
     // Escucha cambios en la sesión (login, logout, token refresh)
     const {

@@ -1,7 +1,7 @@
 "use server";
 
 import { supabaseAdmin } from "@/core/db/supabase/admin";
-import { supabase } from "@/core/db/supabase";
+import { getAuthenticatedUser } from "@/core/db/supabase/server";
 import { Perfil } from "../types";
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -14,13 +14,8 @@ import { Perfil } from "../types";
 // Verifica que el usuario autenticado sea admin y tenga el business_id correcto
 // ───────────────────────────────────────────────────────────────────────────────
 async function validateAdminAccess(businessId: string) {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session?.user) {
-    throw new Error('No autenticado');
-  }
-
-  const userId = session.user.id;
+  const user = await getAuthenticatedUser();
+  const userId = user.id;
 
   // Obtener perfil del usuario
   const { data: perfil, error } = await supabaseAdmin
@@ -120,13 +115,8 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
 }
 
 export async function updateUserAction(id: string, data: Partial<Perfil>) {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session?.user) {
-    throw new Error('No autenticado');
-  }
-
-  const currentUserId = session.user.id;
+  const user = await getAuthenticatedUser();
+  const currentUserId = user.id;
 
   // Si el usuario está actualizando su propio perfil, permitir sin ser admin
   if (id === currentUserId) {
@@ -161,11 +151,7 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
 }
 
 export async function softDeleteUserAction(userId: string) {
-  const { data: { session } } = await supabase.auth.getSession();
-
-  if (!session?.user) {
-    throw new Error('No autenticado');
-  }
+  await getAuthenticatedUser();
 
   // Obtener el business_id del usuario a eliminar para validación
   const { data: targetUser } = await supabaseAdmin

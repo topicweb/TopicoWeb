@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createBrowserClient } from '@supabase/ssr';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -8,16 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 /**
- * Cliente Supabase singleton.
+ * Cliente Supabase para el navegador (persiste sesión en cookies).
  * Importar siempre desde '@/core/db/supabase/client'.
- *
- * Cuando generes los tipos con `supabase gen types typescript`, reemplaza
- * `createClient(...)` por `createClient<Database>(...)` e importa `Database`
- * desde '@/core/supabase/types'.
  */
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: true,
-    autoRefreshToken: true,
-  },
-});
+export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
