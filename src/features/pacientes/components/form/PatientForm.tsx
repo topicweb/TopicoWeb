@@ -1,12 +1,31 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Save, Fingerprint, BookOpen, Clock, Users } from 'lucide-react';
-import { toast } from 'sonner';
-import type { Paciente, CategoriaPaciente, ProgramaEstudio } from '../../types';
-import { FormField } from './FormField';
-import { GenderToggle } from './GenderToggle';
-import { CycleButton } from './CycleButton';
-import { ShiftButton } from './ShiftButton';
-import { CATEGORIAS, CICLOS, TURNOS, DEFAULT_FORM } from '../../config/constants';
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  Save,
+  Fingerprint,
+  BookOpen,
+  Clock,
+  Users,
+  Phone,
+  Calendar,
+} from "lucide-react";
+import { toast } from "sonner";
+import type { Paciente, CategoriaPaciente, ProgramaEstudio } from "../../types";
+import { FormField } from "./FormField";
+import { GenderToggle } from "./GenderToggle";
+import { CycleButton } from "./CycleButton";
+import { ShiftButton } from "./ShiftButton";
+import {
+  CATEGORIAS,
+  CICLOS,
+  TURNOS,
+  DEFAULT_FORM,
+} from "../../config/constants";
+import {
+  calculateAge,
+  formatAge,
+  getMaxBirthDate,
+  getMinBirthDate,
+} from "../../utils/calculateAge";
 
 interface FormState {
   dni: string;
@@ -14,7 +33,9 @@ interface FormState {
   apellidos: string;
   categoria: CategoriaPaciente;
   programa_id: string | null;
-  sexo: 'M' | 'F';
+  sexo: "M" | "F";
+  fecha_nacimiento: string | null;
+  telefono: string | null;
   metadata: { turno?: string; ciclo?: string };
 }
 
@@ -25,13 +46,18 @@ interface PatientFormProps {
   onSuccess?: () => void;
 }
 
-export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormProps) {
+export function PatientForm({
+  item,
+  programas,
+  onSave,
+  onSuccess,
+}: PatientFormProps) {
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (item) {
-      const metadata = item.metadata as FormState['metadata'];
+      const metadata = item.metadata as FormState["metadata"];
       setForm({
         dni: item.dni,
         nombres: item.nombres,
@@ -39,7 +65,12 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
         categoria: item.categoria,
         programa_id: item.programa_id ?? null,
         sexo: item.sexo,
-        metadata: { turno: metadata?.turno ?? 'Mañana', ciclo: metadata?.ciclo },
+        fecha_nacimiento: item.fecha_nacimiento ?? null,
+        telefono: item.telefono ?? null,
+        metadata: {
+          turno: metadata?.turno ?? "Mañana",
+          ciclo: metadata?.ciclo,
+        },
       });
     } else {
       setForm({ ...DEFAULT_FORM, programa_id: programas[0]?.id ?? null });
@@ -47,49 +78,76 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
   }, [item, programas]);
 
   const showProgram = useMemo(
-    () => form.categoria === 'estudiante' || form.categoria === 'docente',
-    [form.categoria]
+    () => form.categoria === "estudiante" || form.categoria === "docente",
+    [form.categoria],
   );
-  const showCiclo = useMemo(() => form.categoria === 'estudiante', [form.categoria]);
+  const showCiclo = useMemo(
+    () => form.categoria === "estudiante",
+    [form.categoria],
+  );
 
-  const updateField = useCallback(<K extends keyof FormState>(field: K, value: FormState[K]) => {
-    setForm((prev) => {
-      const next = { ...prev, [field]: value };
-      if (field === 'categoria') {
-        const cat = value as CategoriaPaciente;
-        if (cat !== 'estudiante' && cat !== 'docente') {
-          next.programa_id = null;
-        } else if (!prev.programa_id && programas.length > 0) {
-          next.programa_id = programas[0].id;
+  const updateField = useCallback(
+    <K extends keyof FormState>(field: K, value: FormState[K]) => {
+      setForm((prev) => {
+        const next = { ...prev, [field]: value };
+        if (field === "categoria") {
+          const cat = value as CategoriaPaciente;
+          if (cat !== "estudiante" && cat !== "docente") {
+            next.programa_id = null;
+          } else if (!prev.programa_id && programas.length > 0) {
+            next.programa_id = programas[0].id;
+          }
+          next.metadata = {
+            turno: prev.metadata.turno ?? "Mañana",
+            ...(cat === "estudiante" && { ciclo: prev.metadata.ciclo ?? "I" }),
+          };
         }
-        next.metadata = {
-          turno: prev.metadata.turno ?? 'Mañana',
-          ...(cat === 'estudiante' && { ciclo: prev.metadata.ciclo ?? 'I' }),
-        };
-      }
-      return next;
-    });
-  }, [programas]);
+        return next;
+      });
+    },
+    [programas],
+  );
 
-  const updateMetadata = useCallback((key: keyof FormState['metadata'], value: string) => {
-    setForm((prev) => ({ ...prev, metadata: { ...prev.metadata, [key]: value } }));
-  }, []);
+  const updateMetadata = useCallback(
+    (key: keyof FormState["metadata"], value: string) => {
+      setForm((prev) => ({
+        ...prev,
+        metadata: { ...prev.metadata, [key]: value },
+      }));
+    },
+    [],
+  );
+
+  const edad = useMemo(
+    () => calculateAge(form.fecha_nacimiento),
+    [form.fecha_nacimiento],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await onSave({ ...form, metadata: form.metadata as Record<string, unknown> });
+      await onSave({
+        ...form,
+        fecha_nacimiento: form.fecha_nacimiento,
+        telefono: form.telefono,
+        metadata: form.metadata as Record<string, unknown>,
+      });
       onSuccess?.();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Error al guardar paciente');
+      toast.error(
+        error instanceof Error ? error.message : "Error al guardar paciente",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="relative z-10 space-y-5 px-5 pb-6 pt-4 md:space-y-6 md:px-8">
+    <form
+      onSubmit={handleSubmit}
+      className="relative z-10 space-y-5 px-5 pb-6 pt-4 md:space-y-6 md:px-8"
+    >
       <div className="rounded-2xl border border-primary/15 bg-[var(--primary-soft)] p-5 md:p-6">
         <label className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
           <Fingerprint size={14} />
@@ -101,7 +159,9 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
           placeholder="00000000"
           className="w-full bg-transparent text-2xl font-bold tracking-widest text-foreground outline-none placeholder:text-[var(--slate-200)] focus:text-primary md:text-3xl"
           value={form.dni}
-          onChange={(e) => updateField('dni', e.target.value.replace(/\D/g, ''))}
+          onChange={(e) =>
+            updateField("dni", e.target.value.replace(/\D/g, ""))
+          }
         />
       </div>
 
@@ -112,7 +172,7 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
             placeholder="Ej. María"
             className="input-premium w-full px-4 py-3 text-sm font-medium"
             value={form.nombres}
-            onChange={(e) => updateField('nombres', e.target.value)}
+            onChange={(e) => updateField("nombres", e.target.value)}
           />
         </FormField>
         <FormField label="Apellidos">
@@ -121,37 +181,89 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
             placeholder="Ej. García"
             className="input-premium w-full px-4 py-3 text-sm font-medium"
             value={form.apellidos}
-            onChange={(e) => updateField('apellidos', e.target.value)}
+            onChange={(e) => updateField("apellidos", e.target.value)}
           />
         </FormField>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <FormField label="Categoría" icon={<Users size={14} className="text-accent" />}>
+        <FormField
+          label="Fecha de Nacimiento"
+          icon={<Calendar size={14} className="text-accent" />}
+        >
+          <div>
+            <input
+              type="date"
+              className="input-premium w-full px-4 py-3 text-sm font-medium"
+              value={form.fecha_nacimiento || ""}
+              onChange={(e) =>
+                updateField("fecha_nacimiento", e.target.value || null)
+              }
+              min={getMinBirthDate()}
+              max={getMaxBirthDate()}
+            />
+            {edad !== null && (
+              <div className="mt-1.5 text-xs font-semibold text-accent">
+                Edad: {formatAge(edad)}
+              </div>
+            )}
+          </div>
+        </FormField>
+        <FormField
+          label="Teléfono"
+          icon={<Phone size={14} className="text-accent" />}
+        >
+          <input
+            type="tel"
+            placeholder="Ej. 999999999"
+            className="input-premium w-full px-4 py-3 text-sm font-medium"
+            value={form.telefono || ""}
+            onChange={(e) => updateField("telefono", e.target.value || null)}
+          />
+        </FormField>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <FormField
+          label="Categoría"
+          icon={<Users size={14} className="text-accent" />}
+        >
           <select
             className="input-premium w-full cursor-pointer appearance-none px-4 py-3 text-sm font-medium"
             value={form.categoria}
-            onChange={(e) => updateField('categoria', e.target.value as CategoriaPaciente)}
+            onChange={(e) =>
+              updateField("categoria", e.target.value as CategoriaPaciente)
+            }
           >
             {CATEGORIAS.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
             ))}
           </select>
         </FormField>
         <FormField label="Sexo">
-          <GenderToggle value={form.sexo} onChange={(v) => updateField('sexo', v)} />
+          <GenderToggle
+            value={form.sexo}
+            onChange={(v) => updateField("sexo", v)}
+          />
         </FormField>
       </div>
 
       {showProgram && (
-        <FormField label="Programa" icon={<BookOpen size={14} className="text-accent" />}>
+        <FormField
+          label="Programa"
+          icon={<BookOpen size={14} className="text-accent" />}
+        >
           <select
             className="input-premium w-full px-4 py-3 text-sm font-medium"
-            value={form.programa_id ?? ''}
-            onChange={(e) => updateField('programa_id', e.target.value || null)}
+            value={form.programa_id ?? ""}
+            onChange={(e) => updateField("programa_id", e.target.value || null)}
           >
             {programas.map((p) => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
             ))}
           </select>
         </FormField>
@@ -166,7 +278,7 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
                   key={c}
                   value={c}
                   selected={form.metadata.ciclo === c}
-                  onClick={() => updateMetadata('ciclo', c)}
+                  onClick={() => updateMetadata("ciclo", c)}
                 />
               ))}
             </div>
@@ -175,7 +287,7 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
         <FormField
           label="Turno"
           icon={<Clock size={14} className="text-accent" />}
-          className={!showCiclo ? 'sm:col-span-2' : ''}
+          className={!showCiclo ? "sm:col-span-2" : ""}
         >
           <div className="flex rounded-xl border border-border bg-muted p-1 shadow-inner">
             {TURNOS.map((t) => (
@@ -183,7 +295,7 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
                 key={t}
                 value={t}
                 selected={form.metadata.turno === t}
-                onClick={() => updateMetadata('turno', t)}
+                onClick={() => updateMetadata("turno", t)}
               />
             ))}
           </div>
@@ -201,7 +313,7 @@ export function PatientForm({ item, programas, onSave, onSuccess }: PatientFormP
           ) : (
             <Save size={16} />
           )}
-          {saving ? 'Guardando...' : 'Guardar'}
+          {saving ? "Guardando..." : "Guardar"}
         </button>
       </div>
     </form>

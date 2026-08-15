@@ -41,5 +41,7 @@ export const DEFAULT_FORM = {
   categoria: 'estudiante' as CategoriaPaciente,
   programa_id: '',
   sexo: 'M' as 'M' | 'F',
+  fecha_nacimiento: null,
+  telefono: null,
   metadata: { turno: 'Mañana' },
 };

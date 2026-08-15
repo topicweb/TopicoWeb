@@ -30,6 +30,8 @@ export interface Paciente extends BaseEntity {
   sexo: 'M' | 'F';
   categoria: CategoriaPaciente;
   programa_id?: string | null;
+  fecha_nacimiento?: string | null;
+  telefono?: string | null;
   metadata: Record<string, unknown>;
   creado_at: string;
   activo: number;

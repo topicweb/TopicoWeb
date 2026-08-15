@@ -44,7 +44,7 @@ db.version(1).stores({
   instituciones: 'id, nombre, activo, creado_at, sync_status',
   perfiles: 'id, business_id, rol, email, sync_status, deleted_at, [business_id+activo]',
   programas_estudio: 'id, business_id, nombre, sync_status, deleted_at, [business_id+activo]',
-  pacientes: 'id, business_id, dni, programa_id, sync_status, deleted_at, [business_id+activo]',
+  pacientes: 'id, business_id, dni, programa_id, fecha_nacimiento, telefono, sync_status, deleted_at, [business_id+activo]',
   // FASE 4.2: Índices para consultas de stock por tipo y stock bajo
   medicamentos: 'id, business_id, nombre, activo, tipo_medida, stock_actual, sync_status, deleted_at, [business_id+activo], [business_id+tipo_medida], [business_id+stock_actual]',
   atenciones: 'id, business_id, paciente_id, perfil_id, fecha_atencion, creado_at, sync_status, deleted_at, [business_id+activo], [business_id+fecha_atencion]',
