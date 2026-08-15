@@ -7,6 +7,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { AtencionConDetallesExtendida } from '../types';
+import { calculateAge } from '@/features/pacientes/utils/calculateAge';
 import { formatearFecha, getNombreMes } from './reporteFilters';
 
 /**
@@ -22,30 +23,51 @@ const PDF_CONFIG = {
     table: 8,
   },
   colors: {
-    primary: [29, 93, 255], // #1D5DFF - Color primario
-    headerBg: [29, 93, 255],
-    headerText: [255, 255, 255],
-    borderColor: [200, 200, 200],
-    altRowBg: [245, 245, 245],
+    primary: [29, 93, 255] as [number, number, number],
+    headerBg: [29, 93, 255] as [number, number, number],
+    headerText: [255, 255, 255] as [number, number, number],
+    borderColor: [200, 200, 200] as [number, number, number],
+    altRowBg: [245, 245, 245] as [number, number, number],
   },
 };
 
 /**
  * Prepara datos de una atención para la tabla
  */
-function prepararFilaAtencion(atencion: AtencionConDetallesExtendida): Record<string, string> {
+function prepararFilaAtencion(atencion: AtencionConDetallesExtendida): string[] {
+  const fecha = new Date(atencion.fecha_atencion);
+  const hora = fecha.toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+
+  const edad = calculateAge(atencion.pacienteFechaNacimiento);
   const dispensaciones = atencion.dispensaciones
     ?.map((d) => `${d.medicamento_nombre}(${d.cantidad})`)
     .join(', ') || 'Sin medicamentos';
 
-  return {
-    fecha: formatearFecha(atencion.fecha_atencion),
-    paciente: atencion.pacienteNombre || 'N/A',
-    dni: atencion.pacienteDNI || 'N/A',
-    staff: atencion.staffNombre || 'N/A',
-    motivo: atencion.motivo_consulta || 'N/A',
-    medicamentos: dispensaciones,
-  };
+  const signos = atencion.signos_vitales
+    ? [
+        atencion.signos_vitales.temp ? `T:${atencion.signos_vitales.temp}°C` : null,
+        atencion.signos_vitales.presion ? `PA:${atencion.signos_vitales.presion}` : null,
+        atencion.signos_vitales.saturacion ? `O₂:${atencion.signos_vitales.saturacion}%` : null,
+      ]
+        .filter(Boolean)
+        .join(' | ') || 'N/A'
+    : 'N/A';
+
+  return [
+    `${formatearFecha(atencion.fecha_atencion)} ${hora}`,
+    atencion.pacienteNombre || 'N/A',
+    edad !== null ? `${edad} a.` : 'N/A',
+    atencion.pacienteDNI || 'N/A',
+    atencion.pacienteTelefono || 'N/A',
+    (atencion.motivo_consulta || 'N/A').slice(0, 120),
+    signos,
+    dispensaciones.slice(0, 140),
+    atencion.staffNombre || 'N/A',
+  ];
 }
 
 /**
@@ -54,7 +76,11 @@ function prepararFilaAtencion(atencion: AtencionConDetallesExtendida): Record<st
 function formatearSignosVitales(atencion: AtencionConDetallesExtendida): string {
   const sv = atencion.signos_vitales;
   if (!sv) return 'N/A';
-  return `T: ${sv.temp}°C | PA: ${sv.presion} | O₂: ${sv.saturacion}%`;
+  return [
+    sv.temp ? `T: ${sv.temp}°C` : null,
+    sv.presion ? `PA: ${sv.presion}` : null,
+    sv.saturacion ? `O₂: ${sv.saturacion}%` : null,
+  ].filter(Boolean).join(' | ') || 'N/A';
 }
 
 /**
@@ -66,7 +92,7 @@ function formatearSignosVitales(atencion: AtencionConDetallesExtendida): string 
 export function generarReportePDF(
   atenciones: AtencionConDetallesExtendida[],
   mesNombre: string,
-  institucion: string = 'Clínica Tópico'
+  institucion: string = 'Tópico IESTPPA'
 ): jsPDF {
   // Crear documento PDF
   const doc = new jsPDF({
@@ -86,14 +112,14 @@ export function generarReportePDF(
   // Título
   doc.setFontSize(PDF_CONFIG.fontSize.title);
   doc.setTextColor(...PDF_CONFIG.colors.primary);
-  doc.setFont(undefined, 'bold');
+  doc.setFont('helvetica', 'bold');
   doc.text('REPORTE MENSUAL DE ATENCIONES', pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 8;
 
   // Subtítulo
   doc.setFontSize(PDF_CONFIG.fontSize.subtitle);
   doc.setTextColor(100, 100, 100);
-  doc.setFont(undefined, 'normal');
+  doc.setFont('helvetica', 'normal');
   doc.text(`${institucion} | ${mesNombre}`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 8;
 
@@ -110,48 +136,42 @@ export function generarReportePDF(
 
   // ── TABLA DE ATENCIONES ──────────────────────────────────────────────────────────
 
-  const filasTabla = atenciones.map((a) => [
-    formatearFecha(a.fecha_atencion),
-    a.pacienteNombre || 'N/A',
-    a.pacienteDNI || 'N/A',
-    a.staffNombre || 'N/A',
-    a.motivo_consulta || 'N/A',
-    formatearSignosVitales(a),
-    a.dispensaciones?.map((d) => `${d.medicamento_nombre}(${d.cantidad})`).join(', ') || 'Sin',
-  ]);
+  const filasTabla = atenciones.map((a) => prepararFilaAtencion(a));
 
   autoTable(doc, {
     head: [
-      ['Fecha', 'Paciente', 'DNI', 'Personal', 'Motivo', 'Signos Vitales', 'Medicamentos'],
+      ['Fecha/Hora', 'Paciente', 'Edad', 'DNI', 'Teléfono', 'Diagnóstico', 'Signos', 'Tratamiento', 'Responsable'],
     ],
     body: filasTabla,
     startY: yPosition,
     margin: { top: PDF_CONFIG.margins.top, right: PDF_CONFIG.margins.right, bottom: PDF_CONFIG.margins.bottom, left: PDF_CONFIG.margins.left },
     headStyles: {
-      fillColor: PDF_CONFIG.colors.headerBg,
-      textColor: PDF_CONFIG.colors.headerText,
+      fillColor: PDF_CONFIG.colors.headerBg as [number, number, number],
+      textColor: PDF_CONFIG.colors.headerText as [number, number, number],
       fontStyle: 'bold',
       fontSize: PDF_CONFIG.fontSize.table,
-      padding: 3,
       halign: 'center' as const,
       valign: 'middle' as const,
     },
     bodyStyles: {
       fontSize: PDF_CONFIG.fontSize.table,
-      padding: 2.5,
-      textColor: [40, 40, 40],
+      textColor: [40, 40, 40] as [number, number, number],
+      overflow: 'linebreak' as const,
+      cellPadding: 1.6,
     },
     alternateRowStyles: {
       fillColor: PDF_CONFIG.colors.altRowBg,
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 20 }, // Fecha
-      1: { halign: 'left', cellWidth: 35 }, // Paciente
-      2: { halign: 'center', cellWidth: 22 }, // DNI
-      3: { halign: 'left', cellWidth: 28 }, // Personal
-      4: { halign: 'left', cellWidth: 35 }, // Motivo
-      5: { halign: 'left', cellWidth: 40 }, // Signos Vitales
-      6: { halign: 'left' }, // Medicamentos (flexible)
+      0: { halign: 'center', cellWidth: 20 },
+      1: { halign: 'left', cellWidth: 28 },
+      2: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'center', cellWidth: 18 },
+      4: { halign: 'center', cellWidth: 24 },
+      5: { halign: 'left', cellWidth: 34 },
+      6: { halign: 'left', cellWidth: 28 },
+      7: { halign: 'left', cellWidth: 34 },
+      8: { halign: 'left', cellWidth: 28 },
     },
     didDrawPage: (data) => {
       // Footer con número de página
@@ -190,6 +210,7 @@ export function descargarPDF(doc: jsPDF, nombreArchivo: string = 'reporte-atenci
  * @param doc - Documento jsPDF generado
  */
 export function previewPDF(doc: jsPDF): void {
-  const pdfUrl = doc.output('bloburi');
-  window.open(pdfUrl as string, '_blank');
+  const pdfBlob = doc.output('blob');
+  const pdfUrl = URL.createObjectURL(pdfBlob);
+  window.open(pdfUrl, '_blank');
 }

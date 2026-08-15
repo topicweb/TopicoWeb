@@ -1,4 +1,5 @@
 import { db } from "@/core/db/dexie/db";
+import { supabase } from "@/core/db/supabase";
 import { syncService } from '@/core/db/sync';
 import {
   updateMedicamentoStock,
@@ -29,6 +30,17 @@ const MEDICAMENTO_DESCONOCIDO = "Medicamento no encontrado";
 
 const generarTimestampISO = (): string => new Date().toISOString();
 const generarUUID = (): string => crypto.randomUUID();
+
+const compararAtencionesRecientes = (a: Pick<Atencion, 'fecha_atencion' | 'creado_at'>, b: Pick<Atencion, 'fecha_atencion' | 'creado_at'>): number => {
+  const aTime = new Date(a.fecha_atencion || a.creado_at || 0).getTime();
+  const bTime = new Date(b.fecha_atencion || b.creado_at || 0).getTime();
+
+  if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+    return Number(new Date(b.creado_at || 0).getTime() - new Date(a.creado_at || 0).getTime());
+  }
+
+  return bTime - aTime;
+};
 
 /**
  * Construye una entidad Atención completa a partir de los datos del formulario
@@ -245,21 +257,19 @@ export class DexieAtencionRepository {
     const atenciones = await db.atenciones
       .where("business_id")
       .equals(businessId)
-      .reverse()
-      .limit(limite)
       .toArray();
 
-    if (atenciones.length === 0) {
+    const atencionesOrdenadas = [...atenciones].sort(compararAtencionesRecientes).slice(0, limite);
+
+    if (atencionesOrdenadas.length === 0) {
       return [];
     }
 
-    // Optimización: bulk fetch de pacientes, perfiles, movimientos y medicamentos
     const pacienteIds = [...new Set(atenciones.map((a) => a.paciente_id))];
     const perfilIds = [...new Set(atenciones.map((a) => a.perfil_id))];
     const atencionIds = atenciones.map((a) => a.id);
     const medicamentoIds = new Set<string>();
 
-    // Primero obtener movimientos para saber qué medicamentos cargar
     const movimientos = await db.movimientos_stock.where("atencion_id").anyOf(atencionIds).toArray();
     for (const mov of movimientos) {
       if (mov.medicamento_id) medicamentoIds.add(mov.medicamento_id);
@@ -271,17 +281,48 @@ export class DexieAtencionRepository {
       db.medicamentos.bulkGet([...medicamentoIds]),
     ]);
 
-    const pacienteMap = new Map(
-      pacientes.filter((p): p is NonNullable<typeof p> => p !== undefined).map((p) => [p.id, p])
-    );
     const perfilMap = new Map(
       perfiles.filter((p): p is NonNullable<typeof p> => p !== undefined).map((p) => [p.id, p])
+    );
+
+    const perfilesFaltantes = perfilIds.filter((perfilId) => !perfilMap.has(perfilId));
+    if (perfilesFaltantes.length > 0) {
+      const remotePerfiles = await Promise.all(
+        perfilesFaltantes.map(async (perfilId) => {
+          const localPerfil = await db.perfiles.get(perfilId);
+          if (localPerfil && localPerfil.business_id === businessId) {
+            return localPerfil;
+          }
+
+          const { data, error } = await supabase
+            .from("perfiles")
+            .select("*")
+            .eq("id", perfilId)
+            .eq("business_id", businessId)
+            .maybeSingle();
+
+          if (error || !data) {
+            return null;
+          }
+
+          return data as typeof localPerfil;
+        })
+      );
+
+      for (const perfil of remotePerfiles) {
+        if (perfil) {
+          perfilMap.set(perfil.id, perfil);
+        }
+      }
+    }
+
+    const pacienteMap = new Map(
+      pacientes.filter((p): p is NonNullable<typeof p> => p !== undefined).map((p) => [p.id, p])
     );
     const medicamentoMap = new Map(
       medicamentos.filter((m): m is NonNullable<typeof m> => m !== undefined).map((m) => [m.id, m])
     );
 
-    // Mapear movimientos por atencion_id
     const movimientosPorAtencion = new Map<string, MovimientoStock[]>();
     for (const mov of movimientos) {
       if (!mov.atencion_id) continue;
@@ -291,12 +332,11 @@ export class DexieAtencionRepository {
       movimientosPorAtencion.get(mov.atencion_id)!.push(mov);
     }
 
-    return atenciones.map((a): AtencionConDetallesExtendida => {
+    return atencionesOrdenadas.map((a): AtencionConDetallesExtendida => {
       const paciente = pacienteMap.get(a.paciente_id);
       const staff = perfilMap.get(a.perfil_id);
       const movs = movimientosPorAtencion.get(a.id) || [];
 
-      // Mapear movimientos a dispensaciones con nombres
       const dispensaciones: DispensacionMedicamentoConNombre[] = movs.map((m) => {
         const medicamento = medicamentoMap.get(m.medicamento_id);
         return {
@@ -310,7 +350,10 @@ export class DexieAtencionRepository {
       return {
         ...a,
         pacienteNombre: paciente ? `${paciente.nombres} ${paciente.apellidos}` : PACIENTE_DESCONOCIDO,
-        pacienteDNI: paciente?.dni || '',
+        pacienteDNI: paciente?.dni || "",
+        pacienteTelefono: paciente?.telefono ?? null,
+        pacienteFechaNacimiento: paciente?.fecha_nacimiento ?? null,
+        programaId: paciente?.programa_id ?? null,
         staffNombre: staff?.nombre ?? STAFF_DESCONOCIDO,
         dispensaciones,
       };

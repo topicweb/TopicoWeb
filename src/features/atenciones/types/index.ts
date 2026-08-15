@@ -50,6 +50,10 @@ export interface AtencionExtendida extends Atencion {
 export interface AtencionConDetalles extends Atencion {
   pacienteNombre: string;
   pacienteDNI: string;
+  pacienteTelefono?: string | null;
+  pacienteFechaNacimiento?: string | null;
+  programaId?: string | null;
+  programaNombre?: string | null;
   staffNombre: string;
 }
 

@@ -93,6 +93,14 @@ export async function seedDatabase(userEmail: string, userId: string) {
 
     if (countPatients === 0) {
         patientId = generateUUID();
+        
+        // Calcular fechas de nacimiento demo (edades: 22 y 20 años)
+        const today = new Date();
+        const birthDate1 = new Date(today.getFullYear() - 22, today.getMonth(), today.getDate());
+        const birthDate2 = new Date(today.getFullYear() - 20, today.getMonth(), today.getDate());
+        
+        const formatDate = (date: Date) => date.toISOString().split('T')[0]; // YYYY-MM-DD
+        
         await db.pacientes.bulkAdd([
             {
                 id: patientId,
@@ -103,6 +111,8 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 programa_id: programaId,
                 categoria: 'estudiante',
                 sexo: 'M',
+                fecha_nacimiento: formatDate(birthDate1),
+                telefono: '987654321',
                 activo: 1,
                 metadata: { ciclo: 'IV', turno: 'Mañana' },
                 creado_at: new Date().toISOString(),
@@ -118,6 +128,8 @@ export async function seedDatabase(userEmail: string, userId: string) {
                 programa_id: programaId,
                 categoria: 'estudiante',
                 sexo: 'F',
+                fecha_nacimiento: formatDate(birthDate2),
+                telefono: '998765432',
                 activo: 1,
                 metadata: { ciclo: 'II', turno: 'Tarde' },
                 creado_at: new Date().toISOString(),

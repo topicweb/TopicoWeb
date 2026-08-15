@@ -77,7 +77,7 @@ export function useAtencionesFilter(
   // ── LÓGICA DE FILTRADO ─────────────────────────────────────────────────────────────
 
   const filteredData = useMemo(() => {
-    return atenciones.filter((atencion) => {
+    const resultados = atenciones.filter((atencion) => {
       // Filtro por paciente específico (historial)
       if (filters.pacienteId && atencion.paciente_id !== filters.pacienteId) {
         return false;
@@ -112,6 +112,17 @@ export function useAtencionesFilter(
       }
 
       return true;
+    });
+
+    return [...resultados].sort((a, b) => {
+      const aTime = new Date(a.fecha_atencion || a.creado_at || 0).getTime();
+      const bTime = new Date(b.fecha_atencion || b.creado_at || 0).getTime();
+
+      if (Number.isNaN(aTime) || Number.isNaN(bTime)) {
+        return Number(new Date(b.creado_at || 0).getTime() - new Date(a.creado_at || 0).getTime());
+      }
+
+      return bTime - aTime;
     });
   }, [atenciones, filters, debouncedSearchTerm]);
 
