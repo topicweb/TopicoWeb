@@ -1,17 +1,12 @@
-'use client';
+"use client";
 
-import { useAtenciones } from '@/features/atenciones/hooks/useAtenciones';
-import { useAtencionesFilter } from '@/features/atenciones/hooks/useAtencionesFilter';
-import { AtencionesFilterBar } from '@/features/atenciones/components/AtencionesFilterBar';
-import { AtencionCard } from '@/features/atenciones/components/AtencionCard';
-import Link from 'next/link';
-import { Plus, FileText, Stethoscope } from 'lucide-react';
-
-const runE2ETest = async () => {
-  const { simularAtencionCompleta } = await import('@/test/e2e/simularAtencion.test');
-  await simularAtencionCompleta();
-  window.location.reload();
-};
+import { useAtenciones } from "@/features/atenciones/hooks/useAtenciones";
+import { useAtencionesFilter } from "@/features/atenciones/hooks/useAtencionesFilter";
+import { AtencionesFilterBar } from "@/features/atenciones/components/AtencionesFilterBar";
+import { AtencionCard } from "@/features/atenciones/components/AtencionCard";
+import { ReporteButton } from "@/features/atenciones/components/ReporteButton";
+import Link from "next/link";
+import { Plus, FileText, Stethoscope } from "lucide-react";
 
 export default function AttentionsPage() {
   const { atencionesConDetalles, isLoading } = useAtenciones();
@@ -30,7 +25,7 @@ export default function AttentionsPage() {
 
   const handleViewHistorial = (pacienteId: string, _pacienteNombre: string) => {
     setPacienteId(pacienteId);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   if (isLoading) {
@@ -38,7 +33,9 @@ export default function AttentionsPage() {
       <div className="space-y-6">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Atenciones y Consultas</h1>
+            <h1 className="text-2xl font-bold text-foreground">
+              Atenciones y Consultas
+            </h1>
             <div className="mt-1 h-4 w-32 animate-pulse rounded bg-muted" />
           </div>
           <div className="h-10 w-40 animate-pulse rounded-xl bg-muted" />
@@ -65,15 +62,7 @@ export default function AttentionsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={runE2ETest}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-primary-hover active:scale-[0.98]"
-              title="Ejecutar prueba E2E"
-            >
-              Test E2E
-            </button>
-          )}
+          <ReporteButton atenciones={atencionesConDetalles} />
           <Link
             href="/dashboard/attentions/new"
             className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-accent-hover active:scale-[0.98]"
@@ -113,10 +102,15 @@ export default function AttentionsPage() {
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--primary-soft)]">
                 <FileText size={32} className="text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">No se encontraron atenciones</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                No se encontraron atenciones
+              </h3>
               <p className="mt-1 text-sm text-muted">
-                Intenta ajustar los filtros o{' '}
-                <button onClick={resetFilters} className="font-medium text-accent hover:underline">
+                Intenta ajustar los filtros o{" "}
+                <button
+                  onClick={resetFilters}
+                  className="font-medium text-accent hover:underline"
+                >
                   limpiar todos
                 </button>
               </p>
@@ -126,9 +120,12 @@ export default function AttentionsPage() {
               <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent-soft)]">
                 <Stethoscope size={32} className="text-accent" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">Sin atenciones registradas</h3>
+              <h3 className="text-lg font-semibold text-foreground">
+                Sin atenciones registradas
+              </h3>
               <p className="mt-1 max-w-sm text-sm text-muted">
-                Comienza registrando una nueva atención médica para tus pacientes
+                Comienza registrando una nueva atención médica para tus
+                pacientes
               </p>
               <Link
                 href="/dashboard/attentions/new"

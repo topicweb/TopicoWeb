@@ -25,6 +25,7 @@ export {
 
 export { useAtenciones, type UseAtencionesReturn } from './hooks/useAtenciones';
 export { useAtencionesFilter, type UseAtencionesFilterReturn } from './hooks/useAtencionesFilter';
+export { useReportePdf, type UseReportePdfReturn } from './hooks/useReportePdf';
 
 // ── Components ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +34,18 @@ export { AtencionModal } from './components/AtencionModal';
 export { SignosVitalesInput } from './components/SignosVitalesInput';
 export { AtencionesFilterBar } from './components/AtencionesFilterBar';
 export { AtencionCard } from './components/AtencionCard';
+export { ReporteButton } from './components/ReporteButton';
+
+// ── Utils (Reportes) ────────────────────────────────────────────────────────────
+
+export {
+  filtrarAtencionesPorMesActual,
+  filtrarAtencionesPorMes,
+  getNombreMes,
+  formatearFecha,
+  getMesAñoActual,
+} from './utils/reporteFilters';
+export { generarReportePDF, descargarPDF, previewPDF } from './utils/reportePdfGenerator';
 
 // ── Filter Types ────────────────────────────────────────────────────────────────
 
