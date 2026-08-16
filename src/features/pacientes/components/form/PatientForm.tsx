@@ -215,10 +215,14 @@ export function PatientForm({
         >
           <input
             type="tel"
+            maxLength={9}
             placeholder="Ej. 999999999"
             className="input-premium w-full px-4 py-3 text-sm font-medium"
             value={form.telefono || ""}
-            onChange={(e) => updateField("telefono", e.target.value || null)}
+            onChange={(e) => {
+              const val = e.target.value.replace(/\D/g, "").slice(0, 9);
+              updateField("telefono", val || null);
+            }}
           />
         </FormField>
       </div>
