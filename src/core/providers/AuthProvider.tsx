@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { supabase } from "@/core/db/supabase";
 import { Session, User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -8,30 +8,22 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
 import { syncService } from "@/core/db/sync";
 import { logger } from "@/core/utils/logger";
+import { isPerfilValido, normalizePerfilFromSupabase } from "@/shared/utils/perfil";
 import type { Perfil, RolUsuario } from "@/features/usuarios/types";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
 interface AuthContextType {
-  /** Usuario autenticado de Supabase */
   user: User | null;
-  /** Sesión activa de Supabase */
   session: Session | null;
-  /** Perfil completo de public.perfiles (reactivo vía Dexie) */
   perfil: Perfil | null | undefined;
-  /** Rol del usuario: 'admin' | 'personal' | null */
   role: RolUsuario | null;
-  /**
-   * ID de la institución. Regla de Oro #1: filtrar TODA consulta por este valor.
-   * Es null mientras el perfil no se haya sincronizado.
-   */
   businessId: string | null;
-  /** true mientras se resuelve la sesión inicial */
   isLoading: boolean;
+  /** Solo true en el primer arranque sin perfil local válido (no al cambiar de pestaña). */
+  isInitialPerfilLoad: boolean;
   signOut: () => Promise<void>;
 }
-
-// ─── Context ──────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -40,12 +32,12 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   businessId: null,
   isLoading: true,
+  isInitialPerfilLoad: false,
   signOut: async () => { },
 });
 
 export const useAuth = (): AuthContextType => useContext(AuthContext);
 
-/** Migra sesión del cliente antiguo (localStorage) al nuevo basado en cookies. */
 async function migrateLegacyLocalStorageSession() {
   const { data: { session } } = await supabase.auth.getSession();
   if (session) return;
@@ -71,118 +63,218 @@ async function migrateLegacyLocalStorageSession() {
       await supabase.auth.setSession({ access_token, refresh_token });
     }
   } catch {
-    // Sesión legacy corrupta; el usuario deberá iniciar sesión de nuevo.
+    // Sesión legacy corrupta.
   }
 }
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialPerfilLoad, setIsInitialPerfilLoad] = useState(false);
+  const [cachedBusinessId, setCachedBusinessId] = useState<string | null>(null);
   const router = useRouter();
 
-  // Reactivo: se actualiza automáticamente cuando el SyncService escribe el perfil en Dexie.
-  // Esto garantiza que businessId esté disponible incluso en modo offline (tras primera sync).
+  const hydratedUserIdRef = useRef<string | null>(null);
+  const hydratingRef = useRef(false);
+  const signOutRef = useRef<() => Promise<void>>(async () => { });
+
   const perfil = useLiveQuery<Perfil | undefined>(async () => {
-    if (!user?.email) return undefined;
-    return db.perfiles.where("email").equals(user.email).first();
-  }, [user?.email]);
+    if (!user?.id) return undefined;
+    return db.perfiles.get(user.id);
+  }, [user?.id]);
 
   const role = perfil?.rol ?? null;
-  const businessId = perfil?.business_id ?? null;
+  const businessId = perfil?.business_id ?? cachedBusinessId;
 
-  // Validar que el usuario esté activo y no eliminado
   useEffect(() => {
-    if (perfil && (!perfil.activo || perfil.deleted_at)) {
-      logger.warn('[AuthProvider] Usuario inactivo o eliminado, cerrando sesión');
-      supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
+    if (perfil?.business_id) {
+      setCachedBusinessId(perfil.business_id);
     }
-  }, [perfil]);
+  }, [perfil?.business_id]);
+
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setCachedBusinessId(null);
+    setIsInitialPerfilLoad(false);
+    hydratedUserIdRef.current = null;
+    router.push("/login");
+  }, [router]);
+
+  signOutRef.current = signOut;
+
+  const rejectSession = useCallback(async (reason: string) => {
+    logger.warn(`[AuthProvider] ${reason}`);
+    await signOutRef.current();
+  }, []);
+
+  /** Refresca perfil en segundo plano sin bloquear la UI. */
+  const refreshPerfilInBackground = useCallback(async (authUserId: string, businessId: string | null) => {
+    if (!navigator.onLine) return;
+
+    try {
+      const { data: remotePerfil, error } = await supabase
+        .from("perfiles")
+        .select("*")
+        .eq("id", authUserId)
+        .maybeSingle();
+
+      if (error || !remotePerfil) return;
+
+      if (!isPerfilValido(remotePerfil as Perfil)) {
+        await rejectSession("Usuario inactivo o eliminado, cerrando sesión");
+        return;
+      }
+
+      await db.perfiles.put(normalizePerfilFromSupabase(remotePerfil as Record<string, unknown>));
+
+      if (businessId) {
+        await syncService.pullFromSupabase(businessId);
+      }
+    } catch (error) {
+      logger.debug("[AuthProvider] Refresh de perfil en background omitido:", error);
+    }
+  }, [rejectSession]);
+
+  /**
+   * Resuelve el perfil al iniciar sesión o al arrancar la app.
+   * Si ya hay perfil local válido → listo al instante (sin loader).
+   * Solo bloquea UI cuando es el primer acceso sin datos locales.
+   */
+  const resolvePerfil = useCallback(async (authUser: User, isNewSignIn: boolean) => {
+    if (hydratingRef.current) return;
+    if (!isNewSignIn && hydratedUserIdRef.current === authUser.id) return;
+
+    hydratingRef.current = true;
+
+    try {
+      const localPerfil = await db.perfiles.get(authUser.id);
+
+      if (isPerfilValido(localPerfil)) {
+        hydratedUserIdRef.current = authUser.id;
+        if (localPerfil!.business_id) {
+          setCachedBusinessId(localPerfil!.business_id);
+        }
+        setIsInitialPerfilLoad(false);
+        void refreshPerfilInBackground(authUser.id, localPerfil!.business_id);
+        return;
+      }
+
+      setIsInitialPerfilLoad(true);
+
+      if (navigator.onLine) {
+        const { data: remotePerfil, error } = await supabase
+          .from("perfiles")
+          .select("*")
+          .eq("id", authUser.id)
+          .maybeSingle();
+
+        if (error) {
+          await rejectSession(`Error obteniendo perfil: ${error.message}`);
+          return;
+        }
+
+        if (!remotePerfil) {
+          await rejectSession("Usuario sin perfil en el sistema. Contacte al administrador.");
+          return;
+        }
+
+        if (!isPerfilValido(remotePerfil as Perfil)) {
+          await rejectSession("Usuario inactivo o eliminado, cerrando sesión");
+          return;
+        }
+
+        const normalized = normalizePerfilFromSupabase(remotePerfil as Record<string, unknown>);
+        await db.perfiles.put(normalized);
+
+        if (normalized.business_id) {
+          setCachedBusinessId(normalized.business_id);
+          await syncService.pullFromSupabase(normalized.business_id);
+        }
+      } else {
+        await rejectSession("Se requiere conexión a internet para validar su perfil.");
+        return;
+      }
+
+      hydratedUserIdRef.current = authUser.id;
+    } catch (error) {
+      logger.error("[AuthProvider] Error resolviendo perfil:", error);
+      await rejectSession("No se pudo validar el perfil del usuario.");
+    } finally {
+      setIsInitialPerfilLoad(false);
+      hydratingRef.current = false;
+    }
+  }, [refreshPerfilInBackground, rejectSession]);
+
+  const resolvePerfilRef = useRef(resolvePerfil);
+  resolvePerfilRef.current = resolvePerfil;
 
   useEffect(() => {
-    // Migra sesión legacy y resuelve la sesión en cookies
-    migrateLegacyLocalStorageSession()
-      .then(() => supabase.auth.getSession())
-      .then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setIsLoading(false);
-      });
+    if (hydratedUserIdRef.current !== user?.id) return;
+    if (!perfil || isInitialPerfilLoad) return;
 
-    // Escucha cambios en la sesión (login, logout, token refresh)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    if (!isPerfilValido(perfil)) {
+      void rejectSession("Usuario inactivo o eliminado, cerrando sesión");
+    }
+  }, [perfil, user?.id, isInitialPerfilLoad, rejectSession]);
+
+  // Suscripción de auth: montar una sola vez (evita re-hidratar al cambiar de pestaña).
+  useEffect(() => {
+    let mounted = true;
+
+    void migrateLegacyLocalStorageSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
 
-      // Al hacer login, obtener perfil de Supabase si no existe en Dexie
-      if (_event === 'SIGNED_IN' && session?.user) {
-        setTimeout(async () => {
-          try {
-            // Verificar si el perfil ya existe en Dexie
-            const localPerfil = await db.perfiles.where('email').equals(session.user.email!).first();
+      if (event === "SIGNED_OUT") {
+        hydratedUserIdRef.current = null;
+        setCachedBusinessId(null);
+        setIsInitialPerfilLoad(false);
+        return;
+      }
 
-            if (!localPerfil) {
-              // Perfil no existe en Dexie - limpiar solo datos corruptos
-              logger.debug('[AuthProvider] Primer login - limpiando datos corruptos');
+      // Al volver a la pestaña Supabase refresca el token: no re-validar perfil.
+      if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
+        return;
+      }
 
-              // Eliminar programas locales para forzar PULL desde Supabase
-              await db.programas_estudio.clear();
-              logger.debug('[AuthProvider] Programas locales eliminados');
+      if (event === "SIGNED_IN" && session?.user) {
+        // Supabase puede re-emitir SIGNED_IN al volver a la pestaña; ignorar si ya está listo.
+        if (hydratedUserIdRef.current === session.user.id) return;
+        await resolvePerfilRef.current(session.user, true);
+        return;
+      }
 
-              // Eliminar pacientes con programa_id inválido
-              const pacientes = await db.pacientes.toArray();
-              logger.debug(`[AuthProvider] Total pacientes: ${pacientes.length}`);
-              const pacientesCorruptos = pacientes.filter((p: any) => p.programa_id);
-              logger.debug(`[AuthProvider] Pacientes con programa_id: ${pacientesCorruptos.length}`);
-
-              if (pacientesCorruptos.length > 0) {
-                logger.debug(`[AuthProvider] Eliminando ${pacientesCorruptos.length} pacientes corruptos`);
-                const pacienteIds = pacientesCorruptos.map((p: any) => p.id);
-                await db.pacientes.bulkDelete(pacienteIds);
-              }
-
-              // Perfil no existe en Dexie, obtener de Supabase
-              const { data: remotePerfil, error: perfilError } = await supabase
-                .from('perfiles')
-                .select('*')
-                .eq('email', session.user.email!)
-                .maybeSingle();
-
-              if (perfilError) {
-                logger.warn('[AuthProvider] Error obteniendo perfil de Supabase:', perfilError);
-                return;
-              }
-
-              if (remotePerfil?.business_id) {
-                // Ejecutar PULL inicial para descargar todos los datos
-                await syncService.pullFromSupabase(remotePerfil.business_id);
-              }
-            }
-          } catch (error) {
-            logger.error('[AuthProvider] Error en PULL inicial:', error);
-          }
-        }, 500);
+      if (event === "INITIAL_SESSION" && session?.user) {
+        await resolvePerfilRef.current(session.user, false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
 
   return (
     <AuthContext.Provider
-      value={{ user, session, perfil, role, businessId, isLoading, signOut }}
+      value={{
+        user,
+        session,
+        perfil,
+        role,
+        businessId,
+        isLoading,
+        isInitialPerfilLoad,
+        signOut,
+      }}
     >
       {children}
     </AuthContext.Provider>

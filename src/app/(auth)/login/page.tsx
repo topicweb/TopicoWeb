@@ -21,6 +21,12 @@ export default function LoginPage() {
     setLoading(true);
     setError(null);
 
+    if (!navigator.onLine) {
+      setError("Se requiere conexión a internet para iniciar sesión.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email,

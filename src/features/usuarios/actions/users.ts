@@ -2,6 +2,7 @@
 
 import { supabaseAdmin } from "@/core/db/supabase/admin";
 import { getAuthenticatedUser } from "@/core/db/supabase/server";
+import { isPerfilActivo } from "@/shared/utils/perfil";
 import { Perfil } from "../types";
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -89,24 +90,41 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
     throw new Error(authError.message);
   }
 
-  // Asegurarnos de actualizar el perfil con todos los campos incluyendo nombre
+  // Upsert en perfiles: el trigger handle_new_user puede fallar en silencio;
+  // un UPDATE solo no crea fila si el trigger no insertó el perfil.
   if (authData.user) {
+    const activo =
+      data.activo === undefined || data.activo === null
+        ? true
+        : isPerfilActivo(data.activo);
+
     const { error: profileError } = await supabaseAdmin
       .from('perfiles')
-      .update({
-        nombre: data.nombre,
-        rol: data.rol,
-        activo: data.activo,
-        business_id: data.business_id // CRITICAL: Link new user to current business
-      })
-      .eq('id', authData.user.id);
+      .upsert(
+        {
+          id: authData.user.id,
+          email: data.email,
+          nombre: data.nombre,
+          rol: data.rol || 'personal',
+          activo,
+          business_id: data.business_id,
+          sync_status: 'synced',
+        },
+        { onConflict: 'id' }
+      );
 
     if (profileError) {
-      console.error("Error actualizando perfil inicial:", profileError);
+      throw new Error(`Usuario creado en Auth pero falló el perfil: ${profileError.message}`);
     }
   }
 
-  // Devolvemos el perfil completo para que la UI se actualice al instante
+  const activoNormalizado =
+    data.activo === undefined || data.activo === null
+      ? 1
+      : isPerfilActivo(data.activo)
+        ? 1
+        : 0;
+
   return {
     success: true,
     user: {
@@ -114,12 +132,12 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
       email: data.email!,
       nombre: data.nombre!,
       rol: data.rol || 'personal',
-      business_id: data.business_id!, // CRITICAL: Return it so local Dexie put is reactive
-      activo: data.activo ?? 1,
+      business_id: data.business_id!,
+      activo: activoNormalizado,
       creado_at: new Date().toISOString(),
       actualizado_at: new Date().toISOString(),
-      sync_status: 'synced'
-    } as Perfil
+      sync_status: 'synced',
+    } as Perfil,
   };
 }
 
@@ -155,12 +173,11 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
 
   await validateAdminAccess(data.business_id);
 
-  // Usamos supabaseAdmin para saltarnos las reglas RLS que dan error 403
-  const updatePayload: Partial<Perfil> = {};
+  const updatePayload: Record<string, unknown> = {};
   if (data.nombre !== undefined) updatePayload.nombre = data.nombre;
   if (data.email !== undefined) updatePayload.email = data.email;
   if (data.rol !== undefined) updatePayload.rol = data.rol;
-  if (data.activo !== undefined) updatePayload.activo = data.activo;
+  if (data.activo !== undefined) updatePayload.activo = isPerfilActivo(data.activo);
   if (data.business_id !== undefined) updatePayload.business_id = data.business_id;
   updatePayload.actualizado_at = new Date().toISOString();
 

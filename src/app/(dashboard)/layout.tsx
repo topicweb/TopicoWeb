@@ -16,7 +16,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, businessId, isLoading } = useAuth();
+  const { user, businessId, isLoading, isInitialPerfilLoad } = useAuth();
   const router = useRouter();
 
   // Redirigir si no hay sesión activa
@@ -27,7 +27,16 @@ export default function DashboardLayout({
   }, [user, isLoading, router]);
 
   // Estado de carga: sincronizando perfil o business_id
-  if (isLoading || (user && !businessId)) {
+  if (isLoading || isInitialPerfilLoad) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 flex-col gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+        <p className="text-slate-400 font-medium">Validando perfil de usuario...</p>
+      </div>
+    );
+  }
+
+  if (user && !businessId) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-900 flex-col gap-4">
         <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
