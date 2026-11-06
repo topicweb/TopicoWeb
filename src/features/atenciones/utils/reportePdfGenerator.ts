@@ -52,6 +52,8 @@ function prepararFilaAtencion(atencion: AtencionConDetallesExtendida): string[] 
         atencion.signos_vitales.temp ? `T:${atencion.signos_vitales.temp}°C` : null,
         atencion.signos_vitales.presion ? `PA:${atencion.signos_vitales.presion}` : null,
         atencion.signos_vitales.saturacion ? `O₂:${atencion.signos_vitales.saturacion}%` : null,
+        atencion.signos_vitales.fr ? `FR:${atencion.signos_vitales.fr}` : null,
+        atencion.signos_vitales.fc ? `FC:${atencion.signos_vitales.fc}` : null,
       ]
         .filter(Boolean)
         .join(' | ') || 'N/A'
@@ -63,7 +65,8 @@ function prepararFilaAtencion(atencion: AtencionConDetallesExtendida): string[] 
     edad !== null ? `${edad} a.` : 'N/A',
     atencion.pacienteDNI || 'N/A',
     atencion.pacienteTelefono || 'N/A',
-    (atencion.motivo_consulta || 'N/A').slice(0, 120),
+    (atencion.motivo_consulta || 'N/A').slice(0, 80),
+    (atencion.diagnostico || 'N/A').slice(0, 80),
     signos,
     dispensaciones.slice(0, 140),
     atencion.staffNombre || 'N/A',
@@ -80,6 +83,8 @@ function formatearSignosVitales(atencion: AtencionConDetallesExtendida): string 
     sv.temp ? `T: ${sv.temp}°C` : null,
     sv.presion ? `PA: ${sv.presion}` : null,
     sv.saturacion ? `O₂: ${sv.saturacion}%` : null,
+    sv.fr ? `FR: ${sv.fr} rpm` : null,
+    sv.fc ? `FC: ${sv.fc} lpm` : null,
   ].filter(Boolean).join(' | ') || 'N/A';
 }
 
@@ -140,7 +145,7 @@ export function generarReportePDF(
 
   autoTable(doc, {
     head: [
-      ['Fecha/Hora', 'Paciente', 'Edad', 'DNI', 'Teléfono', 'Diagnóstico', 'Signos', 'Tratamiento', 'Responsable'],
+      ['Fecha/Hora', 'Paciente', 'Edad', 'DNI', 'Teléfono', 'Motivo', 'Diagnóstico', 'Signos', 'Tratamiento', 'Responsable'],
     ],
     body: filasTabla,
     startY: yPosition,
@@ -163,15 +168,16 @@ export function generarReportePDF(
       fillColor: PDF_CONFIG.colors.altRowBg,
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 20 },
-      1: { halign: 'left', cellWidth: 28 },
-      2: { halign: 'center', cellWidth: 12 },
-      3: { halign: 'center', cellWidth: 18 },
-      4: { halign: 'center', cellWidth: 24 },
-      5: { halign: 'left', cellWidth: 34 },
+      0: { halign: 'center', cellWidth: 18 },
+      1: { halign: 'left', cellWidth: 24 },
+      2: { halign: 'center', cellWidth: 11 },
+      3: { halign: 'center', cellWidth: 16 },
+      4: { halign: 'center', cellWidth: 20 },
+      5: { halign: 'left', cellWidth: 28 },
       6: { halign: 'left', cellWidth: 28 },
-      7: { halign: 'left', cellWidth: 34 },
+      7: { halign: 'left', cellWidth: 28 },
       8: { halign: 'left', cellWidth: 28 },
+      9: { halign: 'left', cellWidth: 24 },
     },
     didDrawPage: (data) => {
       // Footer con número de página

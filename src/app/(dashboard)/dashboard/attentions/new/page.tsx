@@ -70,6 +70,7 @@ export default function NewAttentionPage() {
         paciente_id: selectedPatient.id,
         fecha_atencion: new Date().toISOString(),
         motivo_consulta: formData.motivo,
+        diagnostico: formData.diagnostico,
         observacion: formData.observacion,
         signos_vitales: formData.signos_vitales,
       },

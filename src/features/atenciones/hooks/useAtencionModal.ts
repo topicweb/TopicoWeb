@@ -8,6 +8,7 @@ import { AtencionFormData, SignosVitales, DispensacionMedicamento, SIGNOS_VITALE
 
 interface FormState {
   motivo_consulta: string;
+  diagnostico: string;
   observacion: string;
   signos_vitales: SignosVitales;
   fecha_atencion: string;
@@ -15,6 +16,7 @@ interface FormState {
 
 const DEFAULT_FORM: FormState = {
   motivo_consulta: "",
+  diagnostico: "",
   observacion: "",
   signos_vitales: SIGNOS_VITALES_VACIO,
   fecha_atencion: new Date().toISOString().split("T")[0],
@@ -69,6 +71,7 @@ export function useAtencionModal(isOpen: boolean): UseAtencionModalReturn {
       const atencionData: AtencionFormData = {
         paciente_id: pacienteId,
         motivo_consulta: form.motivo_consulta,
+        diagnostico: form.diagnostico,
         observacion: form.observacion,
         signos_vitales: form.signos_vitales,
         fecha_atencion: form.fecha_atencion,

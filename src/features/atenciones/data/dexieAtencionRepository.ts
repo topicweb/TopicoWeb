@@ -17,8 +17,7 @@ import type {
   AtencionContext,
   AtencionResultado,
 } from "../types";
-import { AtencionError } from "../types";
-import { SIGNOS_VITALES_VACIO } from "../types";
+import { AtencionError, normalizeSignosVitales } from "../types";
 
 // ── CONSTANTES ───────────────────────────────────────────────────────────────
 
@@ -59,7 +58,8 @@ const buildAtencion = (
   actualizado_at: timestamp,
   sync_status: "pending",
   activo: 1,
-  signos_vitales: datos.signos_vitales ?? SIGNOS_VITALES_VACIO,
+  diagnostico: datos.diagnostico ?? '',
+  signos_vitales: normalizeSignosVitales(datos.signos_vitales),
 });
 
 /**

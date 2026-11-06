@@ -106,7 +106,8 @@ export function useAtencionesFilter(
         const matchesPaciente = atencion.pacienteNombre.toLowerCase().includes(term);
         const matchesDNI = atencion.pacienteDNI?.toLowerCase().includes(term);
         const matchesMotivo = atencion.motivo_consulta.toLowerCase().includes(term);
-        if (!matchesPaciente && !matchesDNI && !matchesMotivo) {
+        const matchesDiagnostico = atencion.diagnostico?.toLowerCase().includes(term);
+        if (!matchesPaciente && !matchesDNI && !matchesMotivo && !matchesDiagnostico) {
           return false;
         }
       }

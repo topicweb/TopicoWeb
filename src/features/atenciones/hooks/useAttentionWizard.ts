@@ -28,6 +28,7 @@ interface UseAttentionWizardReturn {
   setSearchTerm: (term: string) => void;
   formData: {
     motivo: string;
+    diagnostico: string;
     observacion: string;
     signos_vitales: SignosVitales;
   };
@@ -65,6 +66,7 @@ export function useAttentionWizard(): UseAttentionWizardReturn {
 
   const [formData, setFormData] = useState({
     motivo: "",
+    diagnostico: "",
     observacion: "",
     signos_vitales: SIGNOS_VITALES_VACIO,
   });

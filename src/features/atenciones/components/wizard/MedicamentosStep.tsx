@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface MedicamentosStepProps {
   selectedPatient: Paciente | null;
-  formData: { motivo: string; observacion: string };
+  formData: { motivo: string; diagnostico: string; observacion: string };
   medicamentos: any[];
   dispensedMeds: DispensacionMedicamento[];
   onDispensedMedsChange: (meds: DispensacionMedicamento[]) => void;
@@ -38,7 +38,10 @@ export function MedicamentosStep({
           <p className="truncate text-sm font-semibold text-foreground">
             {selectedPatient?.nombres} {selectedPatient?.apellidos}
           </p>
-          <p className="truncate text-xs text-muted">{formData.motivo || "Sin motivo"}</p>
+          <p className="truncate text-xs text-muted">
+            {formData.motivo || "Sin motivo"}
+            {formData.diagnostico ? ` · Dx: ${formData.diagnostico}` : ""}
+          </p>
         </div>
       </div>
 

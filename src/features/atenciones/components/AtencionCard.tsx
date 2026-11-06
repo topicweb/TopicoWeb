@@ -40,11 +40,15 @@ export function AtencionCard({ atencion, onViewHistorial }: AtencionCardProps) {
     atencion.dispensaciones && atencion.dispensaciones.length > 0;
   const hasObservacion =
     atencion.observacion && atencion.observacion.trim() !== "";
+  const hasDiagnostico =
+    atencion.diagnostico && atencion.diagnostico.trim() !== "";
   const hasSignosVitales =
     atencion.signos_vitales &&
     (atencion.signos_vitales.temp ||
       atencion.signos_vitales.presion ||
-      atencion.signos_vitales.saturacion);
+      atencion.signos_vitales.saturacion ||
+      atencion.signos_vitales.fr ||
+      atencion.signos_vitales.fc);
 
   return (
     <div
@@ -145,23 +149,43 @@ export function AtencionCard({ atencion, onViewHistorial }: AtencionCardProps) {
                 {atencion.signos_vitales.saturacion && (
                   <div>💨 {atencion.signos_vitales.saturacion}%</div>
                 )}
+                {atencion.signos_vitales.fr && (
+                  <div>🌬️ FR {atencion.signos_vitales.fr} rpm</div>
+                )}
+                {atencion.signos_vitales.fc && (
+                  <div>❤️ FC {atencion.signos_vitales.fc} lpm</div>
+                )}
               </div>
             </div>
           )}
         </div>
 
-        {/* SECCIÓN: DIAGNÓSTICO */}
+        {/* SECCIÓN: MOTIVO */}
         <div className="flex gap-3">
           <AlertCircle size={18} className="mt-0.5 shrink-0 text-accent" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Diagnóstico
+              Motivo
             </p>
             <p className="mt-1 line-clamp-3 text-sm font-medium leading-relaxed text-foreground">
               {atencion.motivo_consulta}
             </p>
           </div>
         </div>
+
+        {hasDiagnostico && (
+          <div className="flex gap-3">
+            <Activity size={18} className="mt-0.5 shrink-0 text-primary" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Diagnóstico
+              </p>
+              <p className="mt-1 line-clamp-3 text-sm font-medium leading-relaxed text-foreground">
+                {atencion.diagnostico}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* SECCIÓN: PROGRAMA DE ESTUDIO (si existe) */}
         {atencion.programaId && (

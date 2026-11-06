@@ -10,19 +10,34 @@ export interface SignosVitales {
   temp: string;
   presion: string;
   saturacion: string;
+  fr: string;
+  fc: string;
 }
 
 export const SIGNOS_VITALES_VACIO: SignosVitales = {
   temp: '',
   presion: '',
   saturacion: '',
+  fr: '',
+  fc: '',
 };
+
+export function normalizeSignosVitales(sv?: Partial<SignosVitales> | null): SignosVitales {
+  return {
+    temp: sv?.temp ?? '',
+    presion: sv?.presion ?? '',
+    saturacion: sv?.saturacion ?? '',
+    fr: sv?.fr ?? '',
+    fc: sv?.fc ?? '',
+  };
+}
 
 export interface Atencion extends BaseEntity {
   business_id: string;
   paciente_id: string;
   perfil_id: string;
   motivo_consulta: string;
+  diagnostico?: string;
   signos_vitales: SignosVitales;
   observacion?: string;
   activo: number;

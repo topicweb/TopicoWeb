@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { Thermometer, Activity, Droplets } from "lucide-react";
+import { Thermometer, Activity, Droplets, Wind, HeartPulse } from "lucide-react";
 import { SignosVitales } from "../types";
 
 interface SignosVitalesInputProps {
@@ -14,6 +14,8 @@ const INPUT_CONFIG = [
   { key: "temp" as const, label: "Temp", placeholder: "37.0", unit: "°C", icon: Thermometer, width: "w-24" },
   { key: "presion" as const, label: "PA", placeholder: "120/80", unit: "mmHg", icon: Activity, width: "w-28" },
   { key: "saturacion" as const, label: "SpO2", placeholder: "98", unit: "%", icon: Droplets, width: "w-20" },
+  { key: "fr" as const, label: "FR", placeholder: "16", unit: "rpm", icon: Wind, width: "w-20" },
+  { key: "fc" as const, label: "FC", placeholder: "72", unit: "lpm", icon: HeartPulse, width: "w-20" },
 ];
 
 export function SignosVitalesInput({ value, onChange, disabled }: SignosVitalesInputProps) {
@@ -36,8 +38,15 @@ export function SignosVitalesInput({ value, onChange, disabled }: SignosVitalesI
                 type="text"
                 disabled={disabled}
                 placeholder={placeholder}
-                value={value[key]}
+                value={value[key] ?? ""}
                 onChange={(e) => updateField(key, e.target.value)}
+                aria-label={
+                  key === "fr"
+                    ? "Frecuencia respiratoria"
+                    : key === "fc"
+                      ? "Frecuencia cardiaca"
+                      : label
+                }
                 className={`input-premium ${width} px-2 py-1.5 text-center text-sm font-medium`}
               />
               <span className="text-[10px] font-medium text-muted">{unit}</span>

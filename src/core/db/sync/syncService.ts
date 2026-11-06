@@ -18,6 +18,7 @@ import { getDeviceId } from '@/core/utils/deviceId';
 import { logger } from '@/core/utils/logger';
 import { withRetry } from '@/core/utils/retry';
 import type { Paciente } from '@/features/pacientes/types';
+import { normalizeSignosVitales } from '@/features/atenciones/types';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CONSTANTES DE CONFIGURACIÓN
@@ -173,11 +174,20 @@ export class SyncService {
         // Normalizar datos de Supabase para Dexie
         // - activo: boolean -> 1/0
         // - sync_status: siempre 'synced' (los datos de Supabase ya están sincronizados)
-        const normalizedData = data.map((item: any) => ({
-          ...item,
-          activo: typeof item.activo === 'boolean' ? (item.activo ? 1 : 0) : item.activo,
-          sync_status: 'synced',
-        }));
+        const normalizedData = data.map((item: any) => {
+          const normalized = {
+            ...item,
+            activo: typeof item.activo === 'boolean' ? (item.activo ? 1 : 0) : item.activo,
+            sync_status: 'synced',
+          };
+
+          if (tableName === 'atenciones') {
+            normalized.diagnostico = item.diagnostico ?? '';
+            normalized.signos_vitales = normalizeSignosVitales(item.signos_vitales);
+          }
+
+          return normalized;
+        });
 
         // Upsert en Dexie local
         const table = (db as any)[tableName];
@@ -307,6 +317,13 @@ export class SyncService {
 
     if (tableName === 'movimientos_stock' && !rest.tipo_medida) {
       rest.tipo_medida = 'UNIDAD';
+    }
+
+    if (tableName === 'atenciones') {
+      rest.diagnostico = typeof rest.diagnostico === 'string' ? rest.diagnostico : '';
+      rest.signos_vitales = normalizeSignosVitales(
+        rest.signos_vitales as Record<string, string> | undefined
+      );
     }
 
     return rest;

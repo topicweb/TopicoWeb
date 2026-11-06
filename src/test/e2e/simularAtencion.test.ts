@@ -44,6 +44,8 @@ const signosVitalesNormales: SignosVitales = {
   temp: '36.5',
   presion: '120/80',
   saturacion: '98',
+  fr: '16',
+  fc: '72',
 };
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -162,7 +164,8 @@ async function crearAtencion(pacienteId: string) {
     paciente_id: pacienteId,
     fecha_atencion: new Date().toISOString(),
     motivo_consulta: 'Dolor de cabeza persistente y fiebre leve desde hace 2 días',
-    observacion: 'Síntomas: Cefalea frontal, fiebre 37.8°C, malestar general. Diagnóstico: Cefalea tensional con cuadro viral. Tratamiento: Analgésicos y reposo. Control de presión arterial.',
+    diagnostico: 'Cefalea tensional con cuadro viral',
+    observacion: 'Síntomas: Cefalea frontal, fiebre 37.8°C, malestar general. Tratamiento: Analgésicos y reposo. Control de presión arterial.',
     signos_vitales: signosVitalesNormales,
   };
 
@@ -207,7 +210,8 @@ async function dispensarMedicamentos(atencionId: string, medicamentos: any[]) {
     paciente_id: paciente.id,
     fecha_atencion: new Date().toISOString(),
     motivo_consulta: 'Control de hipertensión - Consulta de seguimiento',
-    observacion: 'Síntomas: Presión arterial elevada en controles previos. Diagnóstico: Hipertensión arterial esencial grado 1. Tratamiento: IECA + Diurético. Control mensual. Se dispensa medicamento para 1 mes. Retorno en 30 días.',
+    diagnostico: 'Hipertensión arterial esencial grado 1',
+    observacion: 'Síntomas: Presión arterial elevada en controles previos. Tratamiento: IECA + Diurético. Control mensual. Se dispensa medicamento para 1 mes. Retorno en 30 días.',
     signos_vitales: {
       ...signosVitalesNormales,
       presion: '140/90',

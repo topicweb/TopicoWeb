@@ -12,7 +12,7 @@ export type {
   AtencionRepository,
 } from './types';
 
-export { SIGNOS_VITALES_VACIO, AtencionError } from './types';
+export { SIGNOS_VITALES_VACIO, AtencionError, normalizeSignosVitales } from './types';
 
 // ── Repository (Data Layer) ────────────────────────────────────────────────────
 

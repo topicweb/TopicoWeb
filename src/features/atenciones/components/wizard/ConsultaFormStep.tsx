@@ -1,12 +1,13 @@
 import { Paciente } from "@/features/pacientes/types";
 import { SignosVitales } from "@/features/atenciones/types";
-import { User, FileText } from "lucide-react";
+import { User, FileText, Stethoscope } from "lucide-react";
 import { SignosVitalesInput } from "@/features/atenciones/components/SignosVitalesInput";
 
 interface ConsultaFormStepProps {
   selectedPatient: Paciente | null;
   formData: {
     motivo: string;
+    diagnostico: string;
     observacion: string;
     signos_vitales: SignosVitales;
   };
@@ -33,7 +34,7 @@ export function ConsultaFormStep({
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3">
-        <div className="grid shrink-0 gap-2 md:grid-cols-2">
+        <div className="grid shrink-0 grid-cols-1 gap-2 md:grid-cols-3">
           <div className="glass-card p-3">
             <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
               <FileText size={14} className="text-accent" />
@@ -41,20 +42,34 @@ export function ConsultaFormStep({
             </label>
             <textarea
               required
-              rows={2}
-              className="input-premium w-full resize-none p-3 text-sm"
+              rows={4}
+              className="input-premium min-h-[100px] w-full resize-none p-3 text-sm"
               value={formData.motivo}
               onChange={(e) => onFormDataChange({ ...formData, motivo: e.target.value })}
               placeholder="Describa el motivo de consulta..."
               autoFocus
             />
           </div>
-          <div className="glass-card flex min-h-0 flex-1 flex-col p-3">
-            <label className="mb-2 shrink-0 text-sm font-semibold text-foreground">
+          <div className="glass-card p-3">
+            <label className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
+              <Stethoscope size={14} className="text-accent" />
+              Diagnóstico
+            </label>
+            <textarea
+              rows={4}
+              className="input-premium min-h-[100px] w-full resize-none p-3 text-sm"
+              value={formData.diagnostico}
+              onChange={(e) => onFormDataChange({ ...formData, diagnostico: e.target.value })}
+              placeholder="Resultado o diagnóstico de la consulta..."
+            />
+          </div>
+          <div className="glass-card p-3">
+            <label className="mb-2 text-sm font-semibold text-foreground">
               Tratamiento / Observación
             </label>
             <textarea
-              className="input-premium min-h-[100px] w-full flex-1 resize-none p-3 text-sm"
+              rows={4}
+              className="input-premium min-h-[100px] w-full resize-none p-3 text-sm"
               value={formData.observacion}
               onChange={(e) => onFormDataChange({ ...formData, observacion: e.target.value })}
               placeholder="Describa el tratamiento o observaciones adicionales..."
