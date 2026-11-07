@@ -1,33 +1,34 @@
 // ───────────────────────────────────────────────────────────────────────────────
 // GENERADOR DE PDF: REPORTE MENSUAL DE ATENCIONES
 // Crea un PDF con tabla de atenciones para un mes específico
-// Optimizado para móviles y PWA
+// Diseño optimizado y perfectamente centrado en hoja A4 apaisada
 // ───────────────────────────────────────────────────────────────────────────────
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { AtencionConDetallesExtendida } from '../types';
 import { calculateAge } from '@/features/pacientes/utils/calculateAge';
-import { formatearFecha, getNombreMes } from './reporteFilters';
+import { formatearFecha } from './reporteFilters';
 
 /**
- * Configuración del PDF (ajustada para móviles y escritorio)
+ * Configuración del PDF (ajustada para A4 horizontal centrada)
  */
 const PDF_CONFIG = {
   paperFormat: 'a4' as const,
   orientation: 'landscape' as const,
-  margins: { top: 15, right: 10, bottom: 15, left: 10 },
+  margins: { top: 14, bottom: 14 },
+  tableWidth: 273, // 273mm de tabla + 12mm a cada lado = 297mm ancho A4
   fontSize: {
-    title: 14,
+    title: 13,
     subtitle: 9,
-    table: 8,
+    table: 7.5,
   },
   colors: {
     primary: [29, 93, 255] as [number, number, number],
     headerBg: [29, 93, 255] as [number, number, number],
     headerText: [255, 255, 255] as [number, number, number],
     borderColor: [200, 200, 200] as [number, number, number],
-    altRowBg: [245, 245, 245] as [number, number, number],
+    altRowBg: [248, 249, 252] as [number, number, number],
   },
 };
 
@@ -65,41 +66,28 @@ function prepararFilaAtencion(atencion: AtencionConDetallesExtendida): string[] 
     edad !== null ? `${edad} a.` : 'N/A',
     atencion.pacienteDNI || 'N/A',
     atencion.pacienteTelefono || 'N/A',
-    (atencion.motivo_consulta || 'N/A').slice(0, 80),
-    (atencion.diagnostico || 'N/A').slice(0, 80),
+    (atencion.motivo_consulta || 'N/A').slice(0, 100),
+    (atencion.diagnostico || 'N/A').slice(0, 100),
     signos,
-    dispensaciones.slice(0, 140),
+    dispensaciones.slice(0, 160),
     atencion.staffNombre || 'N/A',
   ];
 }
 
 /**
- * Formatea los signos vitales para mostrar
- */
-function formatearSignosVitales(atencion: AtencionConDetallesExtendida): string {
-  const sv = atencion.signos_vitales;
-  if (!sv) return 'N/A';
-  return [
-    sv.temp ? `T: ${sv.temp}°C` : null,
-    sv.presion ? `PA: ${sv.presion}` : null,
-    sv.saturacion ? `O₂: ${sv.saturacion}%` : null,
-    sv.fr ? `FR: ${sv.fr} rpm` : null,
-    sv.fc ? `FC: ${sv.fc} lpm` : null,
-  ].filter(Boolean).join(' | ') || 'N/A';
-}
-
-/**
- * Genera un PDF con reporte mensual de atenciones
+ * Genera un PDF con reporte mensual de atenciones centrado en la hoja
  * @param atenciones - Array de atenciones para incluir
- * @param mesNombre - Nombre del mes (ej: "Agosto 2026")
+ * @param mesNombre - Nombre del mes (ej: "Octubre 2026")
  * @param institucion - Nombre de la institución (opcional)
+ * @param subtituloFiltro - Etiqueta del filtro activo (opcional)
  */
 export function generarReportePDF(
   atenciones: AtencionConDetallesExtendida[],
   mesNombre: string,
-  institucion: string = 'Tópico IESTPPA'
+  institucion: string = 'Tópico IESTPPA',
+  subtituloFiltro?: string
 ): jsPDF {
-  // Crear documento PDF
+  // Crear documento PDF en formato A4 apaisado (297 x 210 mm)
   const doc = new jsPDF({
     orientation: PDF_CONFIG.orientation,
     unit: 'mm',
@@ -108,36 +96,52 @@ export function generarReportePDF(
 
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const { top, right, left } = PDF_CONFIG.margins;
 
-  let yPosition = top;
+  // Margen horizontal simétrico para centrar perfectamente la tabla de 273mm
+  const horizontalMargin = (pageWidth - PDF_CONFIG.tableWidth) / 2; // (297 - 273) / 2 = 12 mm
+  let yPosition = PDF_CONFIG.margins.top;
 
   // ── ENCABEZADO ──────────────────────────────────────────────────────────────
 
-  // Título
+  // Título principal centrado
   doc.setFontSize(PDF_CONFIG.fontSize.title);
   doc.setTextColor(...PDF_CONFIG.colors.primary);
   doc.setFont('helvetica', 'bold');
-  doc.text('REPORTE MENSUAL DE ATENCIONES', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 8;
+  doc.text('REPORTE DE ATENCIONES Y CONSULTAS', pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 6.5;
 
-  // Subtítulo
+  // Subtítulo centrado con período y filtro si aplica
   doc.setFontSize(PDF_CONFIG.fontSize.subtitle);
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(90, 95, 110);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${institucion} | ${mesNombre}`, pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 8;
+  const filtroTexto = subtituloFiltro && subtituloFiltro !== 'Todos' ? ` • ${subtituloFiltro}` : '';
+  doc.text(`${institucion} | ${mesNombre}${filtroTexto}`, pageWidth / 2, yPosition, { align: 'center' });
+  yPosition += 6.5;
 
-  // Información del reporte
-  doc.setFontSize(7);
-  doc.setTextColor(120, 120, 120);
+  // Información metadata alineada con los bordes de la tabla centrada
+  doc.setFontSize(7.5);
+  doc.setTextColor(120, 125, 140);
   const fechaActual = new Date().toLocaleDateString('es-PE', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
   });
-  doc.text(`Generado el: ${fechaActual} | Total de atenciones: ${atenciones.length}`, left, yPosition);
-  yPosition += 5;
+  doc.text(
+    `Generado el: ${fechaActual} | Total de registros: ${atenciones.length}`,
+    horizontalMargin,
+    yPosition
+  );
+
+  if (subtituloFiltro && subtituloFiltro !== 'Todos') {
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...PDF_CONFIG.colors.primary);
+    doc.text(`Filtro: ${subtituloFiltro}`, pageWidth - horizontalMargin, yPosition, {
+      align: 'right',
+    });
+    doc.setFont('helvetica', 'normal');
+  }
+
+  yPosition += 4.5;
 
   // ── TABLA DE ATENCIONES ──────────────────────────────────────────────────────────
 
@@ -145,49 +149,54 @@ export function generarReportePDF(
 
   autoTable(doc, {
     head: [
-      ['Fecha/Hora', 'Paciente', 'Edad', 'DNI', 'Teléfono', 'Motivo', 'Diagnóstico', 'Signos', 'Tratamiento', 'Responsable'],
+      ['Fecha / Hora', 'Paciente', 'Edad', 'DNI', 'Teléfono', 'Motivo', 'Diagnóstico', 'Signos', 'Tratamiento', 'Responsable'],
     ],
     body: filasTabla,
     startY: yPosition,
-    margin: { top: PDF_CONFIG.margins.top, right: PDF_CONFIG.margins.right, bottom: PDF_CONFIG.margins.bottom, left: PDF_CONFIG.margins.left },
+    margin: {
+      top: PDF_CONFIG.margins.top,
+      right: horizontalMargin,
+      bottom: PDF_CONFIG.margins.bottom,
+      left: horizontalMargin,
+    },
+    tableWidth: PDF_CONFIG.tableWidth,
     headStyles: {
-      fillColor: PDF_CONFIG.colors.headerBg as [number, number, number],
-      textColor: PDF_CONFIG.colors.headerText as [number, number, number],
+      fillColor: PDF_CONFIG.colors.headerBg,
+      textColor: PDF_CONFIG.colors.headerText,
       fontStyle: 'bold',
       fontSize: PDF_CONFIG.fontSize.table,
-      halign: 'center' as const,
-      valign: 'middle' as const,
+      halign: 'center',
+      valign: 'middle',
     },
     bodyStyles: {
       fontSize: PDF_CONFIG.fontSize.table,
-      textColor: [40, 40, 40] as [number, number, number],
-      overflow: 'linebreak' as const,
-      cellPadding: 1.6,
+      textColor: [40, 45, 55],
+      overflow: 'linebreak',
+      cellPadding: 1.8,
+      valign: 'middle',
     },
     alternateRowStyles: {
       fillColor: PDF_CONFIG.colors.altRowBg,
     },
+    // Suma de anchos: 22 + 30 + 12 + 18 + 20 + 35 + 35 + 33 + 42 + 26 = 273 mm
     columnStyles: {
-      0: { halign: 'center', cellWidth: 18 },
-      1: { halign: 'left', cellWidth: 24 },
-      2: { halign: 'center', cellWidth: 11 },
-      3: { halign: 'center', cellWidth: 16 },
+      0: { halign: 'center', cellWidth: 22 },
+      1: { halign: 'left', cellWidth: 30 },
+      2: { halign: 'center', cellWidth: 12 },
+      3: { halign: 'center', cellWidth: 18 },
       4: { halign: 'center', cellWidth: 20 },
-      5: { halign: 'left', cellWidth: 28 },
-      6: { halign: 'left', cellWidth: 28 },
-      7: { halign: 'left', cellWidth: 28 },
-      8: { halign: 'left', cellWidth: 28 },
-      9: { halign: 'left', cellWidth: 24 },
+      5: { halign: 'left', cellWidth: 35 },
+      6: { halign: 'left', cellWidth: 35 },
+      7: { halign: 'left', cellWidth: 33 },
+      8: { halign: 'left', cellWidth: 42 },
+      9: { halign: 'left', cellWidth: 26 },
     },
-    didDrawPage: (data) => {
-      // Footer con número de página
-      const pageSize = doc.internal.pageSize;
-      const pageHeight = pageSize.getHeight();
-      const pageWidth = pageSize.getWidth();
+    didDrawPage: () => {
+      // Footer con número de página centrado
       const pageNum = doc.getNumberOfPages();
       const totalPages = (doc as any).lastAutoTable?.pageCount || pageNum;
 
-      doc.setFontSize(7);
+      doc.setFontSize(7.5);
       doc.setTextColor(150, 150, 150);
       doc.text(
         `Página ${pageNum} de ${totalPages}`,

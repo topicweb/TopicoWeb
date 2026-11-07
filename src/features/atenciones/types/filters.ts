@@ -5,6 +5,15 @@
 
 import type { AtencionConDetallesExtendida } from './index';
 
+export type FiltroGrupoAtencion =
+  | 'todos'
+  | 'alumno'
+  | 'enfermeria'
+  | 'desarrollo_sistemas'
+  | 'docente'
+  | 'administrativo'
+  | 'limpieza';
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Estado de los filtros
 // ───────────────────────────────────────────────────────────────────────────────
@@ -13,6 +22,7 @@ export interface AtencionesFilterState {
   fechaDesde: string | null;
   fechaHasta: string | null;
   pacienteId: string | null;
+  grupo: FiltroGrupoAtencion;
 }
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -26,6 +36,7 @@ export interface UseAtencionesFilterReturn {
   setFechaDesde: (date: string | null) => void;
   setFechaHasta: (date: string | null) => void;
   setPacienteId: (id: string | null) => void;
+  setGrupo: (grupo: FiltroGrupoAtencion) => void;
   resetFilters: () => void;
   hasActiveFilters: boolean;
   isDateRangeInvalid: boolean;
@@ -41,6 +52,7 @@ export interface AtencionesFilterBarProps {
   onSearchTermChange: (term: string) => void;
   onFechaDesdeChange: (date: string | null) => void;
   onFechaHastaChange: (date: string | null) => void;
+  onGrupoChange: (grupo: FiltroGrupoAtencion) => void;
   onReset: () => void;
   hasActiveFilters: boolean;
   isDateRangeInvalid: boolean;

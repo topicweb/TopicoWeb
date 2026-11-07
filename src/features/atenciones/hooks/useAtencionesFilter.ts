@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import type { AtencionConDetallesExtendida } from '../types';
-import type { AtencionesFilterState } from '../types/filters';
+import type { AtencionesFilterState, FiltroGrupoAtencion } from '../types/filters';
 
 export type { UseAtencionesFilterReturn } from '../types/filters';
 import type { UseAtencionesFilterReturn as UseAtencionesFilterReturnType } from '../types/filters';
@@ -17,6 +17,7 @@ const defaultFilters: AtencionesFilterState = {
   fechaDesde: null,
   fechaHasta: null,
   pacienteId: null,
+  grupo: 'todos',
 };
 
 export function useAtencionesFilter(
@@ -54,6 +55,10 @@ export function useAtencionesFilter(
     setFilters((prev) => ({ ...prev, pacienteId: id }));
   }, []);
 
+  const setGrupo = useCallback((grupo: FiltroGrupoAtencion) => {
+    setFilters((prev) => ({ ...prev, grupo }));
+  }, []);
+
   const resetFilters = useCallback(() => {
     setFilters(defaultFilters);
   }, []);
@@ -65,7 +70,8 @@ export function useAtencionesFilter(
       filters.searchTerm !== '' ||
       filters.fechaDesde !== null ||
       filters.fechaHasta !== null ||
-      filters.pacienteId !== null
+      filters.pacienteId !== null ||
+      filters.grupo !== 'todos'
     );
   }, [filters]);
 
@@ -81,6 +87,30 @@ export function useAtencionesFilter(
       // Filtro por paciente específico (historial)
       if (filters.pacienteId && atencion.paciente_id !== filters.pacienteId) {
         return false;
+      }
+
+      // Filtro por grupo / categoría y programa
+      if (filters.grupo && filters.grupo !== 'todos') {
+        const cat = atencion.pacienteCategoria?.toLowerCase() || '';
+        const esEstudiante = cat === 'estudiante' || cat === 'alumno';
+        const prog = (atencion.programaNombre || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+
+        if (filters.grupo === 'alumno') {
+          if (!esEstudiante) return false;
+        } else if (filters.grupo === 'enfermeria') {
+          if (!esEstudiante || !prog.includes('enfermer')) return false;
+        } else if (filters.grupo === 'desarrollo_sistemas') {
+          if (!esEstudiante || !prog.includes('sistema')) return false;
+        } else if (filters.grupo === 'docente') {
+          if (cat !== 'docente') return false;
+        } else if (filters.grupo === 'administrativo') {
+          if (cat !== 'administrativo' && cat !== 'administrativos') return false;
+        } else if (filters.grupo === 'limpieza') {
+          if (cat !== 'limpieza') return false;
+        }
       }
 
       // Filtro por rango de fechas
@@ -100,7 +130,7 @@ export function useAtencionesFilter(
         }
       }
 
-      // Filtro por término de búsqueda (paciente, DNI o motivo)
+      // Filtro por término de búsqueda (paciente, DNI, motivo o diagnóstico)
       if (debouncedSearchTerm) {
         const term = debouncedSearchTerm.toLowerCase();
         const matchesPaciente = atencion.pacienteNombre.toLowerCase().includes(term);
@@ -136,6 +166,7 @@ export function useAtencionesFilter(
     setFechaDesde,
     setFechaHasta,
     setPacienteId,
+    setGrupo,
     resetFilters,
     hasActiveFilters,
     isDateRangeInvalid,

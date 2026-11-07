@@ -7,16 +7,29 @@ import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import type { AtencionConDetallesExtendida } from '../types';
 import {
-  filtrarAtencionesPorMesActual,
   filtrarAtencionesPorMes,
-  getMesAñoActual,
+  getPeriodoReporteConGracia,
   getNombreMes,
 } from '../utils/reporteFilters';
 import { generarReportePDF, descargarPDF, previewPDF } from '../utils/reportePdfGenerator';
 
+export interface OpcionesReporte {
+  mes?: number;
+  año?: number;
+  etiquetaFiltro?: string;
+}
+
 export interface UseReportePdfReturn {
   generando: boolean;
   error: string | null;
+  descargarReportePeriodo: (
+    atenciones: AtencionConDetallesExtendida[],
+    opciones?: OpcionesReporte
+  ) => Promise<void>;
+  previsualizarPeriodo: (
+    atenciones: AtencionConDetallesExtendida[],
+    opciones?: OpcionesReporte
+  ) => Promise<void>;
   descargarReporteMesActual: (atenciones: AtencionConDetallesExtendida[]) => Promise<void>;
   descargarReporteMes: (atenciones: AtencionConDetallesExtendida[], mes: number, año: number) => Promise<void>;
   previsualizarMesActual: (atenciones: AtencionConDetallesExtendida[]) => Promise<void>;
@@ -39,33 +52,48 @@ export function useReportePdf(): UseReportePdfReturn {
     return mensaje;
   };
 
-  const descargarReporteMesActual = useCallback(
-    async (atenciones: AtencionConDetallesExtendida[]) => {
+  /**
+   * Descarga el reporte para el período seleccionado o el período por defecto con regla de 3 días
+   */
+  const descargarReportePeriodo = useCallback(
+    async (atenciones: AtencionConDetallesExtendida[], opciones?: OpcionesReporte) => {
       setGenerando(true);
       setError(null);
 
       try {
-        // Validaciones
         if (!atenciones || atenciones.length === 0) {
           throw new Error('No hay atenciones para generar el reporte');
         }
 
-        // Filtrar atenciones del mes actual
-        const atencionesDelMes = filtrarAtencionesPorMesActual(atenciones);
+        let atencionesDelMes: AtencionConDetallesExtendida[];
+        let mesAñoDisplay: string;
 
-        if (atencionesDelMes.length === 0) {
-          throw new Error('No hay atenciones registradas en el mes actual');
+        if (opciones?.mes && opciones?.año) {
+          atencionesDelMes = filtrarAtencionesPorMes(atenciones, opciones.mes, opciones.año);
+          mesAñoDisplay = `${getNombreMes(opciones.mes)} ${opciones.año}`;
+        } else {
+          const periodo = getPeriodoReporteConGracia();
+          atencionesDelMes = filtrarAtencionesPorMes(atenciones, periodo.mes, periodo.año);
+          mesAñoDisplay = periodo.display;
         }
 
-        // Obtener nombre del mes
-        const { display: mesAñoDisplay } = getMesAñoActual();
+        if (atencionesDelMes.length === 0) {
+          throw new Error(`No hay atenciones registradas en ${mesAñoDisplay}`);
+        }
 
-        // Generar PDF
-        const pdf = generarReportePDF(atencionesDelMes, mesAñoDisplay);
+        const pdf = generarReportePDF(
+          atencionesDelMes,
+          mesAñoDisplay,
+          'Tópico IESTPPA',
+          opciones?.etiquetaFiltro
+        );
 
-        // Descargar
-        descargarPDF(pdf, `reporte-atenciones-${mesAñoDisplay.toLowerCase().replace(' ', '-')}`);
+        const slugMes = mesAñoDisplay.toLowerCase().replace(/\s+/g, '-');
+        const slugFiltro = opciones?.etiquetaFiltro && opciones.etiquetaFiltro !== 'Todos'
+          ? `-${opciones.etiquetaFiltro.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+          : '';
 
+        descargarPDF(pdf, `reporte-atenciones${slugFiltro}-${slugMes}`);
         toast.success(`Reporte descargado: ${atencionesDelMes.length} atenciones`);
       } catch (err) {
         handleError(err);
@@ -76,78 +104,43 @@ export function useReportePdf(): UseReportePdfReturn {
     []
   );
 
-  const descargarReporteMes = useCallback(
-    async (atenciones: AtencionConDetallesExtendida[], mes: number, año: number) => {
+  /**
+   * Abre la vista previa del reporte
+   */
+  const previsualizarPeriodo = useCallback(
+    async (atenciones: AtencionConDetallesExtendida[], opciones?: OpcionesReporte) => {
       setGenerando(true);
       setError(null);
 
       try {
-        // Validaciones
         if (!atenciones || atenciones.length === 0) {
           throw new Error('No hay atenciones para generar el reporte');
         }
 
-        if (mes < 1 || mes > 12) {
-          throw new Error('Mes inválido (debe ser 1-12)');
-        }
+        let atencionesDelMes: AtencionConDetallesExtendida[];
+        let mesAñoDisplay: string;
 
-        if (año < 2000 || año > new Date().getFullYear() + 1) {
-          throw new Error('Año inválido');
+        if (opciones?.mes && opciones?.año) {
+          atencionesDelMes = filtrarAtencionesPorMes(atenciones, opciones.mes, opciones.año);
+          mesAñoDisplay = `${getNombreMes(opciones.mes)} ${opciones.año}`;
+        } else {
+          const periodo = getPeriodoReporteConGracia();
+          atencionesDelMes = filtrarAtencionesPorMes(atenciones, periodo.mes, periodo.año);
+          mesAñoDisplay = periodo.display;
         }
-
-        // Filtrar atenciones del mes especificado
-        const atencionesDelMes = filtrarAtencionesPorMes(atenciones, mes, año);
 
         if (atencionesDelMes.length === 0) {
-          throw new Error(`No hay atenciones registradas en ${getNombreMes(mes)} ${año}`);
+          throw new Error(`No hay atenciones registradas en ${mesAñoDisplay}`);
         }
 
-        // Obtener nombre del mes
-        const mesAñoDisplay = `${getNombreMes(mes)} ${año}`;
+        const pdf = generarReportePDF(
+          atencionesDelMes,
+          mesAñoDisplay,
+          'Tópico IESTPPA',
+          opciones?.etiquetaFiltro
+        );
 
-        // Generar PDF
-        const pdf = generarReportePDF(atencionesDelMes, mesAñoDisplay);
-
-        // Descargar
-        descargarPDF(pdf, `reporte-atenciones-${mes}-${año}`);
-
-        toast.success(`Reporte descargado: ${atencionesDelMes.length} atenciones`);
-      } catch (err) {
-        handleError(err);
-      } finally {
-        setGenerando(false);
-      }
-    },
-    []
-  );
-
-  const previsualizarMesActual = useCallback(
-    async (atenciones: AtencionConDetallesExtendida[]) => {
-      setGenerando(true);
-      setError(null);
-
-      try {
-        // Validaciones
-        if (!atenciones || atenciones.length === 0) {
-          throw new Error('No hay atenciones para generar el reporte');
-        }
-
-        // Filtrar atenciones del mes actual
-        const atencionesDelMes = filtrarAtencionesPorMesActual(atenciones);
-
-        if (atencionesDelMes.length === 0) {
-          throw new Error('No hay atenciones registradas en el mes actual');
-        }
-
-        // Obtener nombre del mes
-        const { display: mesAñoDisplay } = getMesAñoActual();
-
-        // Generar PDF
-        const pdf = generarReportePDF(atencionesDelMes, mesAñoDisplay);
-
-        // Previsualizar
         previewPDF(pdf);
-
         toast.success('Abriendo vista previa...');
       } catch (err) {
         handleError(err);
@@ -158,6 +151,28 @@ export function useReportePdf(): UseReportePdfReturn {
     []
   );
 
+  // Funciones de compatibilidad anteriores
+  const descargarReporteMesActual = useCallback(
+    async (atenciones: AtencionConDetallesExtendida[]) => {
+      return descargarReportePeriodo(atenciones);
+    },
+    [descargarReportePeriodo]
+  );
+
+  const descargarReporteMes = useCallback(
+    async (atenciones: AtencionConDetallesExtendida[], mes: number, año: number) => {
+      return descargarReportePeriodo(atenciones, { mes, año });
+    },
+    [descargarReportePeriodo]
+  );
+
+  const previsualizarMesActual = useCallback(
+    async (atenciones: AtencionConDetallesExtendida[]) => {
+      return previsualizarPeriodo(atenciones);
+    },
+    [previsualizarPeriodo]
+  );
+
   const clearError = useCallback(() => {
     setError(null);
   }, []);
@@ -165,6 +180,8 @@ export function useReportePdf(): UseReportePdfReturn {
   return {
     generando,
     error,
+    descargarReportePeriodo,
+    previsualizarPeriodo,
     descargarReporteMesActual,
     descargarReporteMes,
     previsualizarMesActual,

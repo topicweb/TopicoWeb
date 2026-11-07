@@ -1,6 +1,8 @@
 import { BaseEntity } from '@/core/db/dexie/types';
 import type { DispensacionMedicamento as DispensacionType } from '@/features/inventario/types';
+import type { CategoriaPaciente } from '@/features/pacientes/types';
 export type { BaseEntity, SyncStatus } from '@/core/db/dexie/types';
+export type { CategoriaPaciente };
 
 // ───────────────────────────────────────────────────────────────────────────────
 // ENTIDADES CORE
@@ -67,6 +69,7 @@ export interface AtencionConDetalles extends Atencion {
   pacienteDNI: string;
   pacienteTelefono?: string | null;
   pacienteFechaNacimiento?: string | null;
+  pacienteCategoria?: CategoriaPaciente | null;
   programaId?: string | null;
   programaNombre?: string | null;
   staffNombre: string;

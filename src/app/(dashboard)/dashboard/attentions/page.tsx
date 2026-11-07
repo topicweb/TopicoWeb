@@ -17,6 +17,7 @@ export default function AttentionsPage() {
     setFechaDesde,
     setFechaHasta,
     setPacienteId,
+    setGrupo,
     resetFilters,
     hasActiveFilters,
     isDateRangeInvalid,
@@ -62,7 +63,10 @@ export default function AttentionsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <ReporteButton atenciones={atencionesConDetalles} />
+          <ReporteButton
+            atenciones={atencionesConDetalles}
+            filtroGrupo={filters.grupo}
+          />
           <Link
             href="/dashboard/attentions/new"
             className="inline-flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-accent-hover active:scale-[0.98]"
@@ -78,6 +82,7 @@ export default function AttentionsPage() {
         onSearchTermChange={setSearchTerm}
         onFechaDesdeChange={setFechaDesde}
         onFechaHastaChange={setFechaHasta}
+        onGrupoChange={setGrupo}
         onReset={resetFilters}
         hasActiveFilters={hasActiveFilters}
         isDateRangeInvalid={isDateRangeInvalid}
@@ -108,6 +113,7 @@ export default function AttentionsPage() {
               <p className="mt-1 text-sm text-muted">
                 Intenta ajustar los filtros o{" "}
                 <button
+                  type="button"
                   onClick={resetFilters}
                   className="font-medium text-accent hover:underline"
                 >

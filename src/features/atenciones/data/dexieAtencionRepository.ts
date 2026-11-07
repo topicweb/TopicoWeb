@@ -275,11 +275,16 @@ export class DexieAtencionRepository {
       if (mov.medicamento_id) medicamentoIds.add(mov.medicamento_id);
     }
 
-    const [pacientes, perfiles, medicamentos] = await Promise.all([
+    const [pacientes, perfiles, medicamentos, programas] = await Promise.all([
       db.pacientes.bulkGet(pacienteIds),
       db.perfiles.bulkGet(perfilIds),
       db.medicamentos.bulkGet([...medicamentoIds]),
+      db.programas_estudio.toArray(),
     ]);
+
+    const programaMap = new Map(
+      programas.filter((p) => p !== undefined).map((p) => [p.id, p.nombre])
+    );
 
     const perfilMap = new Map(
       perfiles.filter((p): p is NonNullable<typeof p> => p !== undefined).map((p) => [p.id, p])
@@ -353,7 +358,9 @@ export class DexieAtencionRepository {
         pacienteDNI: paciente?.dni || "",
         pacienteTelefono: paciente?.telefono ?? null,
         pacienteFechaNacimiento: paciente?.fecha_nacimiento ?? null,
+        pacienteCategoria: paciente?.categoria ?? null,
         programaId: paciente?.programa_id ?? null,
+        programaNombre: paciente?.programa_id ? programaMap.get(paciente.programa_id) ?? null : null,
         staffNombre: staff?.nombre ?? STAFF_DESCONOCIDO,
         dispensaciones,
       };

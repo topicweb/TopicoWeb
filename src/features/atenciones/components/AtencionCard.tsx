@@ -113,8 +113,13 @@ export function AtencionCard({ atencion, onViewHistorial }: AtencionCardProps) {
                 {atencion.pacienteNombre}
               </span>
             </button>
-            {/* DNI y Teléfono */}
-            <div className="mt-1.5 flex flex-wrap gap-3 text-xs text-muted">
+            {/* DNI, Teléfono, Categoría y Edad */}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted">
+              {atencion.pacienteCategoria && (
+                <span className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 text-[11px] font-semibold capitalize text-foreground border border-border/40">
+                  {atencion.pacienteCategoria === 'estudiante' ? 'Alumno' : atencion.pacienteCategoria}
+                </span>
+              )}
               {atencion.pacienteDNI && (
                 <div className="flex items-center gap-1">
                   <Fingerprint size={12} />
