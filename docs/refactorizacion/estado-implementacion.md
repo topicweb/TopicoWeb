@@ -195,3 +195,15 @@ Antes de publicar: auditar agregados otra vez, revisar tiempos/bloqueos y coordi
 Reversión antes de despliegue: revertir commit local. Después: pausar sync/escrituras afectadas, conservar IndexedDB, colas, apertura, efectos e IDs; corregir hacia delante con cliente compatible. No retirar trigger mientras existan clientes de eventos, reabrir stock absoluto ni recalcular/borrar historia. El test de lote confirma rollback transaccional de efecto/saldo, sin rollback operativo destructivo automático. No se avanzó a fases 8/9.
 
 Stack Supabase local detenido correctamente al finalizar, conservando volúmenes y sin detener otros servicios. No se hizo push Git ni despliegue.
+
+## Fase 8a — permisos de funciones
+
+Continuación autorizada de fase 8 desde 1e07003, con Luna como apoyo. Se reconsultaron por MCP las seis funciones públicas legacy, sus definiciones, propietarios, ACL y dependencias: cuatro sin consumidores/dependencias de catálogo; moddatetime y update_actualizado_at_column sí tienen triggers. Producción permanece sin cambios.
+
+- `20261117000400_function_permissions.sql` fija search_path vacío y revoca EXECUTE público/anon/authenticated/service_role a helpers sin RPC legítimo y funciones trigger. No los elimina ni activa handle_new_user. Los triggers siguen funcionando sin permiso de invocación directa.
+- get_my_role conserva su tipo de retorno cualificado (enum real o tipo del fixture), solo authenticated puede invocarlo y devuelve únicamente rol del perfil propio activo/no eliminado. No se modifica el contrato de las funciones de fases 2/4/6/7.
+- No hay llamadas del cliente a validate_password_strength ni envío de contraseña a ese RPC. Se mantienen las validaciones locales/Auth existentes. La [protección de contraseñas filtradas de Supabase](https://supabase.com/docs/guides/auth/password-security) requiere Pro o superior; no se contrató ni modificó configuración cloud.
+- Matriz real local function-permissions-local.mjs y aserciones SQL correctas: ACL/search_path, helper activo, inactivo/eliminado sin rol, password RPC denegado a anon/authenticated y triggers ejecutados por authenticated pese a la revocación directa. Migración repetida correctamente en el stack sintético. Las funciones ausentes del fixture se crean solo como equivalentes sintéticos antes del test, sin reemplazar las ya existentes.
+- Repetidas correctamente las matrices de consistencia Auth y stock después del recorte; limpieza sintética correcta. SQL de producción no aplicado. Reversión operativa: conservar permisos mínimos y corregir por función; no restaurar EXECUTE público indiscriminado ni conectar triggers históricos.
+
+Los subpasos de sesión/caché, logger y HTTP/PWA se registran por separado al cerrar su validación.
