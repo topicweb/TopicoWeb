@@ -5,8 +5,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Cubre: R1 (sin sesión → nunca admin) y R6 (IDOR cross-tenant)
 // ───────────────────────────────────────────────────────────────────────────────
 
-type SingleResponse = { data: unknown; error: unknown } | null;
-
 // Patrones Vitest: las variables que usa la factory de vi.mock DEBEN venir de
 // vi.hoisted, porque las factories se ejecutan durante el hoisting (antes de que
 // el módulo defina sus consts).
@@ -17,6 +15,8 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
     /** Última llamada a .update(payload).eq('id', id) */
     lastUpdate: { payload: null as unknown, id: null as string | null },
     updateResponse: { error: null } as { error: { message: string } | null },
+    updateDataNull: false,
+    updateFilters: [] as Array<[string, unknown]>,
     /** Última llamada a auth.admin.updateUserById (R17) */
     lastAuthUpdate: null as { userId: string; attrs: { email?: string; email_confirm?: boolean } } | null,
     authUpdateResponse: { error: null } as { error: { message: string } | null },
@@ -32,14 +32,26 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
             state.singleResponses.shift() ??
               { data: null, error: { message: 'no response configured' } },
           ),
-        update: (payload: unknown) => ({
-          eq: (colOrId: string, maybeId?: string) => {
-            // .update().eq('id', valor) → captura el valor del id objetivo
-            const id = maybeId ?? colOrId;
-            state.lastUpdate = { payload, id };
-            return Promise.resolve(state.updateResponse);
-          },
-        }),
+        update: (payload: unknown) => {
+          const mutation = {
+            eq: (column: string, value: string | boolean) => {
+              state.updateFilters.push([column, value]);
+              if (column === 'id') state.lastUpdate = { payload, id: value as string };
+              return mutation;
+            },
+            is: (column: string, value: null) => { state.updateFilters.push([column, value]); return mutation; },
+            select: () => mutation,
+            single: () => Promise.resolve({
+              ...state.updateResponse,
+              data: state.updateDataNull || state.updateResponse.error ? null : {
+                id: state.lastUpdate.id, activo: true, rol: 'personal',
+                business_id: '11111111-1111-1111-1111-111111111111',
+                ...(payload as Record<string, unknown>),
+              },
+            }),
+          };
+          return mutation;
+        },
       };
       return self;
     },
@@ -76,6 +88,8 @@ beforeEach(() => {
   state.singleResponses = [];
   state.lastUpdate = { payload: null, id: null };
   state.updateResponse = { error: null };
+  state.updateDataNull = false;
+  state.updateFilters = [];
   state.lastAuthUpdate = null;
   state.authUpdateResponse = { error: null };
 });
@@ -150,7 +164,7 @@ describe('updateUserAction — R6 IDOR cross-tenant', () => {
 
     const result = await updateUserAction('target-1', { nombre: 'Nuevo Nombre', business_id: TENANT_A });
 
-    expect(result).toEqual({ success: true });
+    expect(result).toMatchObject({ success: true, user: { activo: 1 } });
     expect(state.lastUpdate.id).toBe('target-1');
     expect((state.lastUpdate.payload as { nombre?: string }).nombre).toBe('Nuevo Nombre');
   });
@@ -182,7 +196,7 @@ describe('updateUserAction — R6 IDOR cross-tenant', () => {
       business_id: TENANT_A,
     });
 
-    expect(result).toEqual({ success: true });
+    expect(result).toMatchObject({ success: true, user: { activo: 1 } });
     // Auth actualizado primero, como usuario objetivo
     expect(state.lastAuthUpdate).toEqual({
       userId: 'target-1',
@@ -249,7 +263,7 @@ describe('updateUserAction — R6 IDOR cross-tenant', () => {
       nombre: 'Mi Nombre', rol: 'personal', activo: 0, business_id: TENANT_B,
     });
 
-    expect(result).toEqual({ success: true });
+    expect(result).toMatchObject({ success: true, user: { activo: 1 } });
     expect(state.lastUpdate.payload).toEqual({ nombre: 'Mi Nombre' });
     expect(state.lastAuthUpdate).toBeNull();
   });
@@ -284,7 +298,58 @@ describe('updateUserAction — R6 IDOR cross-tenant', () => {
   });
 });
 
+describe('updateUserAction — confirmación de persistencia', () => {
+  it('rechaza cero filas aunque no haya error SQL', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { rol: 'admin', business_id: TENANT_A, activo: true }, error: null },
+      { data: { business_id: TENANT_A }, error: null },
+    ];
+    state.updateDataNull = true;
+    await expect(updateUserAction('target-1', { business_id: TENANT_A, nombre: 'Cambio' }))
+      .rejects.toThrow('confirmar la actualización');
+  });
+
+  it('filtra la escritura propia por activo y no eliminado', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: { id: ADMIN_USER_ID, activo: true, deleted_at: null }, error: null }];
+    await updateUserAction(ADMIN_USER_ID, { nombre: 'Cambio' });
+    expect(state.updateFilters).toContainEqual(['activo', true]);
+    expect(state.updateFilters).toContainEqual(['deleted_at', null]);
+  });
+
+  it('sin cambios devuelve el perfil real y no envía un UPDATE vacío', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: { id: ADMIN_USER_ID, activo: true, rol: 'personal', email: 'own@example.invalid' }, error: null }];
+    const result = await updateUserAction(ADMIN_USER_ID, { rol: 'admin', activo: 0 });
+    expect(result.user).toMatchObject({ id: ADMIN_USER_ID, activo: 1, rol: 'personal', sync_status: 'synced' });
+    expect(state.lastUpdate.id).toBeNull();
+  });
+});
+
 describe('softDeleteUserAction — verificación de tenant del objetivo (sin regresión)', () => {
+  it('devuelve la fila confirmada, normalizada y filtrada por tenant', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { business_id: TENANT_A }, error: null },
+      { data: { rol: 'admin', business_id: TENANT_A, activo: true }, error: null },
+    ];
+    const result = await softDeleteUserAction('target-1');
+    expect(result.user).toMatchObject({ id: 'target-1', activo: 0, sync_status: 'synced' });
+    expect(result.user.deleted_at).toBeTruthy();
+    expect(state.updateFilters).toContainEqual(['business_id', TENANT_A]);
+  });
+
+  it('no informa éxito si la base no devuelve ninguna fila', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { business_id: TENANT_A }, error: null },
+      { data: { rol: 'admin', business_id: TENANT_A, activo: true }, error: null },
+    ];
+    state.updateDataNull = true;
+    await expect(softDeleteUserAction('target-1')).rejects.toThrow('confirmar la desactivación');
+  });
+
   it('admin del tenant A soft-deletes usuario del tenant B → lanza (la validación usa el tenant del objetivo)', async () => {
     getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
     state.singleResponses = [

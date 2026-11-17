@@ -20,7 +20,9 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 1 | Parte local implementada y verificada | SQL coordinado con fase 2; staging y despliegue pendientes |
 | 2 | Migración verificada en PostgreSQL y Supabase local Auth/API | Smoke cliente y despliegue; producción sin cambios |
 | 3 | Parche instalado y validado localmente | Prueba PWA instalada y despliegue Netlify |
-| 4–9 | Pendientes | Según plan, sin cambios aún |
+| 4a | Preparada y verificada localmente | Confirmar decisión de edición offline antes de desplegar |
+| 4b | Pendiente | Confirmación de email propio y recuperación Auth/perfiles |
+| 5–9 | Pendientes | Según plan |
 
 ## Regla de continuidad
 
@@ -78,3 +80,13 @@ No ejecutar supabase db push ni apply_migration sobre producción durante prepar
 - Prueba local ampliada del SDK instalado: browser cookie jar, server getUser, refreshSession, nueva lectura de cookies y signOut correctos. Esto cubre métodos actuales pese al aviso peer preexistente SSR/JS; no certifica APIs nuevas de SSR ni elimina el aviso.
 - Sin cambios remotos. Criterios PWA instalada y Netlify permanecen pendientes; no confundir build con prueba interactiva de navegación offline.
 - Smoke del build servido en localhost: landing, login, manifest y service worker HTTP200; servidor temporal detenido al terminar.
+
+## Subfase 4a — filas confirmadas y errores visibles
+
+- Cambios preparados en acciones, hook y página de usuarios. UPDATE y desactivación devuelven fila canónica normalizada; ausencia de fila/error rechaza. Autoservicio aplica filtros activo/no eliminado; administración conserva filtro tenant en escritura.
+- Dexie se modifica después del éxito remoto, usando exclusivamente la fila devuelta. No se guardan localmente campos privilegiados que autoservicio ignora. Fallos remotos y de caché se propagan. La página deja el error al modal para conservar el formulario; evita toast de éxito ante rechazo.
+- La propuesta exige conexión para editar usuarios, coherente con el comentario del módulo y con crear/eliminar. La lectura offline no cambia. Se preguntó al usuario si prefiere esa opción o una cola offline específica; decisión pendiente. NO desplegar este cambio de comportamiento antes de resolverla. Si elige cola, revisar esta parte sin reintroducir falsos éxitos remotos; la cola no existe todavía.
+- Luna implementó hook/tests; principal implementó acciones/página, revisó mocks y corrigió compatibilidad de tests. TypeScript correcto, 78/78 tests (acciones28, hook7, stock32, reportes11), build webpack/PWA correcto; lint de archivos modificados correcto tras corregir any/unused. No hay pruebas interactivas de modal ni Server Actions por HTTP en esta subfase.
+- Fase 4 no está cerrada: aún quedan email propio con confirmación, recuperación de cuenta Auth sin perfil y fallo parcial de email Auth/perfil. No se modificaron esos flujos ni se activó handle_new_user.
+- Continuar desde este checkpoint en Git; no aplicar migración remota ni publicar la aplicación sin verificar los criterios pendientes.
+- Al terminar se detuvo el stack Docker de pruebas conservando volúmenes. Reiniciar con el comando de staging-local.md antes de repetir la matriz Auth/API. Docker Desktop puede permanecer abierto; no se detuvieron otros servicios.

@@ -3,8 +3,6 @@ import { useAuth } from '@/core/providers/AuthProvider';
 import { Perfil } from '../types';
 import { createUserAction, softDeleteUserAction, updateUserAction } from '../actions/users';
 import { db } from '@/core/db';
-import { logger } from '@/core/utils/logger';
-import { toast } from 'sonner';
 import { isPerfilActivo } from '@/shared/utils/perfil';
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -53,29 +51,10 @@ export function useUsuarios() {
 
   const actualizarUsuario = async (id: string, datos: Partial<Perfil>) => {
     if (!businessId) throw new Error('Business ID requerido');
+    if (!navigator.onLine) throw new Error('Se requiere conexión a internet para editar usuarios.');
 
-    const now = new Date().toISOString();
-
-    await db.perfiles.update(id, {
-      ...datos,
-      actualizado_at: now,
-      sync_status: navigator.onLine ? 'synced' : 'pending',
-    });
-
-    if (navigator.onLine) {
-      try {
-        await updateUserAction(id, { ...datos, business_id: businessId });
-      } catch (err: any) {
-        logger.warn('[useUsuarios] No se pudo actualizar en Supabase:', err.message);
-        // Aviso claro (incluye el caso de sesión expirada tras quitar el fallback de R1)
-        toast.error(
-          err.message === 'No autenticado'
-            ? 'Sesión expirada. Vuelve a iniciar sesión para conservar los cambios.'
-            : `El cambio se guardó localmente pero falló al sincronizar: ${err.message}`,
-          { duration: 6000 },
-        );
-      }
-    }
+    const result = await updateUserAction(id, { ...datos, business_id: businessId });
+    await db.perfiles.put(result.user);
   };
 
   const eliminarUsuario = async (id: string) => {
@@ -83,16 +62,8 @@ export function useUsuarios() {
       throw new Error('Se requiere conexión a internet para eliminar usuarios.');
     }
 
-    const now = new Date().toISOString();
-
-    await db.perfiles.update(id, {
-      activo: 0,
-      deleted_at: now,
-      actualizado_at: now,
-      sync_status: 'synced',
-    });
-
-    await softDeleteUserAction(id);
+    const result = await softDeleteUserAction(id);
+    await db.perfiles.put(result.user);
   };
 
   return {

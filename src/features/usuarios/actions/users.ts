@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from "@/core/db/supabase/admin";
 import { getAuthenticatedUser } from "@/core/db/supabase/server";
-import { isPerfilActivo, isPerfilValido } from "@/shared/utils/perfil";
+import { isPerfilActivo, isPerfilValido, normalizePerfilFromSupabase } from "@/shared/utils/perfil";
 import { PasswordSchema, RolSchema } from "@/shared/schemas/validation";
 import { AdminProfileUpdateSchema, SelfProfileUpdateSchema } from "../schemas/users";
 import { Perfil } from "../types";
@@ -158,7 +158,7 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
   if (currentUserId && id === currentUserId) {
     const { data: ownProfile, error: ownProfileError } = await supabaseAdmin
       .from('perfiles')
-      .select('email, activo, deleted_at')
+      .select('*')
       .eq('id', id)
       .single();
 
@@ -198,16 +198,23 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
       }
     }
 
-    if (Object.keys(updatePayload).length === 0) return { success: true };
+    if (Object.keys(updatePayload).length === 0) {
+      return { success: true as const, user: normalizePerfilFromSupabase(ownProfile) };
+    }
 
-    const { error } = await supabaseAdmin
+    const { data: savedProfile, error } = await supabaseAdmin
       .from('perfiles')
       .update(updatePayload)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('activo', true)
+      .is('deleted_at', null)
+      .select('*')
+      .single();
 
     if (error) throw new Error(error.message);
+    if (!savedProfile) throw new Error('No se pudo confirmar la actualización del perfil');
 
-    return { success: true };
+    return { success: true as const, user: normalizePerfilFromSupabase(savedProfile) };
   }
 
   // Si actualiza otro perfil, debe ser admin
@@ -267,11 +274,14 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
   // validación del tenant, no para mover cuentas entre instituciones.
   updatePayload.actualizado_at = new Date().toISOString();
 
-  const { error } = await supabaseAdmin.from('perfiles').update(updatePayload).eq('id', id);
+  const { data: savedProfile, error } = await supabaseAdmin.from('perfiles')
+    .update(updatePayload).eq('id', id).eq('business_id', data.business_id)
+    .select('*').single();
 
   if (error) throw new Error(error.message);
+  if (!savedProfile) throw new Error('No se pudo confirmar la actualización del perfil');
 
-  return { success: true };
+  return { success: true as const, user: normalizePerfilFromSupabase(savedProfile) };
 }
 
 export async function softDeleteUserAction(userId: string) {
@@ -290,19 +300,19 @@ export async function softDeleteUserAction(userId: string) {
   await validateAdminAccess(targetUser.business_id);
 
   // En lugar de borrar, marcamos el perfil como inactivo y registramos la fecha de borrado.
-  const { error } = await supabaseAdmin
+  const { data: savedProfile, error } = await supabaseAdmin
     .from('perfiles')
     .update({
       activo: false,
       deleted_at: new Date().toISOString()
     })
-    .eq('id', userId);
+    .eq('id', userId)
+    .eq('business_id', targetUser.business_id)
+    .select('*')
+    .single();
 
-  if (error) {
-    if (!error.message.includes("User not found")) {
-      throw new Error(error.message);
-    }
-  }
+  if (error) throw new Error(error.message);
+  if (!savedProfile) throw new Error('No se pudo confirmar la desactivación del usuario');
 
-  return { success: true };
+  return { success: true as const, user: normalizePerfilFromSupabase(savedProfile) };
 }

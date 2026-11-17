@@ -38,8 +38,8 @@ export default function UsersPage() {
         await eliminarUsuario(deleteModal.id);
         toast.success("Usuario eliminado correctamente");
         setDeleteModal({ isOpen: false, id: null });
-      } catch (error: any) {
-        toast.error(error.message || "Error al eliminar usuario");
+      } catch (error: unknown) {
+        toast.error(error instanceof Error ? error.message : "Error al eliminar usuario");
       }
     }
   };
@@ -55,19 +55,17 @@ export default function UsersPage() {
   };
 
   const handleSave = async (data: Partial<Perfil> & { password?: string }) => {
-    try {
-      if (editingItem) {
-        const { password, ...rest } = data;
-        await actualizarUsuario(editingItem.id, rest);
-        toast.success("Usuario actualizado correctamente");
-      } else {
-        await crearUsuario(data);
-        toast.success("Usuario creado correctamente");
-      }
-      setIsModalOpen(false);
-    } catch (error: any) {
-      toast.error(error.message || "Error al guardar usuario");
+    if (editingItem) {
+      await actualizarUsuario(editingItem.id, {
+        nombre: data.nombre, email: data.email, rol: data.rol, activo: data.activo,
+      });
+      toast.success("Usuario actualizado correctamente");
+    } else {
+      await crearUsuario(data);
+      toast.success("Usuario creado correctamente");
     }
+    // UserModal conserva el formulario y presenta el error si la promesa rechaza.
+    setIsModalOpen(false);
   };
 
   return (
