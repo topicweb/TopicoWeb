@@ -20,18 +20,32 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
     /** Última llamada a auth.admin.updateUserById (R17) */
     lastAuthUpdate: null as { userId: string; attrs: { email?: string; email_confirm?: boolean } } | null,
     authUpdateResponse: { error: null } as { error: { message: string } | null },
+    lastProfileRead: null as Record<string, unknown> | null,
+    rpcResponse: { data: true, error: null } as { data: boolean; error: { message: string } | null },
+    authCreateResponse: { data: { user: null }, error: { message: 'not configured' } } as {
+      data: { user: { id: string } | null }; error: { message: string; code?: string } | null;
+    },
+    lastCreatePayload: null as Record<string, unknown> | null,
+    lookupUser: null as { id: string; email: string; app_metadata?: Record<string, unknown> } | null,
+    sessionUpdateResponse: { data: { user: null }, error: null } as {
+      data: { user: { id: string; email: string } | null }; error: { message: string } | null;
+    },
+    lastSessionUpdate: null as { email: string } | null,
   };
 
   const supabaseAdminMock = {
+    rpc: () => Promise.resolve(state.rpcResponse),
     from: () => {
+      const readOne = () => {
+        const response = state.singleResponses.shift() ?? { data: null, error: { message: 'no response configured' } };
+        state.lastProfileRead = response.data as Record<string, unknown> | null;
+        return Promise.resolve(response);
+      };
       const self = {
         select: () => self,
         eq: () => self,
-        single: () =>
-          Promise.resolve(
-            state.singleResponses.shift() ??
-              { data: null, error: { message: 'no response configured' } },
-          ),
+        single: readOne,
+        maybeSingle: readOne,
         update: (payload: unknown) => {
           const mutation = {
             eq: (column: string, value: string | boolean) => {
@@ -45,7 +59,7 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
               ...state.updateResponse,
               data: state.updateDataNull || state.updateResponse.error ? null : {
                 id: state.lastUpdate.id, activo: true, rol: 'personal',
-                business_id: '11111111-1111-1111-1111-111111111111',
+                business_id: '11111111-1111-4111-8111-111111111111',
                 ...(payload as Record<string, unknown>),
               },
             }),
@@ -57,8 +71,13 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
     },
     auth: {
       admin: {
-        createUser: () =>
-          Promise.resolve({ data: { user: null }, error: { message: 'not needed in tests' } }),
+        createUser: (payload: Record<string, unknown>) => {
+          state.lastCreatePayload = payload;
+          return Promise.resolve(state.authCreateResponse);
+        },
+        getUserById: (id: string) => Promise.resolve({ data: { user: state.lookupUser ?? {
+          id, email: state.lastProfileRead?.email ?? 'old@example.invalid', app_metadata: {},
+        } }, error: null }),
         updateUserById: (userId: string, attrs: { email?: string; email_confirm?: boolean }) => {
           state.lastAuthUpdate = { userId, attrs };
           return Promise.resolve(state.authUpdateResponse);
@@ -73,15 +92,24 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
 vi.mock('@/core/db/supabase/admin', () => ({ supabaseAdmin: supabaseAdminMock }));
 vi.mock(
   '@/core/db/supabase/server',
-  () => ({ getAuthenticatedUser: (...args: unknown[]) => getAuthenticatedUserMock(...args) }),
+   () => ({
+     getAuthenticatedUser: (...args: unknown[]) => getAuthenticatedUserMock(...args),
+     createSupabaseServerClient: async () => ({ auth: {
+       updateUser: (payload: { email: string }) => {
+         state.lastSessionUpdate = payload;
+         return Promise.resolve(state.sessionUpdateResponse);
+       },
+     } }),
+   }),
 );
 
 import { updateUserAction, createUserAction, softDeleteUserAction } from './users';
 import type { Perfil } from '../types';
 
 const ADMIN_USER_ID = 'auth-user-1';
-const TENANT_A = '11111111-1111-1111-1111-111111111111';
-const TENANT_B = '22222222-2222-2222-2222-222222222222';
+const TENANT_A = '11111111-1111-4111-8111-111111111111';
+const TENANT_B = '22222222-2222-4222-8222-222222222222';
+const REQUEST_ID = '33333333-3333-4333-8333-333333333333';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -92,6 +120,13 @@ beforeEach(() => {
   state.updateFilters = [];
   state.lastAuthUpdate = null;
   state.authUpdateResponse = { error: null };
+  state.lastProfileRead = null;
+  state.rpcResponse = { data: true, error: null };
+  state.authCreateResponse = { data: { user: null }, error: { message: 'not configured' } };
+  state.lastCreatePayload = null;
+  state.lookupUser = null;
+  state.sessionUpdateResponse = { data: { user: null }, error: null };
+  state.lastSessionUpdate = null;
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -362,6 +397,140 @@ describe('softDeleteUserAction — verificación de tenant del objetivo (sin reg
     await expect(softDeleteUserAction('target-otro-tenant')).rejects.toThrow(
       'No tienes permiso para operar en esta institución',
     );
+  });
+});
+
+describe('fase 4b — correo propio y recuperación de alta', () => {
+  const own = { id: ADMIN_USER_ID, email: 'old@example.invalid', activo: true, deleted_at: null, rol: 'personal' };
+  const admin = { rol: 'admin', business_id: TENANT_A, activo: true };
+  const input = { nombre: 'Nuevo', email: 'new@example.invalid', password: 'Passw0rd', business_id: TENANT_A, request_id: REQUEST_ID };
+  const created = { id: 'created-1', nombre: input.nombre, email: input.email, business_id: TENANT_A, activo: true, rol: 'personal' };
+
+  it('solicita confirmación de email propio sin auto-confirmar ni anticipar perfil', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: own.email });
+    state.singleResponses = [{ data: own, error: null }];
+    state.sessionUpdateResponse = { data: { user: { id: ADMIN_USER_ID, email: own.email } }, error: null };
+    const result = await updateUserAction(ADMIN_USER_ID, { email: input.email });
+    expect(state.lastSessionUpdate).toEqual({ email: input.email });
+    expect(state.lastAuthUpdate).toBeNull();
+    expect(state.lastUpdate.id).toBeNull();
+    expect(result).toMatchObject({ emailConfirmationPending: true, user: { email: own.email } });
+  });
+
+  it('conserva nombre confirmado mientras el correo solicitado queda pendiente', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: own.email });
+    state.singleResponses = [{ data: own, error: null }];
+    state.sessionUpdateResponse = { data: { user: { id: ADMIN_USER_ID, email: own.email } }, error: null };
+    const result = await updateUserAction(ADMIN_USER_ID, { email: input.email, nombre: ' Nombre ' });
+    expect(state.lastUpdate.payload).toEqual({ nombre: 'Nombre' });
+    expect(result.emailConfirmationPending).toBe(true);
+  });
+
+  it('reintenta guardar nombre sin reenviar un email que Auth ya tiene pendiente', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: own.email, new_email: input.email });
+    state.singleResponses = [{ data: own, error: null }];
+    const result = await updateUserAction(ADMIN_USER_ID, { email: input.email, nombre: 'Nombre' });
+    expect(state.lastSessionUpdate).toBeNull();
+    expect(state.lastUpdate.payload).toEqual({ nombre: 'Nombre' });
+    expect(result.emailConfirmationPending).toBe(true);
+  });
+
+  it('si Auth confirma inmediatamente solo refleja el correo canónico devuelto', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: own.email });
+    state.singleResponses = [{ data: own, error: null }];
+    state.sessionUpdateResponse = { data: { user: { id: ADMIN_USER_ID, email: input.email } }, error: null };
+    const result = await updateUserAction(ADMIN_USER_ID, { email: input.email });
+    expect(result).toMatchObject({ emailConfirmationPending: false, user: { email: input.email } });
+    expect(state.lastAuthUpdate).toBeNull();
+  });
+
+  it('repara perfil antiguo desde identidad Auth validada, sin modificar Auth', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: input.email });
+    state.singleResponses = [{ data: own, error: null }];
+    await updateUserAction(ADMIN_USER_ID, { nombre: 'Nombre' });
+    expect(state.lastUpdate.payload).toMatchObject({ email: input.email });
+    expect(state.lastSessionUpdate).toBeNull();
+    expect(state.lastAuthUpdate).toBeNull();
+  });
+
+  it('un correo de formulario sin cambios no revierte Auth en un perfil divergente', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: input.email });
+    state.singleResponses = [{ data: own, error: null }];
+    const result = await updateUserAction(ADMIN_USER_ID, { email: own.email });
+    expect(state.lastSessionUpdate).toBeNull();
+    expect(result.user.email).toBe(input.email);
+  });
+
+  it('administrador repara divergencia si no solicitó un cambio real de correo', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: admin, error: null }, { data: { ...created, email: own.email }, error: null }];
+    state.lookupUser = { id: created.id, email: input.email };
+    const result = await updateUserAction(created.id, { business_id: TENANT_A, email: own.email });
+    expect(state.lastAuthUpdate).toBeNull();
+    expect(result.user.email).toBe(input.email);
+  });
+
+  it('no solicita correo si no están instaladas las garantías SQL', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: own.email });
+    state.singleResponses = [{ data: own, error: null }];
+    state.rpcResponse = { data: false, error: null };
+    await expect(updateUserAction(ADMIN_USER_ID, { email: input.email })).rejects.toThrow('temporalmente');
+    expect(state.lastSessionUpdate).toBeNull();
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it('Auth rechaza correo propio: no guarda cambios locales ni de perfil', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID, email: own.email });
+    state.singleResponses = [{ data: own, error: null }];
+    state.sessionUpdateResponse = { data: { user: null }, error: { message: 'rejected' } };
+    await expect(updateUserAction(ADMIN_USER_ID, { email: input.email })).rejects.toThrow('solicitar');
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it('no crea Auth antes de comprobar migración', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: admin, error: null }];
+    state.rpcResponse = { data: false, error: null };
+    await expect(createUserAction(input)).rejects.toThrow('temporalmente');
+    expect(state.lastCreatePayload).toBeNull();
+  });
+
+  it('crea con contexto servidor y devuelve perfil confirmado, sin upsert separado', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: admin, error: null }, { data: created, error: null }];
+    state.authCreateResponse = { data: { user: { id: created.id } }, error: null };
+    const result = await createUserAction(input);
+    expect(state.lastCreatePayload).toMatchObject({ app_metadata: { topico_provisioning: {
+      version: 1, request_id: REQUEST_ID, requested_by: ADMIN_USER_ID, business_id: TENANT_A, activo: true,
+    } } });
+    expect(result.user).toMatchObject({ id: created.id, activo: 1, sync_status: 'synced' });
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it('reintento recupera solo el alta propia del mismo intento lógico', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: admin, error: null }, { data: created, error: null }];
+    state.authCreateResponse = { data: { user: null }, error: { message: 'already exists' } };
+    state.lookupUser = { id: created.id, email: input.email, app_metadata: { topico_provisioning: {
+      version: 1, request_id: REQUEST_ID, requested_by: ADMIN_USER_ID, business_id: TENANT_A,
+      nombre: input.nombre, rol: 'personal', activo: true,
+    } } };
+    const result = await createUserAction(input);
+    expect(result.user.id).toBe(created.id);
+    expect(state.lastAuthUpdate).toBeNull();
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it.each(['request_id', 'requested_by', 'business_id'] as const)('no adopta cuenta con %s distinto', async field => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: admin, error: null }, { data: created, error: null }];
+    state.authCreateResponse = { data: { user: null }, error: { message: 'already exists' } };
+    state.lookupUser = { id: created.id, email: input.email, app_metadata: { topico_provisioning: {
+      version: 1, request_id: REQUEST_ID, requested_by: ADMIN_USER_ID, business_id: TENANT_A,
+      nombre: input.nombre, rol: 'personal', activo: true, [field]: 'different',
+    } } };
+    await expect(createUserAction(input)).rejects.toThrow('registrado');
+    expect(state.lastUpdate.id).toBeNull();
   });
 });
 

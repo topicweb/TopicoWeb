@@ -21,8 +21,8 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 2 | Migración verificada en PostgreSQL y Supabase local Auth/API | Smoke cliente y despliegue; producción sin cambios |
 | 3 | Parche instalado y validado localmente | Prueba PWA instalada y despliegue Netlify |
 | 4a | Implementada y verificada localmente; decisión online confirmada | Prueba interactiva y despliegue |
-| 4b | Pendiente | Confirmación de email propio y recuperación Auth/perfiles |
-| 5–9 | Pendientes | Según plan |
+| 4b | Implementada y verificada localmente | Smoke interactivo y despliegue coordinado SQL/aplicación |
+| 5–9 | Pendientes; fuera del alcance de esta sesión | Retomar en otro chat por indicación del usuario |
 
 ## Regla de continuidad
 
@@ -96,3 +96,32 @@ No ejecutar supabase db push ni apply_migration sobre producción durante prepar
 - El usuario eligió explícitamente la opción recomendada: solo con conexión. Queda resuelto el pendiente de decisión de 4a; no hace falta nueva autorización para ese comportamiento.
 - El código de 0222d07 ya implementa esa opción y sus pruebas offline/errores. En este checkpoint se registra la elección, sin cambiar código ni dependencias y sin repetir pruebas históricas como nuevas.
 - Siguiente implementación: subfase 4b (confirmación de email propio y recuperación de fallos Auth/perfiles). La fase 4 completa y la validación/despliegue remotos siguen pendientes.
+
+## Cierre de fase 4 — implementación local completa
+
+Este registro sustituye el estado pendiente de 4b de los registros históricos anteriores. Por instrucción explícita del usuario se completa únicamente fase 4 y se detiene el trabajo; fases 5–9 se harán en otro chat/sesión.
+
+- Alta: schema validado, UUID estable para reintento del mismo formulario abierto y contexto confiable app_metadata. Nueva migración 20261116000200_atomic_user_profiles.sql crea perfil dentro de transacción Auth, comprobando actor administrador activo e institución. Incluye disparo de INSERT y cambio de contexto porque GoTrue escribe app_metadata después del INSERT. No se activa handle_new_user ni se usa user_metadata para autorizar.
+- Recuperación: un duplicado solo devuelve el alta previamente confirmada de la misma solicitud/actor/tenant/contexto; no sobrescribe contraseña/perfil ni adopta cuentas ajenas. Cambio/cierre de formulario descarta UUID; el alta ya existente debe consultarse. Huérfanos históricos sin marcador requieren diagnóstico/reparación dirigidos; no se borran automáticamente.
+- Email propio usa sesión y confirmación Auth, conserva email canónico y comunica pendiente. Reintento con new_email pendiente no reenvía correo. Espejo Auth→perfil transaccional y guard de correo de perfil impiden divergencia nueva incluso en fallo parcial; actualización diferida de Dexie al recibir evento Auth. Divergencia antigua se repara solo desde identidad Auth comprobada.
+- Email administrativo conserva confirmación administrativa autorizada. Nombre/rol/estado son una operación posterior: error se propaga y se reintenta; no se afirma atomicidad global del formulario. Guard evita sobrescritura de email obsoleto. RPC de preparación falla cerrado antes de nuevas mutaciones Auth si faltan triggers/migración.
+- Luna implementó parte UI/tipos y realizó revisión delimitada; principal revisó/corrigió acciones/SQL, escribió la matriz real local y ejecutó las verificaciones. Revisión final señaló posible doble inserción: se comprobó WHEN sobre el marcador y se añadió prueba real de app_metadata sin cambio de marcador, correcta; no se añadió upsert que adoptara perfiles.
+
+### Verificación final ejecutada
+
+- Vitest: 93/93 (acciones43, hook7, stock32, reportes11). TypeScript sin emisión correcto.
+- Build Next16.4.6 webpack/PWA correcto, 11 páginas; sin instalaciones ni cambios de dependencias en esta fase. Avisos anteriores de middleware/Browserslist sin fallo de build.
+- Lint de acciones/tests/hook/schemas/tipos/página correcto. AuthProvider y UserModal conservan cuatro errores React previos, comprobados contra HEAD; sin errores nuevos ni reglas desactivadas. No declarar lint global limpio.
+- Matriz real local user-consistency-local.mjs: correcta. Fallos CHECK inyectados de INSERT perfil y espejo de email revierten Auth; reintento correcto, sin huérfano. Guard de email obsoleto, duplicados, marcador confiable, permisos RPC, confirmación doble de correo propio y limpieza comprobados.
+- Matriz real local auth-api-local.mjs repetida tras migración: correcta, aislamiento RLS, escalada bloqueada, inactivo limitado, insert/upsert propio, escritura cruzada rechazada y cookies SDK/getUser/refresh/signOut correctos.
+- Migración final probada solo en stack sintético Docker; copia final conservada en su directorio temporal. Ninguna migración, política, fila ni configuración remota alterada. Stack de pruebas detenido correctamente al cierre, conservando sus volúmenes.
+
+### Despliegue y próxima sesión
+
+No se desplegó. No publicar solo las nuevas acciones: revisar catálogo/triggers/configuración Auth, aplicar primero migración fase 2 y después fase 4b, verificar cuatro triggers y RPC exclusivo service_role, luego aplicación. Aprobación operativa de despliegue pendiente; no usar db push contra producción de forma automática.
+
+Pendientes de aceptación de despliegue: smoke crear/editar/desactivar mediante UI/Server Actions, errores y reintento conservando formulario, caída de caché/red, confirmación por redirección real, sesión expirada y lectura PWA offline. Las pruebas API directas no los sustituyen. No confundir fase 4 terminada localmente con solución desplegada ni con auditoría de datos históricos.
+
+Rollback: antes de publicar, revertir commit local; después, suspender mutaciones de cuentas y coordinar cliente/acciones. Preferir corrección hacia delante manteniendo espejo/guard; no retirar triggers con acciones nuevas activas ni desactivar RLS. Preservar Auth, perfiles, pendientes y marcadores; sin rollback destructivo automático.
+
+Siguiente agente: leer este registro y plan, consultar git log y git status. Fase 4 local cerrada; no reimplementarla ni asumir validación cloud. Fases 5–9 permanecen sin iniciar y fuera del alcance actual. Reanudar solo según instrucciones de la próxima sesión.

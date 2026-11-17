@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/core/providers/AuthProvider';
-import { Perfil } from '../types';
+import { CreateUserData, Perfil } from '../types';
 import { createUserAction, softDeleteUserAction, updateUserAction } from '../actions/users';
 import { db } from '@/core/db';
 import { isPerfilActivo } from '@/shared/utils/perfil';
@@ -31,9 +31,7 @@ export function useUsuarios() {
 
   const isLoading = usuarios === undefined;
 
-  const crearUsuario = async (
-    usuario: Partial<Perfil> & { password?: string }
-  ) => {
+  const crearUsuario = async (usuario: CreateUserData) => {
     if (!businessId) throw new Error('Business ID requerido');
 
     if (!navigator.onLine) {
@@ -55,6 +53,7 @@ export function useUsuarios() {
 
     const result = await updateUserAction(id, { ...datos, business_id: businessId });
     await db.perfiles.put(result.user);
+    return result;
   };
 
   const eliminarUsuario = async (id: string) => {

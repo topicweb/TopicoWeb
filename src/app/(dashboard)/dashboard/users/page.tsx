@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Perfil } from "@/features/usuarios/types";
+import { CreateUserData, Perfil } from "@/features/usuarios/types";
 import { useUsuarios } from "@/features/usuarios/hooks/useUsuarios";
 import { UserModal } from "@/features/usuarios/components/UserModal";
 import { Plus, Search, Trash2, Edit2, Users } from "lucide-react";
@@ -54,12 +54,16 @@ export default function UsersPage() {
     setIsModalOpen(true);
   };
 
-  const handleSave = async (data: Partial<Perfil> & { password?: string }) => {
+  const handleSave = async (data: CreateUserData) => {
     if (editingItem) {
-      await actualizarUsuario(editingItem.id, {
+      const result = await actualizarUsuario(editingItem.id, {
         nombre: data.nombre, email: data.email, rol: data.rol, activo: data.activo,
       });
-      toast.success("Usuario actualizado correctamente");
+      if (result.emailConfirmationPending) {
+        toast.info("Confirma el cambio desde tu correo. Tu email de acceso se conserva hasta confirmarlo.");
+      } else {
+        toast.success("Usuario actualizado correctamente");
+      }
     } else {
       await crearUsuario(data);
       toast.success("Usuario creado correctamente");

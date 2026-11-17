@@ -1,6 +1,8 @@
 param(
   [string]$SupabaseCli = 'C:/Users/rival/AppData/Local/Programs/Supabase/supabase.exe',
-  [string]$Node = 'C:/Program Files/nodejs/node.exe'
+  [string]$Node = 'C:/Program Files/nodejs/node.exe',
+  [ValidateSet('auth-api-local.mjs','user-consistency-local.mjs')]
+  [string]$TestScript = 'auth-api-local.mjs'
 )
 $ErrorActionPreference = 'Stop'
 $stackPath = Join-Path $env:TEMP 'topico-refactor-stack-20261116'
@@ -27,7 +29,7 @@ try {
   $env:LOCAL_SUPABASE_URL = $localStatus.API_URL
   $env:LOCAL_SUPABASE_ANON_KEY = $localStatus.ANON_KEY
   $env:LOCAL_SUPABASE_SERVICE_ROLE_KEY = $localStatus.SERVICE_ROLE_KEY
-  & $Node (Join-Path $PSScriptRoot 'auth-api-local.mjs')
+  & $Node (Join-Path $PSScriptRoot $TestScript)
   if ($LASTEXITCODE -ne 0) { throw 'Falló la matriz Auth/API local' }
 } finally {
   foreach ($name in $previous.Keys) { [Environment]::SetEnvironmentVariable($name,$previous[$name],'Process') }

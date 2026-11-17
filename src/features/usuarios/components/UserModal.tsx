@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Save, UserPlus, Mail, Shield, ShieldCheck, LucideIcon } from "lucide-react";
 import { toast } from "sonner";
-import { Perfil } from "../types";
+import { CreateUserData, Perfil } from "../types";
 import { PasswordSchema } from "@/shared/schemas/validation";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
@@ -11,7 +11,7 @@ interface UserModalProps {
   isOpen: boolean;
   onClose: () => void;
   item?: Perfil | null;
-  onSave: (data: Partial<Perfil> & { password?: string }) => Promise<void>;
+  onSave: (data: CreateUserData) => Promise<void>;
 }
 
 function InputField({
@@ -63,6 +63,7 @@ const modalVariants: Variants = {
 };
 
 export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => {
+  const createRequestRef = useRef<{ fingerprint: string; requestId: string } | null>(null);
   const [formData, setFormData] = useState<Partial<Perfil> & { password?: string }>({
     nombre: "",
     email: "",
@@ -73,12 +74,25 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    createRequestRef.current = null;
     setFormData(
       item
         ? { nombre: item.nombre, email: item.email, rol: item.rol, activo: item.activo, password: "" }
         : { nombre: "", email: "", rol: "personal", activo: 1, password: "" }
     );
   }, [item, isOpen]);
+
+  const updateFormData = (next: typeof formData) => {
+    if (JSON.stringify(next) !== JSON.stringify(formData)) {
+      createRequestRef.current = null;
+    }
+    setFormData(next);
+  };
+
+  const handleClose = () => {
+    createRequestRef.current = null;
+    onClose();
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,10 +106,17 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
           return;
         }
       }
-      await onSave(formData);
-      onClose();
+      if (item) {
+        await onSave(formData);
+      } else {
+        const fingerprint = JSON.stringify(formData);
+        if (createRequestRef.current?.fingerprint !== fingerprint) {
+          createRequestRef.current = { fingerprint, requestId: crypto.randomUUID() };
+        }
+        await onSave({ ...formData, request_id: createRequestRef.current.requestId });
+      }
+      handleClose();
     } catch (error) {
-      console.error(error);
       toast.error(
         error instanceof Error && error.message === 'No autenticado'
           ? 'Sesión expirada. Vuelve a iniciar sesión.'
@@ -116,7 +137,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
             initial="hidden"
             animate="visible"
             exit="hidden"
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute inset-0 bg-[var(--foreground)]/20 backdrop-blur-sm"
           />
 
@@ -142,7 +163,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
                 </div>
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-colors hover:bg-[var(--primary-soft)] hover:text-primary"
                 >
                   <X size={18} />
@@ -155,7 +176,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
                 icon={UserPlus}
                 label="Nombre Completo"
                 value={formData.nombre || ""}
-                onChange={(v) => setFormData({ ...formData, nombre: v })}
+                onChange={(v) => updateFormData({ ...formData, nombre: v })}
                 placeholder="Ej. Juan Pérez"
                 required
                 autoComplete="name"
@@ -166,7 +187,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
                 label="Correo Institucional"
                 type="email"
                 value={formData.email || ""}
-                onChange={(v) => setFormData({ ...formData, email: v })}
+                onChange={(v) => updateFormData({ ...formData, email: v })}
                 placeholder="usuario@institucion.edu.pe"
                 required
                 autoComplete="email"
@@ -178,7 +199,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
                   label="Contraseña de Acceso"
                   type="password"
                   value={formData.password || ""}
-                  onChange={(v) => setFormData({ ...formData, password: v })}
+                  onChange={(v) => updateFormData({ ...formData, password: v })}
                   placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número"
                   required
                   minLength={8}
@@ -194,7 +215,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
                 <div className="flex rounded-xl border border-border bg-muted p-1 shadow-inner">
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, rol: "personal" })}
+                    onClick={() => updateFormData({ ...formData, rol: "personal" })}
                     className={`flex-1 rounded-lg py-2.5 text-xs font-semibold transition-all ${
                       formData.rol === "personal"
                         ? "scale-[1.02] bg-white text-accent shadow-sm"
@@ -205,7 +226,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
                   </button>
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, rol: "admin" })}
+                    onClick={() => updateFormData({ ...formData, rol: "admin" })}
                     className={`flex-1 rounded-lg py-2.5 text-xs font-semibold transition-all ${
                       formData.rol === "admin"
                         ? "scale-[1.02] bg-white text-primary shadow-sm"
@@ -220,7 +241,7 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
               <div className="flex justify-end gap-3 border-t border-border pt-5">
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="rounded-xl px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Cancelar

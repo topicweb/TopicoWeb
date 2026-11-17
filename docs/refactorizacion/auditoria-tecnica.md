@@ -106,3 +106,28 @@ Avisos oficiales consultados en el análisis anterior: https://github.com/vercel
 6. Revisión de superficies fuera de public/auth: Storage, Edge Functions, extensiones y membresías completas si forman parte del despliegue.
 
 Conclusión: la aplicación puede funcionar correctamente en sus flujos normales y aun tener permisos remotos demasiado amplios. La prioridad cambia a autorización de perfiles y aislamiento RLS; limpieza e índices quedan después. No hay evidencia de incidente ni justificación de reescritura. La ausencia de hallazgos de aislamiento en advisors no invalida S01/S02: esos avisores no verifican la intención de negocio.
+
+## Actualización de implementación — cierre local de fase 4
+
+Los hallazgos y las referencias anteriores describen la revisión inicial; se conservan como evidencia histórica. El código ha cambiado en los commits de fases 1–4. Esta actualización no certifica corrección del despliegue remoto: no se ejecutaron escrituras ni migraciones sobre Supabase cloud.
+
+| Hallazgo inicial | Evidencia y estado local actual |
+|---|---|
+| L06, falsos éxitos/caché anticipada | users.ts devuelve filas confirmadas; useUsuarios.ts persiste esas filas tras éxito remoto y propaga errores. La decisión online conserva lectura offline y rechaza mutaciones sin conexión. Cubierto por pruebas de acciones y hook. |
+| L07, identidad propia y perfil inactivo | Validación activo/no eliminado en autoservicio; email propio mediante cliente de sesión, sin confirmación administrativa. Devuelve emailConfirmationPending y conserva email anterior hasta confirmar. El flujo administrativo conserva su autorización y semántica. |
+| L08, Auth/perfiles en operaciones separadas | Nueva migración 20261116000200_atomic_user_profiles.sql: aprovisionamiento con contexto app_metadata validado dentro de transacción Auth; espejo de email y guard de correo canónico. Fallos reales del perfil revierten alta/cambio Auth en el stack local. No modifica automáticamente huérfanos históricos. |
+| L09, validación de rol | Schemas de alta/edición restringen rol; no se permite traslado de institución ni campos privilegiados propios. Tests de autorización conservados. |
+
+Comprobaciones realizadas en esta fase:
+
+- 93 pruebas unitarias correctas: acciones de usuarios 43, hook 7, stock 32 y reportes 11; TypeScript sin emisión y build Next webpack/PWA correctos, 11 páginas generadas. Avisos de middleware obsoleto y Browserslist conservados.
+- Supabase local con GoTrue/PostgREST: altas con contexto confiable, rechazo de actor no administrador/tenant incorrecto/nombre inválido, mismo email reutilizable tras rollback y fallo CHECK real del INSERT perfil sin cuenta Auth huérfana.
+- Fallo CHECK real del espejo de email: conserva correo anterior tanto en Auth como en perfiles; reintento posterior correcto. Guard rechaza escritura obsoleta de email incluso con service_role. Duplicado Auth rechazado.
+- Email propio pendiente sin modificar perfil; ambos enlaces de confirmación recibidos y consumidos exclusivamente en correo sintético local; email final idéntico en Auth y perfil. Metadata editable por usuario no eleva privilegios. Marcador de aprovisionamiento sin cambios no reinserta perfil al actualizar app_metadata.
+- RPC de preparación accesible por service_role, denegado para anon y authenticated. Contexto de reintento verificado en tests de acciones; no se recuperan cuentas con otro actor/tenant/UUID de solicitud. UI conserva UUID solo en memoria para el mismo formulario abierto; no persiste contraseñas en metadata/almacenamiento.
+- Matriz local anterior de RLS/Auth repetida correctamente después de la nueva migración, incluidas cookies SDK, getUser, refreshSession y signOut. Todas las filas/correos generados se retiraron; comprobación de limpieza correcta.
+- Lint correcto en acciones/tests/hook/schemas/tipos/página. AuthProvider.tsx conserva tres errores previos de reglas React (set-state-in-effect y refs); UserModal.tsx conserva uno previo de set-state-in-effect. Comparación contra HEAD anterior confirma los mismos cuatro errores, sin errores nuevos ni supresión de reglas. No se incluye su refactorización en fase 4.
+
+Límites pendientes: smoke de UI/Server Actions reales, carreras de navegador, redirección de confirmación desplegada, email/SMTP/rate limits cloud, PWA instalada y caché de dispositivo existente. El test local no copia toda la configuración ni todos los triggers remotos. Debe revisarse la compatibilidad del catálogo antes de aplicar SQL. Los demás hallazgos de sincronización, integridad y privacidad siguen abiertos para fases 5–9; no se hicieron cambios de esas fases ni pruebas de carga nuevas.
+
+La atomicidad probada comprende alta Auth/perfil y email Auth/perfil. Nombre/rol/estado se guardan en una petición posterior; si falla, la acción informa error y permite reintento, sin asegurar rollback global del formulario. Los huérfanos antiguos sin procedencia verificable necesitan reparación manual dirigida; nunca se adopta una cuenta por coincidir únicamente el email.

@@ -41,3 +41,15 @@ No usar `--no-backup`, `db reset` ni `db push` contra un proyecto remoto. No sob
 La prueba API valida registro administrativo sintético, login, perfiles de dos tenants, escritura propia, upsert, denegación de escalada de perfil, escritura cruzada y sesión de perfil inactivo. También prueba los SDK instalados con cookies en memoria: createBrowserClient, createServerClient, getUser, refreshSession y signOut. Complementa la matriz SQL de siete tablas ya existente.
 
 No certifica cookies SSR de la aplicación, Server Actions a través de Next, navegación/PWA offline, migración Dexie instalada, carreras multiventana, configuración Auth cloud ni despliegue Netlify. Esos criterios siguen pendientes; no marcar producción como corregida solo por pasar estas pruebas locales.
+
+## Matriz de consistencia de usuarios — fase 4b
+
+El stack local incorpora también la migración en desarrollo 20261116000200_atomic_user_profiles.sql. Su borrador se corrigió y reaplicó exclusivamente en este entorno sintético antes del commit final; la copia temporal coincide con el archivo final del repositorio. Esto no autoriza modificar una migración publicada/aplicada en otros entornos. Para reproducir desde cero: esquema sintético, migración fase 2 y migración fase 4b, en ese orden, con Auth real del stack.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-auth-api-local.ps1 -TestScript user-consistency-local.mjs
+```
+
+Requiere el contenedor local supabase_db_topico-refactor-stack-20261116, Docker en su ruta instalada y Mailpit en http://127.0.0.1:54324. El test acepta únicamente API HTTP loopback; no usar túneles ni redirigir puertos a producción. Instala y retira temporalmente un CHECK sintético en perfiles para provocar fallos de INSERT y espejo de email; por ello ejecutarlo solo en este stack aislado, sin otros tests simultáneos. No realiza esas operaciones mediante MCP remoto.
+
+Valida aprovisionamiento atómico, marcador confiable, rollback sin huérfanos, email canónico, espejo transaccional, duplicados, permisos RPC y confirmación de email propio con los dos correos de Mailpit. Solo consulta cuerpos de mensajes dirigidos a los UUID sintéticos de su ejecución y mantiene enlaces/claves en memoria sin imprimirlos. Retira usuarios/perfiles/instituciones, constraint temporal y mensajes generados, e informa fallos de limpieza. Repetir también la matriz Auth/RLS original tras aplicar la migración.

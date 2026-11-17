@@ -24,6 +24,9 @@ export interface Perfil extends BaseEntity {
   business_id: string | null;
 }
 
+/** Identificador estable del alta lógica; nunca representa un usuario Auth. */
+export type CreateUserData = Partial<Perfil> & { password?: string; request_id?: string };
+
 // ───────────────────────────────────────────────────────────────────────────────
 // Tipo para el formulario de creación/edición de usuarios
 // ───────────────────────────────────────────────────────────────────────────────

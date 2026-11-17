@@ -240,7 +240,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Al volver a la pestaña Supabase refresca el token: no re-validar perfil.
+      // Diferir llamadas a Supabase fuera del callback de Auth (evita bloquear su lock).
+      if ((event === 'USER_UPDATED' || event === 'TOKEN_REFRESHED') && session?.user) {
+        const authUser = session.user;
+        setTimeout(() => {
+          if (!mounted || hydratedUserIdRef.current !== authUser.id) return;
+          void db.perfiles.get(authUser.id).then(local => {
+            if (!mounted || hydratedUserIdRef.current !== authUser.id) return;
+            if (event === 'USER_UPDATED' || local?.email !== authUser.email) {
+              void refreshPerfilInBackground(authUser.id, null);
+            }
+          }).catch(() => logger.debug('[AuthProvider] Refresh de email pendiente'));
+        }, 0);
+        return;
+      }
+
+      // Token sin usuario: no rehidratar el perfil.
       if (event === "TOKEN_REFRESHED" || event === "USER_UPDATED") {
         return;
       }
@@ -261,7 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, []);
+  }, [refreshPerfilInBackground]);
 
   return (
     <AuthContext.Provider
