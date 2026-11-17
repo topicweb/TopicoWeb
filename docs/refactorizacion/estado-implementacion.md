@@ -19,7 +19,7 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 0 | Preparación local y herramientas disponibles | Build/smoke, configuración Auth/API y staging real |
 | 1 | Parte local implementada y verificada | SQL coordinado con fase 2; staging y despliegue pendientes |
 | 2 | Migración implementada y matriz SQL local correcta (dos pasadas) | Staging Auth/API y smoke cliente; no desplegada |
-| 3 | Pendiente | Actualización framework/versiones y build |
+| 3 | Bloqueada por descarga; se conserva manifest/lockfile originales | Reintentar parche en entorno con npm estable y validar build |
 | 4–9 | Pendientes | Según plan, sin cambios aún |
 
 ## Regla de continuidad
@@ -46,3 +46,16 @@ No ejecutar supabase db push ni apply_migration sobre producción durante prepar
 - Dos ejecuciones completas correctas: aislamiento bidireccional de siete tablas; INSERT/UPDATE/upsert propio y rechazo cruzado en cuatro; traslado tenant denegado; perfil/anon/DELETE/TRUNCATE; inactivo/eliminado/sin perfil; service_role preservado. Migración repetida correctamente.
 - No se aplicó en Supabase. Pendiente staging real con Auth y PostgREST; ausencia de staging comunicada mediante pregunta asíncrona.
 - Para reversión operativa futura: mantener nuevas políticas y revocar temporalmente INSERT/UPDATE clínicos de authenticated, preservando pendientes; reparar y revalidar antes de reabrir. Nunca volver a grants/políticas abiertas ni desactivar RLS. Revertir commit local solo antes de despliegue.
+
+## Registro 16/11/2026 — límite de la sesión y siguiente acción
+
+- Commits de fase: 89bc76e (preparación), 5090d3a (fase 1 local), 3217bb7 (fase 2 local, SQL + matriz). Consultar git log por si otro agente añadió commits posteriormente.
+- Fase 3: versión estable Next 16.4.6 comprobada en GitHub oficial y npm; React/react-dom 19.2.9 disponible y compatible con peerDependencies. Objetivo también server-only 0.0.1 y eslint-config-next 16.4.6. Referencia: https://github.com/vercel/next.js/releases/tag/v16.4.6 .
+- Dos intentos de instalación sufrieron TLS EPROTO/BAD_RECORD_MAC/ECONNRESET y descarga detenida. Se detuvieron únicamente procesos de esos instaladores. No se desactivó TLS. Se recuperó instalación original usando lockfile congelado, caché offline e ignore-scripts. No añadir import server-only hasta instalarlo correctamente.
+- No hay autorización para un coste de staging. La consulta asíncrona pide elegir proyecto existente, gratuito o trabajo local; no asumir respuesta por silencio. No desplegar SQL sobre producción saltando pruebas Auth/API.
+- Fases 4–9 no iniciadas. No mezclar cambios nuevos con una fase pendiente de validación; conservar todos los criterios originales del plan.
+- Próximo agente: comprobar entorno y pruebas; completar instalación fase 3 con red estable, luego staging real de fases 1/2 y smoke. Revisar antes de aplicar que private.current_business_id no colisione con funciones preexistentes, grants service_role y esquema actual. El fixture simula Auth, no API real.
+- Riesgos pendientes de fase 4: carrera entre lectura del estado de perfil y UPDATE service_role; fallo Auth/email antes de escribir perfil. No se dan por resueltos ni se alteró el flujo de email en fase 1.
+- Verificación final tras recuperación: Node 20.19.0; next 16.1.6, react/react-dom 19.2.3; TypeScript correcto; Vitest 66/66; build webpack/PWA correcto con las 11 páginas. package.json, pnpm-lock.yaml y pnpm-workspace.yaml sin diferencias respecto a inicio.
+- PostgreSQL temporal detenido correctamente. No se borró su directorio; sus datos son únicamente sintéticos. Para repetir tests, iniciar ese cluster en el puerto 55439 antes de ejecutar run-local.ps1; el runner crea y retira su propia base aleatoria.
+- No se realizaron pruebas manuales de PWA/Auth ni escrituras remotas. Estado seguro para retomar: cambios de aplicación y SQL guardados en commits; fase 3 no quedó parcialmente aplicada.
