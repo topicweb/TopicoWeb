@@ -164,6 +164,23 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
 
   await validateAdminAccess(data.business_id);
 
+  // R6 (IDOR): verificar que el usuario objetivo pertenezca al MISMO tenant
+  // que el admin que llama. Sin esto, un admin del tenant A podía modificar
+  // (rol, email, nombre) usuarios del tenant B.
+  const { data: targetUser, error: targetError } = await supabaseAdmin
+    .from('perfiles')
+    .select('business_id')
+    .eq('id', id)
+    .single();
+
+  if (targetError || !targetUser) {
+    throw new Error('Usuario objetivo no encontrado');
+  }
+
+  if (targetUser.business_id !== data.business_id) {
+    throw new Error('No tienes permiso para operar sobre este usuario');
+  }
+
   const updatePayload: Record<string, unknown> = {};
   if (data.nombre !== undefined) updatePayload.nombre = data.nombre;
   if (data.email !== undefined) updatePayload.email = data.email;
