@@ -17,6 +17,9 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
     /** Última llamada a .update(payload).eq('id', id) */
     lastUpdate: { payload: null as unknown, id: null as string | null },
     updateResponse: { error: null } as { error: { message: string } | null },
+    /** Última llamada a auth.admin.updateUserById (R17) */
+    lastAuthUpdate: null as { userId: string; attrs: { email?: string; email_confirm?: boolean } } | null,
+    authUpdateResponse: { error: null } as { error: { message: string } | null },
   };
 
   const supabaseAdminMock = {
@@ -44,6 +47,10 @@ const { state, supabaseAdminMock, getAuthenticatedUserMock } = vi.hoisted(() => 
       admin: {
         createUser: () =>
           Promise.resolve({ data: { user: null }, error: { message: 'not needed in tests' } }),
+        updateUserById: (userId: string, attrs: { email?: string; email_confirm?: boolean }) => {
+          state.lastAuthUpdate = { userId, attrs };
+          return Promise.resolve(state.authUpdateResponse);
+        },
       },
     },
   };
@@ -68,6 +75,8 @@ beforeEach(() => {
   state.singleResponses = [];
   state.lastUpdate = { payload: null, id: null };
   state.updateResponse = { error: null };
+  state.lastAuthUpdate = null;
+  state.authUpdateResponse = { error: null };
 });
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -146,6 +155,57 @@ describe('updateUserAction — R6 IDOR cross-tenant', () => {
     ).rejects.toThrow('No tienes permiso para operar sobre este usuario');
 
     expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it('admin actualiza usuario del mismo tenant y le cambia el email → sincroniza Auth primero (R17)', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { rol: 'admin', business_id: TENANT_A, activo: true }, error: null },
+      { data: { business_id: TENANT_A, email: 'vieja@inst.edu.pe' }, error: null },
+    ];
+
+    const result = await updateUserAction('target-1', {
+      nombre: 'Nombre Cambiado',
+      email: 'nueva@inst.edu.pe',
+      business_id: TENANT_A,
+    });
+
+    expect(result).toEqual({ success: true });
+    // Auth actualizado primero, como usuario objetivo
+    expect(state.lastAuthUpdate).toEqual({
+      userId: 'target-1',
+      attrs: { email: 'nueva@inst.edu.pe', email_confirm: true },
+    });
+    // perfiles refleja el nuevo email
+    expect((state.lastUpdate.payload as { email?: string }).email).toBe('nueva@inst.edu.pe');
+  });
+
+  it('admin intenta cambiar email a uno YA registrado en Auth → falla y no toca perfiles (R17)', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { rol: 'admin', business_id: TENANT_A, activo: true }, error: null },
+      { data: { business_id: TENANT_A, email: 'vieja@inst.edu.pe' }, error: null },
+    ];
+    state.authUpdateResponse = { error: { message: 'email already in use' } };
+
+    await expect(
+      updateUserAction('target-1', { email: 'duplicado@inst.edu.pe', business_id: TENANT_A }),
+    ).rejects.toThrow('No se pudo actualizar el email: email already in use');
+
+    // Nada se escribió en perfiles
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it('email SIN cambio → no toca Supabase Auth (R17)', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { rol: 'admin', business_id: TENANT_A, activo: true }, error: null },
+      { data: { business_id: TENANT_A, email: 'misma@inst.edu.pe' }, error: null },
+    ];
+
+    await updateUserAction('target-1', { email: 'misma@inst.edu.pe', business_id: TENANT_A });
+
+    expect(state.lastAuthUpdate).toBeNull();
   });
 
   it('admin trata de modificar su propio perfil: path self-update sin rol admin requerido', async () => {

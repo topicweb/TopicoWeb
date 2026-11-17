@@ -145,7 +145,28 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
   if (currentUserId && id === currentUserId) {
     const updatePayload: Partial<Perfil> = {};
     if (data.nombre !== undefined) updatePayload.nombre = data.nombre;
-    if (data.email !== undefined) updatePayload.email = data.email;
+
+    // R17: si cambia el email, actualizar Primero el email en Supabase Auth
+    // (respeta unicidad y deja trail) y solo entonces reflejarlo en perfiles.
+    if (data.email) {
+      const { data: ownProfile } = await supabaseAdmin
+        .from('perfiles')
+        .select('email')
+        .eq('id', id)
+        .single();
+
+      const emailChanged = !ownProfile || ownProfile.email !== data.email;
+      if (emailChanged) {
+        const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(id, {
+          email: data.email,
+          email_confirm: true,
+        });
+        if (authErr) {
+          throw new Error(`No se pudo actualizar el email: ${authErr.message}`);
+        }
+        updatePayload.email = data.email;
+      }
+    }
 
     const { error } = await supabaseAdmin
       .from('perfiles')
@@ -169,7 +190,7 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
   // (rol, email, nombre) usuarios del tenant B.
   const { data: targetUser, error: targetError } = await supabaseAdmin
     .from('perfiles')
-    .select('business_id')
+    .select('business_id, email')
     .eq('id', id)
     .single();
 
@@ -181,9 +202,22 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
     throw new Error('No tienes permiso para operar sobre este usuario');
   }
 
+  // R17: si cambia el email, actualizar Primero el email en Supabase Auth
+  // (respeta unicidad) y solo entonces reflejarlo en perfiles.
+  const emailChanged = !!data.email && data.email !== targetUser.email;
+  if (emailChanged) {
+    const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(id, {
+      email: data.email,
+      email_confirm: true,
+    });
+    if (authErr) {
+      throw new Error(`No se pudo actualizar el email: ${authErr.message}`);
+    }
+  }
+
   const updatePayload: Record<string, unknown> = {};
   if (data.nombre !== undefined) updatePayload.nombre = data.nombre;
-  if (data.email !== undefined) updatePayload.email = data.email;
+  if (emailChanged) updatePayload.email = data.email;
   if (data.rol !== undefined) updatePayload.rol = data.rol;
   if (data.activo !== undefined) updatePayload.activo = isPerfilActivo(data.activo);
   if (data.business_id !== undefined) updatePayload.business_id = data.business_id;
