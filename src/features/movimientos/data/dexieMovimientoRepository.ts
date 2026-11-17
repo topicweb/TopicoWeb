@@ -1,5 +1,6 @@
 import { db } from "@/core/db/dexie/db";
 import { syncService } from '@/core/db/sync';
+import { logger } from '@/core/utils/logger';
 import { updateMedicamentoStock, StockError } from "@/core/db/dexie/logic/stock";
 import { MovimientoStock } from "@/features/inventario/types";
 import { Atencion } from "@/features/atenciones/types";
@@ -78,7 +79,7 @@ export class DexieMovimientoRepository implements MovimientoRepository {
 
     // Trigger PUSH automático solo si hay conexión
     if (typeof window !== 'undefined' && navigator.onLine) {
-      syncService.requestPush().catch(console.error);
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'movements', operation: 'push' }));
     }
 
     const medicamento = await db.medicamentos.get(input.medicamento_id);

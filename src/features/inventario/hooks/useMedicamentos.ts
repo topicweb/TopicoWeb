@@ -81,7 +81,7 @@ export function useMedicamentos(): UseMedicamentosReturn {
 
     await db.medicamentos.add(medicamento);
     if (isOnline) {
-      syncService.requestPush().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'inventory', operation: 'push' }));
     }
     return medicamento.id;
   };
@@ -130,7 +130,7 @@ export function useMedicamentos(): UseMedicamentosReturn {
       });
     });
     if (isOnline) {
-      syncService.requestPush().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'inventory', operation: 'push' }));
     }
   };
 
@@ -146,7 +146,7 @@ export function useMedicamentos(): UseMedicamentosReturn {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.requestPush().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'inventory', operation: 'push' }));
     }
   };
 

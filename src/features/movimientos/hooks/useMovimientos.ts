@@ -6,6 +6,7 @@
 import { useState, useCallback, useMemo, useRef } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useAuth } from "@/core/providers/AuthProvider";
+import { logger } from "@/core/utils/logger";
 import { StockError } from "@/core/db/dexie/logic/stock";
 import {
   CrearMovimientoInput,
@@ -108,7 +109,7 @@ export function useMovimientos(): UseMovimientosReturn {
         if (isMountedRef.current) {
           setError(errorMessage);
         }
-        console.error("[useMovimientos] Error al registrar:", err);
+        logger.error('movement.register_failed', { area: 'movements', operation: 'create' });
         return null;
       } finally {
         if (isMountedRef.current) {

@@ -207,3 +207,9 @@ Continuación autorizada de fase 8 desde 1e07003, con Luna como apoyo. Se recons
 - Repetidas correctamente las matrices de consistencia Auth y stock después del recorte; limpieza sintética correcta. SQL de producción no aplicado. Reversión operativa: conservar permisos mínimos y corregir por función; no restaurar EXECUTE público indiscriminado ni conectar triggers históricos.
 
 Los subpasos de sesión/caché, logger y HTTP/PWA se registran por separado al cerrar su validación.
+
+## Fase 8b — logs por eventos y campos permitidos
+
+- Logger con lista cerrada de eventos, áreas, operaciones y directivas CSP. Solo acepta contadores enteros no negativos y estado online booleano. No emite message/code/error, nombres, correos, IDs, tokens, URLs ni cuerpos recibidos, tampoco en desarrollo. Una validación runtime descarta eventos desconocidos y campos extra aunque un caller eluda TypeScript.
+- Migrados consumidores de logs de Auth, red, sincronización, dispositivo, SW, repositorios y hooks clínicos. Los errores siguen propagándose a sus consumidores; se reduce únicamente su salida en consola. El simulador operativo y seed sin consumidor no se ejecutaron ni se retiraron.
+- Tres pruebas de logger correctas con errores, DNI, correo, tokens y campos adicionales sintéticos; no se imprimen. Los informes CSP se observan en producción como conteos por directiva cerrada mediante warn, sin conservar URLs ni contenido del informe.

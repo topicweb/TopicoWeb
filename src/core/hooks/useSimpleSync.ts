@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { db } from '@/core/db/dexie/db';
 import { supabase } from '@/core/db/supabase';
 import { toast } from 'sonner';
+import { logger } from '@/core/utils/logger';
 
 /** Tablas en orden de sincronización (respetando foreign keys) */
 const TABLES = ['instituciones', 'pacientes', 'medicamentos', 'atenciones', 'movimientos_stock'];
@@ -76,16 +77,11 @@ export function useSimpleSync(enabled: boolean): void {
         const { error } = await supabase.from(tableName).upsert(cleanData, { onConflict: 'id' });
 
         if (error) {
-          console.error(`[useSimpleSync] Error sincronizando ${tableName}:`, {
-            code: error.code,
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-          });
+          logger.error('sync.table_failed', { area: 'sync', operation: 'push', count: pending.length });
 
           // Conflicto = registro ya existe, marcar como synced
           if (error.code === '409' || error.code === '23505') {
-            console.warn(`[useSimpleSync] Conflicto en ${tableName} - marcando como synced`);
+            logger.warn('sync.conflict_skipped', { area: 'sync', operation: 'push', count: pending.length });
             const ids = pending.map((p: any) => p.id);
             await table.bulkUpdate(ids.map((id: string) => ({
               key: id,
@@ -93,7 +89,7 @@ export function useSimpleSync(enabled: boolean): void {
             })));
           } else if (error.code === '23503') {
             // FK violation = mantener pending para reintento
-            console.warn(`[useSimpleSync] FK violation en ${tableName} - se reintentará`);
+            logger.warn('sync.foreign_key_retry', { area: 'sync', operation: 'push', count: pending.length });
           } else {
             toast.error(`Error sincronizando ${tableName}: ${error.message || 'Error desconocido'}`);
           }

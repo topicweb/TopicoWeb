@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { logger } from "@/core/utils/logger";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // SERVICE WORKER REGISTRATION
@@ -14,11 +15,11 @@ export function useRegisterSW() {
       if (process.env.NODE_ENV === "production") {
         navigator.serviceWorker
           .register("/sw.js")
-          .then((registration) => {
-            console.log("Service Worker registrado:", registration);
+          .then(() => {
+            logger.info('service_worker.registered', { area: 'service_worker', operation: 'register' });
           })
-          .catch((error) => {
-            console.error("Error al registrar Service Worker:", error);
+          .catch(() => {
+            logger.error('service_worker.registration_failed', { area: 'service_worker', operation: 'register' });
           });
       }
     }

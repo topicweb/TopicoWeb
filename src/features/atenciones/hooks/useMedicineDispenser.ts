@@ -1,6 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import { Medicamento, TipoMedida, DispensacionMedicamento } from "@/features/inventario/types";
 import { verificarStockDisponible, validarLimiteDispensacion, StockError } from "@/core/db/dexie/logic/stock";
+import { logger } from "@/core/utils/logger";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // HOOK DE DISPENSADOR DE MEDICAMENTOS
@@ -109,7 +110,7 @@ export function useMedicineDispenser({
           },
         ]);
       } catch (error) {
-        if (error instanceof StockError) console.error(`Error: ${medicamento.nombre}:`, error.message);
+        if (error instanceof StockError) logger.error('stock.operation_failed', { area: 'inventory', operation: 'read' });
       } finally {
         setValidando((prev) => {
           const next = new Set(prev);

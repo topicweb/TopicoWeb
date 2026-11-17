@@ -113,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { signOutRef.current = signOut; }, [signOut]);
 
   const rejectSession = useCallback(async (reason: string) => {
-    logger.warn(`[AuthProvider] ${reason}`);
+    logger.warn('auth.session_rejected');
     await signOutRef.current();
   }, []);
 
@@ -138,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       await db.perfiles.put(normalizePerfilFromSupabase(remotePerfil as Record<string, unknown>));
     } catch (error) {
-      logger.debug("[AuthProvider] Refresh de perfil en background omitido:", error);
+      logger.debug('auth.profile_refresh_skipped');
     }
   }, [rejectSession]);
 
@@ -199,7 +199,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       hydratedUserIdRef.current = authUser.id;
     } catch (error) {
       if (epoch !== authEpoch.current) return;
-      logger.error("[AuthProvider] Error resolviendo perfil:", error);
+      logger.error('auth.profile_resolution_failed');
       await rejectSession("No se pudo validar el perfil del usuario.");
     } finally {
       setIsInitialPerfilLoad(false);
@@ -249,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (event === 'USER_UPDATED' || local?.email !== authUser.email) {
               void refreshPerfilInBackground(authUser.id);
             }
-          }).catch(() => logger.debug('[AuthProvider] Refresh de email pendiente'));
+          }).catch(() => logger.debug('auth.email_refresh_skipped'));
         }, 0);
         return;
       }

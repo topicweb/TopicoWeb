@@ -20,7 +20,7 @@ export function useBidirectionalSync() {
       if (!active) return;
       setIsSyncing(true);
       try { await syncService.fullSync(context); }
-      catch (error) { if (active) logger.error('[Sync] Falló sincronización', error); }
+      catch { if (active) logger.error('sync.request_failed', { area: 'sync', operation: 'pull' }); }
       finally { if (active) setIsSyncing(false); }
     };
     const timer = window.setTimeout(run, 0);

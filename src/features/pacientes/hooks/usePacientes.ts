@@ -3,7 +3,9 @@ import { db } from '@/core/db';
 import { useAuth } from '@/core/providers/AuthProvider';
 import { useNetwork } from '@/core/providers/NetworkProvider';
 import { syncService } from '@/core/db/sync';
+import { logger } from '@/core/utils/logger';
 import type { Paciente, PacienteFormData, ProgramaEstudio } from '../types';
+import { isPerfilActivo } from '@/shared/utils/perfil';
 
 // ───────────────────────────────────────────────────────────────────────────────
 // GESTIÓN DE PACIENTES
@@ -31,7 +33,7 @@ export function usePacientes(): UsePacientesReturn {
       return db.pacientes
         .where('business_id')
         .equals(businessId)
-        .filter((p) => (p.activo as any))
+        .filter((p) => isPerfilActivo(p.activo))
         .toArray();
     },
     [businessId]
@@ -43,7 +45,7 @@ export function usePacientes(): UsePacientesReturn {
       return db.programas_estudio
         .where('business_id')
         .equals(businessId)
-        .filter((p) => (p.activo as any))
+        .filter((p) => isPerfilActivo(p.activo))
         .toArray();
     },
     [businessId]
@@ -76,7 +78,7 @@ export function usePacientes(): UsePacientesReturn {
 
     await db.pacientes.add(paciente);
     if (isOnline) {
-      syncService.requestPush().catch(console.error);
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'patients', operation: 'push' }));
     }
     return paciente.id;
   };
@@ -93,7 +95,7 @@ export function usePacientes(): UsePacientesReturn {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.requestPush().catch(console.error);
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'patients', operation: 'push' }));
     }
   };
 
@@ -109,7 +111,7 @@ export function usePacientes(): UsePacientesReturn {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.requestPush().catch(console.error);
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'patients', operation: 'push' }));
     }
   };
 

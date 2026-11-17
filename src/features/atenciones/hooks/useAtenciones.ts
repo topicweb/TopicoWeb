@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/core/providers/AuthProvider';
+import { logger } from '@/core/utils/logger';
 import { StockError } from '@/core/db/dexie/logic/stock';
 import { atencionRepository } from '../data';
 import type {
@@ -78,7 +79,7 @@ export function useAtenciones(): UseAtencionesReturn {
       } catch (err) {
         const msg = handleError(err);
         setError(msg);
-        console.error('[useAtenciones] Error:', err);
+        logger.error('visit.save_failed', { area: 'visits', operation: 'create' });
         return null;
       } finally {
         setIsSubmitting(false);

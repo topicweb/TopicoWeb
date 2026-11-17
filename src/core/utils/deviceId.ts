@@ -6,6 +6,7 @@
  */
 
 import { generateUUID } from '@/shared/utils/uuid';
+import { logger } from '@/core/utils/logger';
 
 const DEVICE_ID_KEY = 'topico_device_id';
 
@@ -24,18 +25,18 @@ export function getDeviceId(): string {
       deviceId = `device-${generateUUID()}`;
       try {
         localStorage.setItem(DEVICE_ID_KEY, deviceId);
-      } catch (storageError) {
+      } catch {
         // Modo incógnito o storage bloqueado - usar ID de sesión temporal
-        console.warn('[DeviceId] localStorage no disponible, usando sesión temporal');
+        logger.warn('device.storage_unavailable', { area: 'device', operation: 'create' });
         // Generar nuevo ID cada vez (no persistente pero funcional)
         return deviceId;
       }
     }
 
     return deviceId;
-  } catch (error) {
+  } catch {
     // Error accediendo a localStorage (ej: Safari incógnito)
-    console.warn('[DeviceId] Error accediendo a localStorage, generando ID temporal:', error);
+    logger.warn('device.storage_failed', { area: 'device', operation: 'create' });
     return `device-${generateUUID()}`;
   }
 }
@@ -45,5 +46,5 @@ export function getDeviceId(): string {
  */
 export function resetDeviceId(): void {
   localStorage.removeItem(DEVICE_ID_KEY);
-  console.log('[DeviceId] deviceId reseteado');
+  logger.info('device.reset', { area: 'device', operation: 'reset' });
 }

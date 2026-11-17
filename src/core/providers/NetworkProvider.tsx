@@ -16,15 +16,15 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setIsOnline(navigator.onLine);
-    logger.debug('[NetworkProvider] Estado inicial:', navigator.onLine ? '🟢 Online' : '🔴 Offline');
+    logger.debug('network.initial_state', {area:'sync',online:navigator.onLine});
 
     const handleOnline = () => {
-      logger.debug('[NetworkProvider] 🟢 Evento online detectado');
+      logger.debug('network.online');
       setIsOnline(true);
     };
 
     const handleOffline = () => {
-      logger.debug('[NetworkProvider] 🔴 Evento offline detectado');
+      logger.debug('network.offline');
       setIsOnline(false);
     };
 

@@ -1,6 +1,7 @@
 import { db } from "@/core/db/dexie/db";
 import { supabase } from "@/core/db/supabase";
 import { syncService } from '@/core/db/sync';
+import { logger } from '@/core/utils/logger';
 import {
   updateMedicamentoStock,
   verificarStockDisponible,
@@ -151,7 +152,7 @@ export class DexieAtencionRepository {
 
       // Trigger PUSH automático solo si hay conexión
       if (typeof window !== 'undefined' && navigator.onLine) {
-        syncService.requestPush().catch(console.error);
+        syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'visits', operation: 'push' }));
       }
 
       return {
@@ -200,7 +201,7 @@ export class DexieAtencionRepository {
 
     // Trigger PUSH automático solo si hay conexión
     if (typeof window !== 'undefined' && navigator.onLine) {
-      syncService.requestPush().catch(console.error);
+      syncService.requestPush().catch(() => logger.error('sync.request_failed', { area: 'visits', operation: 'push' }));
     }
 
     return {

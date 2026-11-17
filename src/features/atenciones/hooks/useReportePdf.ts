@@ -5,6 +5,7 @@
 
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { logger } from '@/core/utils/logger';
 import type { AtencionConDetallesExtendida } from '../types';
 import {
   filtrarAtencionesPorMes,
@@ -48,7 +49,7 @@ export function useReportePdf(): UseReportePdfReturn {
     const mensaje = err instanceof Error ? err.message : 'Error al generar el reporte';
     setError(mensaje);
     toast.error(mensaje);
-    console.error('[useReportePdf]', err);
+    logger.error('report.generate_failed', { area: 'reports', operation: 'read' });
     return mensaje;
   };
 
