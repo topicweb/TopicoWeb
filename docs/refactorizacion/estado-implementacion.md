@@ -26,7 +26,7 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 6 | Implementada y verificada localmente; commit 35e0f7e | PWA/multiventana y despliegue coordinado |
 | 7 | Implementada y verificada localmente en esta continuación | Smoke UI/PWA, preparación de corte y despliegue |
 | 8 | Implementada y validada localmente, con subpasos separados | Netlify, actualización de SW instalado y corte legacy antes de desplegar |
-| 9 | Pendiente | Fuera del alcance solicitado en esta continuación |
+| 9 | Cerrada localmente y migración publicada el 17/11/2026 | Ver fase9-rendimiento.md y publicacion-20261117.md |
 
 ## Regla de continuidad
 
@@ -265,3 +265,11 @@ Autorización del usuario: fase 9, principal como arquitecto, tareas específica
 Reversión: revertir limpieza por commit; índices mediante definiciones exactas de `rollback-duplicate-indexes-local.sql`, ensayadas en base sintética. Antes de operar en cloud, revisar ventana/locks; migración usa ACCESS EXCLUSIVE y timeout de adquisición de 5 s. Para tablas grandes preparar estrategia concurrente separada. Conservar datos, restricciones, IndexedDB y pendientes. No hay push ni publicación; permanecen pendientes de despliegue coordinado/legacy/PWA de fases anteriores. Última fase local terminada; no equivale a aceptación operativa ni mejora de rendimiento en producción.
 
 Cierre: JSONL final validado (14 registros), diff sin errores de whitespace y stack Supabase local detenido conservando volúmenes. Build habitual generado correctamente; sin procesos propios pendientes.
+
+## Publicación autorizada — 17/11/2026
+
+Este registro actualiza los pendientes históricos de SQL/despliegue anteriores: el usuario autorizó explícitamente las migraciones y Netlify y confirmó que datos/dispositivos previos eran exclusivamente de prueba. Se aplicaron las siete migraciones mediante MCP y se alinearon las ocho versiones de historial con el repositorio. Respaldo público cifrado/verificado fuera de Git y limpieza clínica/inventario autorizada; acceso y configuración institucional conservados.
+
+Netlify publicado en https://topicoweb.netlify.app, deploy `6afbe59d82a3d71f5338e0a6`, commit de aplicación `bd2c36c`, Node 22, variables build/functions verificadas sin revelar valores. Un build de producción explícito. HTTP, guardia/cabeceras y Chrome real correctos: login, paciente de tenant aislado, alta por Server Action con Auth/perfil canónicos, PWA offline, logout y caché privada. Fixtures retirados y conteos finales originales de configuración, con datos clínicos/inventario a cero. Ver [publicacion-20261117.md](publicacion-20261117.md) para evidencia, límites y créditos.
+
+Pendientes operativos: limpiar almacenamiento de los dispositivos de prueba anteriores antes de uso real; SMTP/correos reales, PDF y pruebas prolongadas/multidispositivo no certificadas en cloud. No hay borrado remoto de IndexedDB ni adopción de colas legacy. El usuario pidió conservar créditos Netlify: ningún build/deploy adicional; cierre documental con `[skip netlify]`.
