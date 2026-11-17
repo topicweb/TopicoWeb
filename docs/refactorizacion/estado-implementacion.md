@@ -18,7 +18,7 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 |---|---|---|
 | 0 | Preparación local y herramientas disponibles | Build/smoke, configuración Auth/API y staging real |
 | 1 | Parte local implementada y verificada | SQL coordinado con fase 2; staging y despliegue pendientes |
-| 2 | Migración preparada; aplicada solo a PostgreSQL sintético | Matriz SQL, staging Auth/API; no desplegada |
+| 2 | Migración implementada y matriz SQL local correcta (dos pasadas) | Staging Auth/API y smoke cliente; no desplegada |
 | 3 | Pendiente | Actualización framework/versiones y build |
 | 4–9 | Pendientes | Según plan, sin cambios aún |
 
@@ -35,3 +35,14 @@ No ejecutar supabase db push ni apply_migration sobre producción durante prepar
 - TypeScript sin emisión: correcto. Vitest: 66/66, tres suites (usuarios 23, stock 32, reportes 11).
 - No resuelve por sí solo S02: el cierre de escritura directa requiere migración fase 2. No desplegar dando por corregida la seguridad remota.
 - Build en curso al registrar este commit; no se afirma cierre de smoke PWA/Auth.
+
+## Registro 16/11/2026 — fases 1/2 SQL local
+
+- Build con Next 16.1.6 y cambios fase 1: correcto, 11 páginas generadas. No equivale a smoke de navegador.
+- Migración 20261116000100_secure_tenant_access.sql: cierra escritura directa de perfiles; reemplaza políticas abiertas; mínimo SELECT/INSERT/UPDATE clínico por institución activa del perfil; sin DELETE/TRUNCATE; instituciones/programas de lectura. No cambia restricciones de FK/stock (fase 7).
+- Contrato preservado: personal y admin activos pueden operar datos clínicos de su institución; perfiles solo se escriben mediante acciones administrativas/propias verificadas con service_role. Desactivados conservan lectura exclusiva de su perfil para bootstrap.
+- Fixture incluye políticas legacy abiertas y grant de columna: se comprobó su retirada. Luna creó matriz; principal corrigió/revisó y ejecutó PostgreSQL 17.11.
+- Runner: `powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-local.ps1`. Host fijo 127.0.0.1, puerto 55439. Base con nombre sintético aleatorio retirada al finalizar.
+- Dos ejecuciones completas correctas: aislamiento bidireccional de siete tablas; INSERT/UPDATE/upsert propio y rechazo cruzado en cuatro; traslado tenant denegado; perfil/anon/DELETE/TRUNCATE; inactivo/eliminado/sin perfil; service_role preservado. Migración repetida correctamente.
+- No se aplicó en Supabase. Pendiente staging real con Auth y PostgREST; ausencia de staging comunicada mediante pregunta asíncrona.
+- Para reversión operativa futura: mantener nuevas políticas y revocar temporalmente INSERT/UPDATE clínicos de authenticated, preservando pendientes; reparar y revalidar antes de reabrir. Nunca volver a grants/políticas abiertas ni desactivar RLS. Revertir commit local solo antes de despliegue.

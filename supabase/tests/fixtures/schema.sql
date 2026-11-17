@@ -1,9 +1,9 @@
 -- SOLO pruebas locales: nunca ejecutar este fixture en Supabase.
 -- Columnas, enums y restricciones exportados del catálogo el 16/11/2026.
 -- Auth mínimo sintético; no reproduce GoTrue/PostgREST ni extensiones/triggers.
-CREATE ROLE anon NOLOGIN;
-CREATE ROLE authenticated NOLOGIN;
-CREATE ROLE service_role NOLOGIN BYPASSRLS;
+DO $$ BEGIN CREATE ROLE anon NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE authenticated NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN CREATE ROLE service_role NOLOGIN BYPASSRLS; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 CREATE SCHEMA auth;
 CREATE TABLE auth.users (id uuid PRIMARY KEY);
 CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
@@ -49,4 +49,20 @@ ALTER TABLE public.perfiles ADD CONSTRAINT perfiles_id_fkey FOREIGN KEY (id) REF
 ALTER TABLE public.perfiles ADD CONSTRAINT perfiles_business_id_fkey FOREIGN KEY (business_id) REFERENCES instituciones(id);
 ALTER TABLE public.programas_estudio ADD CONSTRAINT programas_estudio_business_id_fkey FOREIGN KEY (business_id) REFERENCES instituciones(id);
 GRANT ALL ON ALL TABLES IN SCHEMA public TO anon,authenticated,service_role;
+
+-- Políticas legacy inseguras: la migración debe reemplazarlas, no sumarse con OR.
+DO $$ DECLARE t text; BEGIN
+  FOREACH t IN ARRAY ARRAY['atenciones','medicamentos','movimientos_stock','pacientes','programas_estudio'] LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',t);
+    EXECUTE format('CREATE POLICY legacy_open ON public.%I FOR ALL TO PUBLIC USING ((SELECT auth.uid()) IS NOT NULL AND business_id IS NOT NULL)',t);
+  END LOOP;
+END $$;
+ALTER TABLE public.perfiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.instituciones ENABLE ROW LEVEL SECURITY;
+CREATE POLICY legacy_read ON public.perfiles FOR SELECT USING ((SELECT auth.uid()) IS NOT NULL);
+CREATE POLICY legacy_self ON public.perfiles FOR UPDATE USING (id=auth.uid());
+CREATE POLICY legacy_self_duplicate ON public.perfiles FOR UPDATE USING (id=(SELECT auth.uid()));
+CREATE POLICY legacy_institutions ON public.instituciones FOR SELECT TO authenticated USING (true);
+-- Un grant de columna tampoco debe sobrevivir a la revocación.
+GRANT UPDATE(rol,business_id,activo) ON public.perfiles TO authenticated;
 
