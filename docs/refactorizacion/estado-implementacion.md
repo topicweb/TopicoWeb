@@ -1,4 +1,4 @@
-# Estado de implementación
+﻿# Estado de implementación
 
 Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para tareas delimitadas, commits locales por fase y continuidad entre sesiones. No pedir otra autorización para trabajo ya autorizado. Costes de infraestructura y despliegues sin validar siguen fuera del alcance automático.
 
@@ -25,7 +25,8 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 5 | Implementada y verificada localmente; commit 033e9cc | PWA instalada, upgrade Dexie y dos pestañas |
 | 6 | Implementada y verificada localmente; commit 35e0f7e | PWA/multiventana y despliegue coordinado |
 | 7 | Implementada y verificada localmente en esta continuación | Smoke UI/PWA, preparación de corte y despliegue |
-| 8–9 | Pendientes | Fuera del alcance solicitado en esta continuación |
+| 8 | Implementada y validada localmente, con subpasos separados | Netlify, actualización de SW instalado y corte legacy antes de desplegar |
+| 9 | Pendiente | Fuera del alcance solicitado en esta continuación |
 
 ## Regla de continuidad
 
@@ -225,3 +226,28 @@ Los subpasos de sesión/caché, logger y HTTP/PWA se registran por separado al c
 - Once pruebas de AuthProvider más siete de migración legacy y pruebas de limpieza comprueban activación, perfil propio offline, segunda cuenta sin perfil, red transitoria, cambio durante petición, logout, storage y BFCache. No se borran tablas al rechazar una sesión. La primera preparación de una instalación actualizada requiere conexión; los pendientes legacy siguen conservados para recuperación dirigida autorizada.
 
 Reversión: conservar bases por cuenta y global legacy, cerrar sync y usar cliente compatible. No volver al cliente que reutiliza la base global entre cuentas ni resetear IndexedDB para volver atrás. Logout bloquea el acceso de la app y conserva trabajo; la sesión offline exige una sesión SDK disponible y perfil propio ya preparado, no acceso indefinido sin autenticación.
+
+## Fase 8d — guardia HTTP, cabeceras y PWA
+
+- Middleware protege únicamente `/dashboard` y descendientes mediante getUser, sin sustituir RLS. Rechazos/configuración inválida redirigen a login local. Conserva todas las escrituras de cookies, incluso varios setAll y la posterior redirección. Dashboard/login/Auth/API llevan no-store; páginas públicas no exigen sesión.
+- Cabeceras nosniff, no-referrer y SAMEORIGIN. CSP únicamente Report-Only, sin nonce reutilizado ni cambio a render dinámico general; compatible con inline de Next/estilos y PDF blob. Eval solo se admite en la política de desarrollo. No hay enforcement, HSTS/preload ni activación por fecha. La adopción futura de CSP estricta/nonces requiere nueva revisión de SSR, caché y PDF.
+- Receptor `/api/csp-report`: máximo 16 KiB reales del stream, 20 reportes por petición, content-type/envelope validado, 204 sin eco. No registra URL, muestra de script, referrer ni cuerpo; solo evento y conteos por directiva cerrada. Se prueba con información sintética sensible y cuerpos inválidos/excesivos.
+- Workbox reemplaza sus reglas predeterminadas: solo assets públicos locales específicos, sin query; todo lo demás NetworkOnly. Precache excluye HTML/RSC; únicamente `/offline` es el shell fijo sin datos de sesión. No se cachean login, dashboard autenticado, Auth ni API. Los callbacks son autocontenidos porque Workbox los serializa. El shell recupera la ruta clínica conocida y usa el guard/contexto de la cuenta antes de renderizar datos de Dexie. Netlify aplica caché inmutable solo a assets con hash de `_next/static`, evitando que `/*.js` vuelva inmutable `sw.js`.
+
+### Verificación actual de fase 8
+
+- TypeScript correcto; suite final 167/167, 15 archivos. Lint de módulos nuevos/seguridad correcto; tres warnings previos de dependencias useMemo en hooks clínicos, sin errores en los archivos modificados. No se declara lint global limpio: otros componentes fuera de fase conservan deuda histórica.
+- Build webpack/PWA correcto, incluyendo shell offline y receptor CSP dinámico. Se ejecutó build con variables exclusivamente locales para las pruebas PWA, sin tocar `.env.local`; al finalizar se regenera el build con la configuración habitual. Sin instalaciones ni cambios de dependencias. Avisos de middleware/Edge Runtime/Browserslist/caché no impidieron build.
+- `pwa-session-local.mjs` ejecutó Chrome real y aplicación de producción contra Supabase local: guardia HTTP 307/no-store, cabeceras Report-Only y recepción real CSP 204; login A, PULL de paciente sintético, lectura UI y recarga completamente offline por SW; logout offline inmediato sin borrar pending; login B sin datos ni pending de A; regreso a A conserva su fila. Inspección de todas las claves de Cache Storage: ningún HTML privado, RSC, Auth/API ni URL cross-origin. Dominios cloud bloqueados en el navegador y SDK/server configurados con loopback exclusivamente.
+- Todos los usuarios/instituciones/pacientes del último recorrido fueron retirados y se comprobó ausencia de instituciones sintéticas. Se corrigió una carrera inicial de limpieza deteniendo y esperando Chrome/Next antes de eliminar fixtures. Dos restos de intentos previos se retiraron mediante SQL local dirigido, comprobando que no tenían perfiles ni pacientes ajenos al test. No quedaron esos restos sintéticos.
+- Matrices locales de funciones, Auth/consistencia y stock correctas, con cleanup; triggers probados bajo authenticated. Once comprobaciones reales de IndexedDB/Cache Storage adicionales y pruebas de Auth de señales entre pestañas/BFCache. La PWA de extremo a extremo se probó con un navegador/cuenta activa a la vez; las dos pestañas del harness prueban bases aisladas, no un despliegue multiventana completo con SDK.
+
+### Despliegue, límites y cierre
+
+Producción no modificada: MCP fue solo lectura. Commits separados: 8a funciones (`2ae0361`), 8b logger (`d7a269c`), 8c sesión/caché (`20f9149`) y 8d HTTP/PWA (consultar git log). No hay push ni publicación automática. Fase 9 no iniciada.
+
+Antes de desplegar: respetar el corte de colas/stock de fase 7, revisar catálogo/grants actuales, respaldos, aplicar migraciones previas y fase 8a coordinadas con cliente. Primera preparación por cuenta online. Conservar la base global anterior y asignar pendientes legacy solo mediante revisión dirigida autorizada, nunca por inferencia de fecha ni como parte del login. Verificar Netlify efectivo, actualización sobre SW previamente instalado, dos pestañas con SDK, expiración real prolongada, redirecciones/email/PDF y navegadores/dispositivos de producción. Los tests locales no certifican esos entornos ni configuración Auth cloud; la protección de contraseñas filtradas sigue limitada por el plan gratuito.
+
+Revertir cabeceras/política de observación por separado si hay incompatibilidad, sin borrar Cache Storage indiscriminadamente ni IndexedDB. Mantener separación por cuenta y colas al revertir cliente; no restaurar permisos públicos de funciones ni políticas RLS abiertas. La nueva CSP no se aplica como bloqueo: cualquier endurecimiento futuro requiere observación y aceptación independientes.
+
+Comprobación final: matriz sync-api-local repetida correctamente tras fase 8 (Auth/cookies, RLS, 425 filas y frontera concurrente), cero instituciones residuales del smoke PWA y stack Supabase local detenido conservando volúmenes. Build habitual restaurado, runners propios cerrados y fuentes sin dependencias nuevas. No se hizo push Git ni despliegue.

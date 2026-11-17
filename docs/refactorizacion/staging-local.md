@@ -84,3 +84,23 @@ La cantidad mantiene enteros positivos en todas las medidas y máximo INT; sin c
 El RPC de lectura `topico_stock_snapshot` toma saldo e IDs aplicados en una misma sentencia MVCC. Dexie conserva metadata pendiente y reconstituye la proyección con eventos pending que aún no existen remotamente; failed conserva su fila y muestra saldo confirmado. Una modificación local o cambio de sesión durante la respuesta impide aplicarla. No cambia versión de Dexie ni cursores.
 
 Antes de cualquier despliegue: pausar escritores antiguos y coordinar todos los dispositivos; resolver o aislar con evidencia sus colas legacy. Un movimiento pendiente anterior al corte puede tener su saldo ya reflejado por el cliente viejo: no deducirlo de fechas ni aplicarlo automáticamente sobre la apertura. Preservar cola y UUID hasta reconciliación dirigida. Los clientes antiguos que envíen stock absoluto serán rechazados; no reabrir grants para hacerlos funcionar. Revisar agregados de inconsistencias otra vez y duración de locks; si la migración rechaza datos, revierte completa y exige diagnóstico, sin reparación automática. Quedan pendientes navegación UI/PWA offline y dos pestañas reales de la aplicación.
+
+## Fase 8 — funciones, sesiones y PWA en navegador real
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-auth-api-local.ps1 -TestScript function-permissions-local.mjs
+& 'C:/Program Files/nodejs/node.exe' --experimental-websocket scripts/privacy-browser-local.mjs
+& 'C:/Program Files/nodejs/node.exe' --experimental-websocket scripts/pwa-session-local.mjs
+```
+
+El primer wrapper instala equivalentes sintéticos de helpers legacy solo cuando faltan y aplica la migración de fase 8 al contenedor local fijo. Comprueba ACL/search_path y que authenticated todavía puede actualizar filas con triggers pese a no poder ejecutar sus funciones directamente. Después verifica por Auth/API get_my_role activo/inactivo/eliminado y denegación del antiguo RPC de contraseña. Es repetible; no ejecutarlo contra cloud ni simultáneamente con pruebas que cambien funciones/triggers.
+
+El harness de privacidad usa un origen HTTP loopback nuevo y un perfil temporal de Chrome propio, sin Supabase: IndexedDB real por cuenta, retención, bloqueo de handles, dos pestañas, conservación de base legacy, actualización v1→v4 y limpieza selectiva de Cache Storage. Usa el Chrome instalado y el WebSocket integrado de Node20; no instala Playwright ni dependencias. Solo cierra Chrome/servidor creados por el test; conserva el perfil sintético de TEMP.
+
+El smoke PWA obtiene status/keys locales exclusivamente en memoria y rechaza destinos no loopback. Prepara cuentas/instituciones/paciente sintéticos con UUID nuevos; hace build con variables locales por proceso, inicia Next en un puerto libre y Chrome propio. Bloquea además Supabase cloud en el navegador. Comprueba HTTP 307/no-store, CSP Report-Only/receptor 204, login A, paciente UI, recarga offline desde SW, logout offline, pending conservado, B sin datos de A y regreso a A. Inspecciona claves de todas las cachés para rechazar HTML autenticado, RSC, Auth/API o cross-origin. Al terminar espera el cierre de sus procesos, retira únicamente sus fixtures y comprueba instituciones restantes. Ante error de limpieza falla el runner; no silencia el resultado ni borra datos ajenos.
+
+`--skip-build` sirve únicamente para depurar el mismo build local ya generado. El comando normal siempre prepara el build local completo. Ningún runner modifica `.env.local`; tras usar el smoke PWA, ejecutar el build normal del proyecto antes de servir/publicar el artefacto habitual, pues `.next` corresponde a la configuración local de la prueba. No ejecutar dos builds/tests con mutaciones simultáneamente sobre el stack.
+
+La instalación nueva prepara una base por cuenta al conectarse; conserva `TopicoDatabase` anterior sin adoptar pendientes. La recuperación de datos legacy necesita verificación de autoría/institución y corte de stock de fase 7. No limpiar esa base como parte del smoke, logout o rollback. Los tests usan datos sintéticos, no respaldos clínicos ni credenciales de producción.
+
+Fuentes de configuración contrastadas: [next-pwa](https://ducanh-next-pwa.vercel.app/docs/next-pwa/configuring), [Workbox Build](https://developer.chrome.com/docs/workbox/modules/workbox-build), [Workbox Routing](https://developer.chrome.com/docs/workbox/modules/workbox-routing) y tipos del paquete instalado. La CSP sigue en observación, sin nonces ficticios ni enforcement. Su receptor almacena solo conteos por directiva en logs; no conserva informes completos. Ver estado-implementacion.md para pruebas efectivas, aceptación de despliegue y reversión.
