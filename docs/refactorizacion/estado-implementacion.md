@@ -19,7 +19,7 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 0 | Supabase local con Auth/PostgREST disponible y probado | Configuración cloud y smoke de la aplicación |
 | 1 | Parte local implementada y verificada | SQL coordinado con fase 2; staging y despliegue pendientes |
 | 2 | Migración verificada en PostgreSQL y Supabase local Auth/API | Smoke cliente y despliegue; producción sin cambios |
-| 3 | Bloqueada por descarga; se conserva manifest/lockfile originales | Reintentar parche en entorno con npm estable y validar build |
+| 3 | Parche instalado y validado localmente | Prueba PWA instalada y despliegue Netlify |
 | 4–9 | Pendientes | Según plan, sin cambios aún |
 
 ## Regla de continuidad
@@ -68,3 +68,13 @@ No ejecutar supabase db push ni apply_migration sobre producción durante prepar
 - Prueba `supabase/tests/run-auth-api-local.ps1`: correcta. Creación/login de cuatro usuarios, instituciones/perfiles A/B, aislamiento, intento de escalar rol/tenant/estado (403 y fila intacta), insert/upsert propio, escritura cruzada (403), update ajeno sin filas y sin cambios, inactivo solo perfil propio. Cleanup correcto.
 - No equivale a prueba de cookies SSR/Server Actions/PWA ni de configuración Auth cloud. No se despliega producción todavía. Ver staging-local.md para reproducir y detener servicios.
 - Fase 3 reanudada: lockfile resuelto para Next16.4.6/React19.2.9/server-only/eslint-config-next16.4.6; descarga previa a instalación en curso. Se detectó peer preexistente Supabase SSR0.12.4 requiere JS^2.111.0 frente a2.93.3 actual; registrar para validar Auth sin actualizar adicionalmente a ciegas.
+
+## Fase 3 — parche completado localmente
+
+- Instalados y fijados Next16.4.6, React/react-dom19.2.9, eslint-config-next16.4.6 y server-only0.0.1. admin.ts importa server-only. Sin migración automática de middleware ni actualizaciones generales ajenas.
+- Descargas recuperadas con registro HTTPS Yarn y verificación de integridad de pnpm; tarball oficial Next comprobado además por SHA512 de npm. No se desactivó TLS ni se añadieron rutas file: al manifest.
+- Se regeneraron tipos de rutas, retirando únicamente .next/types y .next/dev/types obsoletos. No se cambió tsconfig para ocultar errores.
+- TypeScript correcto, Vitest66/66 y build webpack/PWA correcto (11 páginas). Lint del módulo admin correcto. Avisos middleware deprecado, Browserslist y serialización de caché sin fallo funcional de build.
+- Prueba local ampliada del SDK instalado: browser cookie jar, server getUser, refreshSession, nueva lectura de cookies y signOut correctos. Esto cubre métodos actuales pese al aviso peer preexistente SSR/JS; no certifica APIs nuevas de SSR ni elimina el aviso.
+- Sin cambios remotos. Criterios PWA instalada y Netlify permanecen pendientes; no confundir build con prueba interactiva de navegación offline.
+- Smoke del build servido en localhost: landing, login, manifest y service worker HTTP200; servidor temporal detenido al terminar.

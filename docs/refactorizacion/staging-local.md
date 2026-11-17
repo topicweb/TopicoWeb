@@ -38,6 +38,6 @@ No usar `--no-backup`, `db reset` ni `db push` contra un proyecto remoto. No sob
 
 ## Qué comprueba y qué falta
 
-La prueba API valida registro administrativo sintético, login, perfiles de dos tenants, escritura propia, upsert, denegación de escalada de perfil, escritura cruzada y sesión de perfil inactivo. Complementa la matriz SQL de siete tablas ya existente.
+La prueba API valida registro administrativo sintético, login, perfiles de dos tenants, escritura propia, upsert, denegación de escalada de perfil, escritura cruzada y sesión de perfil inactivo. También prueba los SDK instalados con cookies en memoria: createBrowserClient, createServerClient, getUser, refreshSession y signOut. Complementa la matriz SQL de siete tablas ya existente.
 
 No certifica cookies SSR de la aplicación, Server Actions a través de Next, navegación/PWA offline, migración Dexie instalada, carreras multiventana, configuración Auth cloud ni despliegue Netlify. Esos criterios siguen pendientes; no marcar producción como corregida solo por pasar estas pruebas locales.

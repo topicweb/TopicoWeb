@@ -1,3 +1,4 @@
+import 'server-only';
 import { createClient } from '@supabase/supabase-js';
 
 // NOTA: Esta clave solo debe usarse en el lado del servidor (Server Actions/API Routes)

@@ -28,6 +28,36 @@ try {
   for(const [k] of roles){const {res,data}=await request('/auth/v1/admin/users',{method:'POST',body:{email:emails[k],password:pwd,email_confirm:true}}); assert(res.ok&&data?.id,`create-${k}`,res.status); ids[k]=data.id; createdAuth.push(data.id);}
   for(const [id,nombre] of [[ids.tenantA,'Synthetic A'],[ids.tenantB,'Synthetic B']]){const r=await rest('instituciones','select=id',{method:'POST',body:{id,nombre}});assert(r.res.ok,`seed-institucion`,r.res.status);}
   for(const [k,rol,business_id,activo] of roles){const r=await rest('perfiles','select=id',{method:'POST',body:{id:ids[k],nombre:`Test ${k}`,email:emails[k],rol,activo,business_id}});assert(r.res.ok,`seed-perfil-${k}`,r.res.status);}
+  const { createBrowserClient, createServerClient } = await import('@supabase/ssr');
+  const cookieJar = new Map();
+  const browserClient = createBrowserClient(root, anonKey, {
+    isSingleton: false,
+    auth: { autoRefreshToken: false },
+    cookies: {
+      getAll: () => [...cookieJar].map(([name,value]) => ({ name, value })),
+      setAll: cookies => cookies.forEach(({name,value}) => cookieJar.set(name,value)),
+    },
+  });
+  const {data:ssrLogin,error:ssrLoginError}=await browserClient.auth.signInWithPassword({email:emails.personalA,password:pwd});
+  assert(!ssrLoginError&&ssrLogin?.user?.id===ids.personalA&&cookieJar.size>0,'ssr-browser-login-cookie-jar',200);
+  const makeServerClient=()=>createServerClient(root,anonKey,{
+    auth:{autoRefreshToken:false},
+    cookies:{
+      getAll:()=>[...cookieJar].map(([name,value])=>({name,value})),
+      setAll:cookies=>cookies.forEach(({name,value})=>cookieJar.set(name,value)),
+    },
+  });
+  let serverClient=makeServerClient();
+  const {data:ssrUser,error:ssrUserError}=await serverClient.auth.getUser();
+  assert(!ssrUserError&&ssrUser?.user?.id===ids.personalA,'ssr-server-get-user',200);
+  const {data:refreshed,error:refreshError}=await serverClient.auth.refreshSession();
+  assert(!refreshError&&refreshed?.user?.id===ids.personalA,'ssr-server-refresh-session',200);
+  serverClient=makeServerClient();
+  const {data:afterRefresh,error:afterRefreshError}=await serverClient.auth.getUser();
+  assert(!afterRefreshError&&afterRefresh?.user?.id===ids.personalA,'ssr-cookie-jar-after-refresh',200);
+  const {error:signOutError}=await serverClient.auth.signOut();
+  assert(!signOutError,'ssr-server-signout',200);
+  browserClient.auth.stopAutoRefresh();
   async function login(k){const r=await request('/auth/v1/token?grant_type=password',{method:'POST',token:anonKey,body:{email:emails[k],password:pwd}});assert(r.res.ok&&r.data?.access_token,`login-${k}`,r.res.status);return r.data.access_token;}
   const [a,b,p,inactive]=await Promise.all(['adminA','personalB','personalA','inactiveA'].map(login));
   await expectRows('A-lee-institucion-A',await rest('instituciones',`select=id&id=eq.${ids.tenantA}`,{token:a}),1);
