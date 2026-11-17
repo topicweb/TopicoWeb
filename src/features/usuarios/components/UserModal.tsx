@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { X, Save, UserPlus, Mail, Shield, ShieldCheck, LucideIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Perfil } from "../types";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
@@ -86,6 +87,12 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
       onClose();
     } catch (error) {
       console.error(error);
+      toast.error(
+        error instanceof Error && error.message === 'No autenticado'
+          ? 'Sesión expirada. Vuelve a iniciar sesión.'
+          : error instanceof Error ? error.message : 'No se pudo guardar el usuario.',
+        { duration: 6000 },
+      );
     } finally {
       setSaving(false);
     }

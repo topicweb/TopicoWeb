@@ -46,13 +46,9 @@ async function validateAdminAccess(businessId: string) {
     }
 
     return perfil;
-  } catch (err: any) {
-    // Si la cookie de sesión no está presente en el servidor (ej. PWA/Offline o cliente SPA con sesión local),
-    // registramos una advertencia y permitimos continuar la acción mediante supabaseAdmin usando business_id
-    if (err.message === 'No autenticado') {
-      console.warn('[validateAdminAccess] Advertencia: Cookie de servidor no encontrada. Permitiendo operación por fallback con business_id.');
-      return { rol: 'admin', business_id: businessId, activo: true };
-    }
+  } catch (err) {
+    // 'No autenticado' SE PROPAGA: no existe sesión válida, no se permite operar.
+    // (El fallback que devolvía rol 'admin' fue eliminado — era explotable sin login.)
     throw err;
   }
 }
@@ -142,13 +138,8 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
 }
 
 export async function updateUserAction(id: string, data: Partial<Perfil>) {
-  let currentUserId: string | null = null;
-  try {
-    const user = await getAuthenticatedUser();
-    currentUserId = user.id;
-  } catch {
-    // Sesión no presente en cookies del servidor
-  }
+  // Sin sesión => 'No autenticado' se propaga (nunca caer al path admin).
+  const currentUserId = (await getAuthenticatedUser()).id;
 
   // Si el usuario está actualizando su propio perfil, permitir sin ser admin
   if (currentUserId && id === currentUserId) {

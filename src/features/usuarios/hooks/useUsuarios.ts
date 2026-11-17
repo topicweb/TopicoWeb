@@ -3,6 +3,8 @@ import { useAuth } from '@/core/providers/AuthProvider';
 import { Perfil } from '../types';
 import { createUserAction, softDeleteUserAction, updateUserAction } from '../actions/users';
 import { db } from '@/core/db';
+import { logger } from '@/core/utils/logger';
+import { toast } from 'sonner';
 import { isPerfilActivo } from '@/shared/utils/perfil';
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -64,7 +66,14 @@ export function useUsuarios() {
       try {
         await updateUserAction(id, { ...datos, business_id: businessId });
       } catch (err: any) {
-        console.warn('[useUsuarios] No se pudo actualizar en Supabase:', err.message);
+        logger.warn('[useUsuarios] No se pudo actualizar en Supabase:', err.message);
+        // Aviso claro (incluye el caso de sesión expirada tras quitar el fallback de R1)
+        toast.error(
+          err.message === 'No autenticado'
+            ? 'Sesión expirada. Vuelve a iniciar sesión para conservar los cambios.'
+            : `El cambio se guardó localmente pero falló al sincronizar: ${err.message}`,
+          { duration: 6000 },
+        );
       }
     }
   };
