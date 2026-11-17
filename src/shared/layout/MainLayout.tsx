@@ -2,6 +2,7 @@
 
 import { Sidebar } from "./Sidebar";
 import { BottomNav } from "./BottomNav";
+import { LegacyCacheNotice } from '@/shared/components/LegacyCacheNotice';
 
 // ───────────────────────────────────────────────────────────────────────────────
 // LAYOUT PRINCIPAL
@@ -18,7 +19,7 @@ export default function MainLayout({
       <Sidebar />
 
       <main className="flex-1 min-w-0 overflow-y-auto scroll-smooth p-4 pb-24 md:p-6 md:pl-72 md:pb-4">
-        <div className="mx-auto max-w-7xl">{children}</div>
+        <div className="mx-auto max-w-7xl"><LegacyCacheNotice />{children}</div>
       </main>
 
       <BottomNav />

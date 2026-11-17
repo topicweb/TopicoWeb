@@ -1,4 +1,4 @@
-// ───────────────────────────────────────────────────────────────────────────────
+﻿// ───────────────────────────────────────────────────────────────────────────────
 // CORE DATABASE - DEXIE
 // Configuración principal de IndexedDB para la aplicación Tópico
 // ───────────────────────────────────────────────────────────────────────────────
@@ -14,7 +14,7 @@ import { generateUUID as generateUUIDUtil } from '@/shared/utils/uuid';
 // DATABASE INSTANCE
 // ───────────────────────────────────────────────────────────────────────────────
 
-const db = new Dexie('TopicoDatabase') as Dexie & {
+export type TopicoDatabase = Dexie & {
   instituciones: EntityTable<{ id: string; nombre: string; activo: number; creado_at: string }, 'id'>;
   perfiles: EntityTable<Perfil, 'id'>;
   programas_estudio: EntityTable<ProgramaEstudio, 'id'>;
@@ -26,6 +26,9 @@ const db = new Dexie('TopicoDatabase') as Dexie & {
   sync_context_metadata: EntityTable<{ id: string; deviceId: string; businessId: string; userId: string; lastSync: string }, 'id'>;
   sync_metadata: EntityTable<{ deviceId: string; businessId: string; lastSync: string }, 'deviceId'>;
 };
+
+export function createTopicoDatabase(name: string): TopicoDatabase {
+const db = new Dexie(name) as TopicoDatabase;
 
 // ───────────────────────────────────────────────────────────────────────────────
 // DATABASE VERSION & MIGRATIONS
@@ -76,12 +79,53 @@ db.version(2).stores(SCHEMA_V1).upgrade(async (tx) => {
 // EXPORTS
 // ───────────────────────────────────────────────────────────────────────────────
 
-export { db };
+
 
 // Re-exportar utilidades para backward compatibility
-export { generateUUIDUtil as generateUUID };
+
 
 db.version(3).stores({ ...SCHEMA_V1, sync_context_metadata: 'id, [deviceId+businessId+userId]' });
 
 // Conservar cursores previos; reconstruir cada tabla sin reutilizar el cursor global.
 db.version(4).stores({ sync_table_metadata: 'id, [deviceId+businessId+userId], businessId' });
+
+return db;
+}
+
+export { generateUUIDUtil as generateUUID };
+
+let activeCache: TopicoDatabase | null = null;
+let selectedAccount: string | null = null;
+export const accountCacheName = (userId: string) => {
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(userId)) throw new Error('Invalid cache identity');
+  return `TopicoDatabase:account:${userId.toLowerCase()}`;
+};
+
+/** One identity per document lifetime: reload on account changes, never swap
+ * a live database underneath outstanding clinical operations. */
+export async function openAccountCache(userId: string): Promise<void> {
+  const name = accountCacheName(userId);
+  if (selectedAccount && selectedAccount !== userId) throw new Error('Account change requires reload');
+  selectedAccount = userId;
+  activeCache ??= createTopicoDatabase(name);
+  await activeCache.open();
+}
+
+export function lockAccountCache(): void {
+  activeCache?.close({ disableAutoOpen: true });
+  activeCache = null;
+}
+
+export function isAccountCacheOpen(userId: string): boolean {
+  return selectedAccount === userId && !!activeCache?.isOpen();
+}
+
+// Importers keep a stable facade, but cannot read a cache before Auth selects it.
+// Old table handles are closed at logout and never point to another account.
+export const db = new Proxy({} as TopicoDatabase, {
+  get(_target, property) {
+    if (!activeCache) throw new Error('Account cache is locked');
+    const value = Reflect.get(activeCache, property, activeCache);
+    return typeof value === 'function' ? value.bind(activeCache) : value;
+  },
+});

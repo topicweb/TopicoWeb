@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useSyncExternalStore } from "react";
 import { logger } from "@/core/utils/logger";
 
 interface NetworkContextType {
@@ -11,21 +11,15 @@ const NetworkContext = createContext<NetworkContextType>({ isOnline: true });
 
 export const useNetwork = () => useContext(NetworkContext);
 
-export function NetworkProvider({ children }: { children: React.ReactNode }) {
-  const [isOnline, setIsOnline] = useState(true);
-
-  useEffect(() => {
-    setIsOnline(navigator.onLine);
-    logger.debug('network.initial_state', {area:'sync',online:navigator.onLine});
-
+const subscribe = (notify: () => void) => {
     const handleOnline = () => {
-      logger.debug('network.online');
-      setIsOnline(true);
+      logger.debug('network.online', { area: 'sync', online: true });
+      notify();
     };
 
     const handleOffline = () => {
-      logger.debug('network.offline');
-      setIsOnline(false);
+      logger.debug('network.offline', { area: 'sync', online: false });
+      notify();
     };
 
     window.addEventListener("online", handleOnline);
@@ -35,7 +29,10 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+};
+
+export function NetworkProvider({ children }: { children: React.ReactNode }) {
+  const isOnline = useSyncExternalStore(subscribe, () => navigator.onLine, () => true);
 
   return (
     <NetworkContext.Provider value={{ isOnline }}>
