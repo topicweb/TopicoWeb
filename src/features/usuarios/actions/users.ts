@@ -3,6 +3,7 @@
 import { supabaseAdmin } from "@/core/db/supabase/admin";
 import { getAuthenticatedUser } from "@/core/db/supabase/server";
 import { isPerfilActivo } from "@/shared/utils/perfil";
+import { PasswordSchema, RolSchema } from "@/shared/schemas/validation";
 import { Perfil } from "../types";
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -60,6 +61,17 @@ export async function createUserAction(data: Partial<Perfil> & { password?: stri
 
   if (!data.business_id) {
     throw new Error("business_id es requerido");
+  }
+
+  // R8: política de contraseñas (mínimo 8, 1 mayúscula, 1 número)
+  const pwdCheck = PasswordSchema.safeParse(data.password);
+  if (!pwdCheck.success) {
+    throw new Error(pwdCheck.error.issues[0].message);
+  }
+
+  // R18: rol restringido al enum permitido
+  if (data.rol && !RolSchema.safeParse(data.rol).success) {
+    throw new Error("Rol inválido");
   }
 
   // Validar acceso de administrador
@@ -220,7 +232,8 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
   if (emailChanged) updatePayload.email = data.email;
   if (data.rol !== undefined) updatePayload.rol = data.rol;
   if (data.activo !== undefined) updatePayload.activo = isPerfilActivo(data.activo);
-  if (data.business_id !== undefined) updatePayload.business_id = data.business_id;
+  // R9: NO se permite cambiar business_id aquí — el parámetro queda solo como
+  // validación del tenant, no para mover cuentas entre instituciones.
   updatePayload.actualizado_at = new Date().toISOString();
 
   const { error } = await supabaseAdmin.from('perfiles').update(updatePayload).eq('id', id);

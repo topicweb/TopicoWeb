@@ -6,6 +6,17 @@ import { z } from "zod";
 // ───────────────────────────────────────────────────────────────────────────────
 
 // ───────────────────────────────────────────────────────────────────────────────
+// Validación de usuarios (R8/R18)
+// ───────────────────────────────────────────────────────────────────────────────
+export const RolSchema = z.enum(["admin", "personal"]);
+
+export const PasswordSchema = z
+  .string()
+  .min(8, "La contraseña debe tener al menos 8 caracteres")
+  .regex(/[A-Z]/, "La contraseña debe incluir al menos una mayúscula")
+  .regex(/[0-9]/, "La contraseña debe incluir al menos un número");
+
+// ───────────────────────────────────────────────────────────────────────────────
 // Validación de Pacientes
 // ───────────────────────────────────────────────────────────────────────────────
 export const PacienteSchema = z.object({

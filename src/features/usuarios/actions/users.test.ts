@@ -65,6 +65,7 @@ vi.mock(
 );
 
 import { updateUserAction, createUserAction, softDeleteUserAction } from './users';
+import type { Perfil } from '../types';
 
 const ADMIN_USER_ID = 'auth-user-1';
 const TENANT_A = '11111111-1111-1111-1111-111111111111';
@@ -249,5 +250,39 @@ describe('createUserAction — R1/R8 validaciones básicas', () => {
     await expect(createUserAction({ password: 'Passw0rd', business_id: TENANT_A })).rejects.toThrow(
       'Email y contraseña son requeridos',
     );
+  });
+
+  it('R8: contraseña débil → rechaza con mensaje del policy', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+
+    await expect(
+      createUserAction({ email: 'n@i.pe', password: '123456', business_id: TENANT_A }),
+    ).rejects.toThrow('La contraseña debe');
+  });
+
+  it('R18: rol inválido → rechaza', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+
+    await expect(
+      createUserAction({
+        email: 'n2@i.pe',
+        password: 'Passw0rd',
+        // Atacante omitiendo tipos: llega 'superadmin' crudo por la red
+        rol: 'superadmin' as unknown as Perfil['rol'],
+        business_id: TENANT_A,
+      }),
+    ).rejects.toThrow('Rol inválido');
+  });
+
+  it('R9: updatePayload NUNCA incluye business_id (no se mueven cuentas de tenant)', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { rol: 'admin', business_id: TENANT_A, activo: true }, error: null },
+      { data: { business_id: TENANT_A }, error: null },
+    ];
+
+    await updateUserAction('target-1', { nombre: 'X', business_id: TENANT_A });
+
+    expect((state.lastUpdate.payload as Record<string, unknown>).business_id).toBeUndefined();
   });
 });

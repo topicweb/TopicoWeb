@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { X, Save, UserPlus, Mail, Shield, ShieldCheck, LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Perfil } from "../types";
+import { PasswordSchema } from "@/shared/schemas/validation";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 
 interface UserModalProps {
@@ -83,6 +84,14 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
     e.preventDefault();
     setSaving(true);
     try {
+      // R8: política espejo del server (feedback inmediato sin viaje al servidor)
+      if (!item) {
+        const pwdCheck = PasswordSchema.safeParse(formData.password ?? "");
+        if (!pwdCheck.success) {
+          toast.error(pwdCheck.error.issues[0].message, { duration: 6000 });
+          return;
+        }
+      }
       await onSave(formData);
       onClose();
     } catch (error) {
@@ -170,9 +179,9 @@ export const UserModal = ({ isOpen, onClose, item, onSave }: UserModalProps) => 
                   type="password"
                   value={formData.password || ""}
                   onChange={(v) => setFormData({ ...formData, password: v })}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Mínimo 8 caracteres, 1 mayúscula y 1 número"
                   required
-                  minLength={6}
+                  minLength={8}
                   autoComplete="new-password"
                 />
               )}
