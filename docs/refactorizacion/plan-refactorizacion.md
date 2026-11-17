@@ -102,6 +102,8 @@ Quedan descartados: rollback que deshabilita RLS; cambios de índice masivos por
 8. **Aceptación:** resultado mostrado coincide con persistencia; todo fallo parcial tiene recuperación probada; crear/editar/desactivar siguen funcionando.
 9. **Reversión:** cliente/acciones compatibles y procedimiento de reparación dirigido; no reactivar trigger histórico ni eliminar cuentas para volver atrás.
 
+Decisión de producto confirmada el 16/11/2026: crear, editar y desactivar usuarios solo con conexión. Mantener consulta offline mediante Dexie; no crear cola offline para estas operaciones administrativas. La subfase 4a implementa el rechazo antes de cualquier cambio local y la persistencia del perfil canónico después de confirmar el servidor. Esta decisión resuelve el pendiente de producto, no los fallos parciales de Auth de la subfase 4b.
+
 ### Fase 5 — Segregación de sincronización y contratos de tablas
 
 1. **Prioridad/objetivo:** ALTO; enviar exclusivamente trabajo de la sesión/institución correcta.

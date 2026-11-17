@@ -20,7 +20,7 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 1 | Parte local implementada y verificada | SQL coordinado con fase 2; staging y despliegue pendientes |
 | 2 | Migración verificada en PostgreSQL y Supabase local Auth/API | Smoke cliente y despliegue; producción sin cambios |
 | 3 | Parche instalado y validado localmente | Prueba PWA instalada y despliegue Netlify |
-| 4a | Preparada y verificada localmente | Confirmar decisión de edición offline antes de desplegar |
+| 4a | Implementada y verificada localmente; decisión online confirmada | Prueba interactiva y despliegue |
 | 4b | Pendiente | Confirmación de email propio y recuperación Auth/perfiles |
 | 5–9 | Pendientes | Según plan |
 
@@ -85,8 +85,14 @@ No ejecutar supabase db push ni apply_migration sobre producción durante prepar
 
 - Cambios preparados en acciones, hook y página de usuarios. UPDATE y desactivación devuelven fila canónica normalizada; ausencia de fila/error rechaza. Autoservicio aplica filtros activo/no eliminado; administración conserva filtro tenant en escritura.
 - Dexie se modifica después del éxito remoto, usando exclusivamente la fila devuelta. No se guardan localmente campos privilegiados que autoservicio ignora. Fallos remotos y de caché se propagan. La página deja el error al modal para conservar el formulario; evita toast de éxito ante rechazo.
-- La propuesta exige conexión para editar usuarios, coherente con el comentario del módulo y con crear/eliminar. La lectura offline no cambia. Se preguntó al usuario si prefiere esa opción o una cola offline específica; decisión pendiente. NO desplegar este cambio de comportamiento antes de resolverla. Si elige cola, revisar esta parte sin reintroducir falsos éxitos remotos; la cola no existe todavía.
+- Decisión confirmada por el usuario: crear, editar y desactivar usuarios requiere conexión. La lectura offline se conserva. No implementar una cola offline de administración de usuarios. Los guards existentes rechazan la operación antes de llamar acciones o modificar Dexie; los rechazos remotos tampoco generan éxito local.
 - Luna implementó hook/tests; principal implementó acciones/página, revisó mocks y corrigió compatibilidad de tests. TypeScript correcto, 78/78 tests (acciones28, hook7, stock32, reportes11), build webpack/PWA correcto; lint de archivos modificados correcto tras corregir any/unused. No hay pruebas interactivas de modal ni Server Actions por HTTP en esta subfase.
 - Fase 4 no está cerrada: aún quedan email propio con confirmación, recuperación de cuenta Auth sin perfil y fallo parcial de email Auth/perfil. No se modificaron esos flujos ni se activó handle_new_user.
 - Continuar desde este checkpoint en Git; no aplicar migración remota ni publicar la aplicación sin verificar los criterios pendientes.
 - Al terminar se detuvo el stack Docker de pruebas conservando volúmenes. Reiniciar con el comando de staging-local.md antes de repetir la matriz Auth/API. Docker Desktop puede permanecer abierto; no se detuvieron otros servicios.
+
+## Decisión de producto — administración de usuarios online
+
+- El usuario eligió explícitamente la opción recomendada: solo con conexión. Queda resuelto el pendiente de decisión de 4a; no hace falta nueva autorización para ese comportamiento.
+- El código de 0222d07 ya implementa esa opción y sus pruebas offline/errores. En este checkpoint se registra la elección, sin cambiar código ni dependencias y sin repetir pruebas históricas como nuevas.
+- Siguiente implementación: subfase 4b (confirmación de email propio y recuperación de fallos Auth/perfiles). La fase 4 completa y la validación/despliegue remotos siguen pendientes.
