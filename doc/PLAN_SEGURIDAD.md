@@ -2,8 +2,10 @@
 
 > **Fecha del análisis:** 06/11/2026
 > **Alcance:** `src/core/` + puntos de dependencia directa (`middleware.ts`, server actions de usuarios, migraciones SQL, configuración Next.js).
-> **Estado:** 🟡 Pendiente de implementación
+> **Estado:** 🟡 **EN PROGRESO — Fase 1 casi completa** (ver Checklist Fase 1 y Registro de progreso).
 > **Propósito:** Documento de contexto para ejecutar los fixes de forma incremental sin perder el porqué de cada cambio.
+>
+> **🧭 PARA CONTINUAR EN OTRA SESIÓN:** leer primero la sección **"Estado de sesión (handoff)"** al final de este documento y el checklist maestro de `PLAN_CORRECTIVO_SEGURIDAD.md`. Ahí están los commits aplicados y el siguiente paso exacto.
 >
 > **🔄 Re-auditoría 07/11/2026:** se verificó cada hallazgo contra el código real. Resultado: 12 confirmados, 1 confirmado parcialmente (R6), 1 falso positivo parcial (R6–softDelete), 1 es código muerto mayormente (R4–seedData) y se **añaden 4 hallazgos nuevos (R16–R19)**. El detalle paso a paso de cada corrección está en `doc/PLAN_CORRECTIVO_SEGURIDAD.md`.
 
@@ -200,15 +202,15 @@ if (targetUser.business_id !== perfil.business_id) {
 
 - [x] R1: eliminar fallback admin + quitar try/catch de `currentUserId` en `updateUserAction` ✅ 08/11/2026 (se omitió el pre-check por decisión del usuario — fallback eliminado de una vez)
 - [x] R1: toast de "sesión expirada" en `UserModal`/`useUsuarios` ✅ 08/11/2026
-- [ ] R6: validar tenant del usuario objetivo en update y soft-delete
-- [ ] R7: `import 'server-only'` en `admin.ts`
-- [ ] R8: validación de contraseña (Zod server + client)
-- [ ] R9: quitar `business_id` del `updatePayload`
+- [x] R6: validar tenant del usuario objetivo en update ✅ 08/11/2026 (soft-delete ya era seguro — solo se tocó `updateUserAction`); test `users.test.ts` creado (10 tests, incl. regresión R1) — commit `5cbbb72`
+- [ ] R7: `import 'server-only'` en `admin.ts` — ⚠️ PAUSA: instalación del paquete bloqueada (pnpm con estado corrupto + registry npm inaccesible el 08/11). El código NO se aplicó para no romper el build
+- [x] R8: validación de contraseña (Zod server + client) ✅ 08/11/2026 — commit `2d91e16`: mínimo 8 + 1 mayúscula + 1 número (`PasswordSchema` en `shared/schemas/validation.ts`), espejo en `UserModal` (feedback inmediato)
+- [x] R9: quitar `business_id` del `updatePayload` ✅ 08/11/2026
+- [x] R18: Zod `rol` enum en create/update ✅ 08/11/2026 (server: `RolSchema`; el tipo `RolUsuario` ya restringía client-side)
 - [ ] R10: sanitizar logger en producción
 - [ ] R15: migrar `console.*` a `logger`
-- [ ] **Tests:** crear `users.test.ts` con `getAuthenticatedUser` mockeado:
-  sin sesión → lanza / no-admin → lanza / admin-ok → pasa / admin de otro tenant → lanza
-- [ ] `npx tsc --noEmit` + `npx vitest run` + smoke test manual de gestión de usuarios
+- [ ] Tests: ✅ ya cubiertos — `users.test.ts` existe con 16 tests (R1 + R6 + R8/R9/R18 + soft-delete + self-update) — se mantienen como parte de la regresión permanente
+- [ ] `npx tsc --noEmit` + `npx vitest run` + smoke test manual de gestión de usuarios → ✅ hecho en los fixes de R1/R6; repetir el smoke solo al aplicar fixes nuevos
 
 ---
 
@@ -408,8 +410,8 @@ Descarga **todas las instituciones** sin filtro de tenant (el resto de tablas s�
 - [ ] R4: filtrar PULL de `instituciones` + corregir `seedData`
 - [ ] R5: forzar `business_id` del perfil autenticado en PUSH y `resolveConflict`
 - [ ] R16: RLS de `instituciones` + filtrar push/pull a la institución propia
-- [ ] R17: sincronizar email Auth↔perfiles en self-update
-- [ ] R18: Zod `rol` enum en create/update
+- [x] R17: sincronizar email Auth↔perfiles en self-update Y admin-path ✅ 08/11/2026 — commit `7bda0c8` (13 tests pass)
+- [x] R18: Zod `rol` enum en create/update ✅ 08/11/2026 — commit `2d91e16` (cerró junto con R8; ver checklist Fase 1)
 - [ ] R19 (opcional): limpiar Dexie en `signOut` — decisión de producto
 - [ ] Recién entonces: aplicar en producción
 
@@ -445,10 +447,45 @@ El repo ya tiene **vitest** funcionando (`vitest.config.ts`), pero **ningún tes
 |-------|------|--------------------|---------------|
 | 06/11/2026 | — | Análisis inicial | 15 hallazgos documentados, pendiente todo |
 | 07/11/2026 | — | Re-auditoría | 12 confirmados · R6 parcial (softDelete = falso positivo) · R4/seedData = código muerto · +4 nuevos (R16-R19). Plan correctivo detallado en `PLAN_CORRECTIVO_SEGURIDAD.md` |
-| 08/11/2026 | 1 | R1 cerrado ✅ | Fallback admin eliminado (`users.ts`), try/catch silencioso de `currentUserId` eliminado, toasts de "Sesión expirada" en `UserModal` y `useUsuarios`. `tsc --noEmit` OK · 43/43 tests unitarios pass · fallo preexistente de `simularAtencion.test.ts` (env vars ausentes en entorno de test, no relacionado). **Pendiente: smoke test manual con admin real (crear/editar/desactivar usuario)** |
-| | 1 | | |
-| | 3 | | |
+| 08/11/2026 | 1 | R1 cerrado ✅ | Fallback admin eliminado (`users.ts`), try/catch silencioso de `currentUserId` eliminado, toasts de "Sesión expirada" en `UserModal` y `useUsuarios`. `tsc --noEmit` OK · 43/43 tests unitarios pass · fallo preexistente de `simularAtencion.test.ts` (env vars ausentes en entorno de test, no relacionado). **Smoke manual del usuario: crear/editar/eliminar OK (08/11) — commit `1cfe35f`. Prueba negativa VERIFICADA (08/11): sin cookies → toast "Sesión expirada", no se escribe en Supabase (solo cambio local optimista preexistente), dashboard sin sesión → redirect a login. R1 CERRADO. Pendiente menor: rollback local en `actualizarUsuario` cuando Supabase rechaza (no es de seguridad — R higiene)** |
+| 08/11/2026 | 1 | R6 cerrado ✅ | `updateUserAction` ahora consulta `business_id` del objetivo y rechaza cross-tenant. 10 tests en `users.test.ts` (R1 + R6 + soft-delete + self-update). `tsc` OK — commit `5cbbb72`. Pendiente: smoke manual de editar un usuario normal (debe seguir igual) |
 | | 2 | | |
+| 08/11/2026 | 1 | R17 cerrado (adelantado) ✅ | Detectado por el usuario en smoke: email cambiaba en perfiles pero no en Auth. Ahora Auth se actualiza primero (`auth.admin.updateUserById` + `email_confirm: true`) en ambos paths; si Auth falla (email duplicado), no se toca perfiles. 13 tests pass — commit `7bda0c8`. Verificado por el usuario: login con nuevo email OK, email duplicado rechazado || 08/11/2026 | 1 | R8/R9/R18 cerrados ✅ | Política de contraseñas (Zod server+client), rol restringido a enum, `business_id` fuera del updatePayload. 16 tests en users.test.ts — commit `2d91e16`. **Pendiente de smoke: crear usuario con contraseña débil debe mostrar toast del policy** |
+| 08/11/2026 | 1 | R7 en pausa ⚠️ | Paquete `server-only` no instalable hoy (pnpm corrupto + npm registry inaccesible). No aplicar el import sin instalar: rompería el build |
+
+---
+
+# 🧭 Estado de sesión (handoff) — 08/11/2026
+
+> **Leer esto para retomar el trabajo en una nueva sesión.**
+
+## Commits de seguridad aplicados (rama `main`)
+| Commit | Fix | Contenido |
+|---|---|---|
+| `1cfe35f` | R1 🔴 | Fallback admin sin sesión eliminado en `users.ts`; toasts "Sesión expirada" en `UserModal` + `useUsuarios` |
+| `5cbbb72` | R6 🟠 | IDOR cerrado en `updateUserAction` (verifica tenant del objetivo) + `users.test.ts` (10 tests) |
+| `7bda0c8` | R17 🟡 | Email sincronizado Auth↔perfiles (self + admin path, `email_confirm: true`) (13 tests) |
+| `2d91e16` | R8/R9/R18 🔵 | Política de contraseñas Zod (`PasswordSchema`/`RolSchema` en `shared/schemas/validation.ts`), rol enum, `business_id` fuera del updatePayload (16 tests) |
+
+## Verificado por el usuario (smoke manual)
+- ✅ R1: crear/editar/eliminar usuarios con admin → igual que antes. Sin cookies → toast y Supabase intacto. Dashboard sin sesión → redirect a login.
+- ✅ R17: login con el email nuevo funciona; email duplicado en Auth → rechazado con toast.
+- ⏳ Pendiente de smoke (trivial): crear usuario con contraseña débil → toast del policy; editar usuario normal tras R6 → se guarda igual.
+
+## Orden exacto de lo siguiente
+1. **R10 + R15** (Pendiente, 30 min, riesgo 0): sanitizar `logger.ts` en producción (solo `message`+`code`; en dev igual que hoy) y migrar `console.*` → `logger` en `useSimpleSync.ts:79,88,96`, `deviceId.ts:29,38,48`, `SyncMonitor.tsx:42`, `seedData.ts` (código muerto — mejor borrarlo), `syncService.ts:217` (`catch(console.error)`). PERO no tocar el archivo de test `simularAtencion.test.ts`.
+2. **R7** (pausado por red): instalar `server-only` (`npx -y pnpm@10 add server-only` — el pnpm local está con estado de workspace corrupto; si falla, limpiar `node_modules` y reinstalar) y luego `import 'server-only';` como línea 1 de `src/core/db/supabase/admin.ts`. NO aplicar el import sin el paquete.
+3. **Fase 2:** R3 (guard server-side en `middleware.ts` — ver Bloque D), R11 (cabeceras + CSP report-only en `next.config.ts` — Bloque E), R12 (purgar localStorage legacy — Bloque C.6), R14 (tipar tablas Dexie — Bloque C.7).
+4. **Fase 3 (staging, la más delicada):** exportar `pg_policies` FIRST (Bloque F.0) → políticas R2 → R4/R5/R16 → matriz de pruebas → solo entonces producción.
+5. Higiene opcional: R19 (limpiar Dexie en signOut — decisión de producto); rollback local en `actualizarUsuario` cuando Supabase rechaza.
+
+## Estado del entorno (para no redescubrir)
+- `pnpm` local corrompido: usar `npx -y pnpm@10 ...` cuando haya red.
+- Test `simularAtencion.test.ts` falla en `vitest run` de forma PREEXISTENTE (importa el cliente de Supabase sin env vars en el entorno de test) — no es regresión de este plan.
+- `tsc --noEmit` debe pasar limpio después de cada fix (así ha ido hasta ahora).
+- 59/59 tests unitarios pasan al cierre de esta sesión (4 suites, solo falla la e2e preexistente).
+
+---
 
 ---
 

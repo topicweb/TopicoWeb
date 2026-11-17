@@ -5,6 +5,28 @@
 > **Veredicto global:** 12 hallazgos confirmados, 1 parcial (R6), 1 falso positivo parcial (R6–softDelete), 4 hallazgos nuevos (R16–R19).
 > **Principio rector:** cada corrección se aplica de modo **incremental y con rollback trivial** (commit por fix), para no romper la aplicación que hoy es funcional. Nada de este plan exige reescrituras: son parches quirúrgicos.
 > **Leyenda de nivel:** 🔴 Crítico (explotable hoy, corregir YA) · 🟠 Alto (esta semana) · 🟡 Medio (defensa en profundidad) · 🔵 Bajo/Informativo (higiene).
+>
+> ---
+>
+> ## ⚡ ESTADO DE AVANCE (actualizado 08/11/2026 — cierre de sesión 1)
+>
+> | Bloque | Estado |
+> |---|---|
+> | A (R1) | ✅ **CERRADO** — commits `1cfe35f` · verificado por el usuario (positivo + negativo). El pre-check A.1 se omitió por decisión del usuario |
+> | B (R6) | ✅ **CERRADO** — commit `5cbbb72` · soft-delete confirmado seguro, no se tocó |
+> | C.2 / C.3 (R8+R18, R9) | ✅ **CERRADOS** — commit `2d91e16` · 16 tests en `users.test.ts` |
+> | R17 (G.2, adelantado) | ✅ **CERRADO** — commit `7bda0c8` · verificado por el usuario (login con nuevo email; duplicado rechazado) |
+> | C.1 (R7) | ⏸️ **PAUSA POR RED** — instalar `server-only` (usar `npx -y pnpm@10 add server-only`) y recién entonces `import 'server-only';` en `admin.ts`. No aplicar el import sin el paquete |
+> | C.4 / C.5 (R10, R15) | ⬜ **PENDIENTES — SIGUIENTE PASO** (30 min, riesgo 0) |
+> | C.6 (R12), C.7 (R14) | ⬜ Pendientes (Fase 2) |
+> | D (R3), E (R11) | ⬜ Pendientes (Fase 2) |
+> | F (R2/R4/R5/R16 — RLS) | ⬜ Pendiente — **NO aplicar sin staging + matriz de pruebas** |
+> | G.3 (R19) | ⬜ Opcional — decisión de producto |
+> | Tests | ✅ 59/59 unitarios pasan al cierre (test e2e `simularAtencion` falla por env vars — preexistente, sin relación) |
+>
+> **Siguiente acción exacta al retomar:** R10 + R15 (ver C.4 y C.5 abajo), luego R7 si ya hay red, luego Fase 2.
+>
+> ---
 
 ---
 
@@ -135,7 +157,8 @@ Test: mock + target de otro tenant → lanza / target del mismo tenant → pasa.
 
 # 🟡 BLOQUE C — Fixes triviales de Fase 1 (bajo esfuerzo, gran higiene)
 
-## C.1. R7 — `server-only` en `admin.ts`
+## C.1. R7 — `server-only` en `admin.ts` — ⚠️ PAUSADO POR RED (08/11)
+> Estado: pendiente de instalación. El `pnpm` local está corrupto y npm registry quedó inaccesible; cuando haya red: `npx -y pnpm@10 add server-only`. **No aplicar el `import 'server-only'` sin el paquete instalado (rompería el build).**
 ```bash
 pnpm add server-only
 ```
@@ -477,23 +500,23 @@ async function clearLocalData() {
 # ✅ Checklist maestro (orden recomendado)
 
 ### Bloque A — HOY (prioridad: corte del ataque directo)
-- [ ] A.1 pre-check: log temporal en el `catch` + observar 3 días flujos admin (desktop + PWA)
-- [ ] A.2 commit 1: `currentUserId` sin try/catch silencioso
-- [ ] A.2 commit 2: eliminar fallback `No autenticado`
-- [ ] A.2 commit 3: toast "Sesión expirada" en `UserModal`/`useUsuarios`
-- [ ] Test `users.test.ts` (getAuthenticatedUser mockeado)
-- [ ] `npx tsc --noEmit` && `npx vitest run` && smoke manual
+- [x] ~~A.1 pre-check~~ — omitido por decisión del usuario (fallback eliminado de una vez)
+- [x] A.2 commit 1: `currentUserId` sin try/catch silencioso ✅ `1cfe35f`
+- [x] A.2 commit 2: eliminar fallback `No autenticado` ✅ `1cfe35f`
+- [x] A.2 commit 3: toast "Sesión expirada" en `UserModal`/`useUsuarios` ✅ `1cfe35f`
+- [x] Test `users.test.ts` (getAuthenticatedUser mockeado) ✅ 16 tests en `5cbbb72`+`2d91e16`
+- [x] Smoke manual (usuario): crear/editar/eliminar OK · sin cookies → rechaza con toast · dashboard sin sesión → redirect `1cfe35f`
 
 ### Bloque B — HOY (junto con A)
-- [ ] R6: verificar tenant del target en `updateUserAction`
-- [ ] Test de IDOR (target otro tenant → lanza)
+- [x] R6: verificar tenant del target en `updateUserAction` ✅ `5cbbb72`
+- [x] Test de IDOR (target otro tenant → lanza) ✅ incluido en `users.test.ts`
 
 ### Bloque C — esta semana
-- [ ] R7: `pnpm add server-only` + import en `admin.ts`
-- [ ] R8+R18: Zod password (8+, 1 mayúscula, 1 número) y `rol` enum, server + client
-- [ ] R9: eliminar `business_id` del `updatePayload`
-- [ ] R10: sanitizado en logger (producción: sólo message+code)
-- [ ] R15: `console.*` → `logger` en todos los archivos
+- [ ] R7: `pnpm add server-only` + import en `admin.ts` — ⏸️ pausado por red
+- [x] R8+R18: Zod password (8+, 1 mayúscula, 1 número) y `rol` enum, server + client ✅ `2d91e16`
+- [x] R9: eliminar `business_id` del `updatePayload` ✅ `2d91e16`
+- [ ] R10: sanitizado en logger (producción: sólo message+code) — **SIGUIENTE**
+- [ ] R15: `console.*` → `logger` en todos los archivos — **SIGUIENTE**
 - [ ] R12: `localStorage.removeItem(storageKey)` tras `setSession`
 - [ ] R14: helper `getTable(name)` tipado en `syncService`
 
@@ -514,9 +537,14 @@ async function clearLocalData() {
 - [ ] Matriz de pruebas completa → recién entonces aplicar en PROD
 
 ### Bloque G — higiene
-- [ ] R17: actualizar email en Auth
+- [x] R17: actualizar email en Auth ✅ `7bda0c8` (adelantado, verificado por el usuario)
 - [ ] R19 (opc.): limpiar Dexie al `signOut` (decisión de producto)
 - [ ] R13: documentado, sin acción inmediata
+
+---
+
+# 📄 Nota de continuidad (08/11/2026)
+Este documento + `PLAN_SEGURIDAD.md` son el contexto completo para retomar el trabajo en otra sesión. No hace falta re-auditar nada: todos los fixes aplicados tienen commit propio en `main` (`1cfe35f` → `2d91e16`) y los veredictos de cada hallazgo están confirmados contra el código real. Al retomar: partir de **R10 + R15**, luego **R7** (si hay red), luego Fase 2. El detalle sin resolver más importante del proyecto es la **RLS (Bloque F)** — no avanzar en producción sin staging ni matriz de pruebas.
 
 ---
 
