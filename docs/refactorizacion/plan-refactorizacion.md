@@ -189,3 +189,5 @@ Subpasos finales de 4b, todos de prioridad ALTA:
 - Compatibilidad: cliente instalado antes del cambio, migración Dexie, SW previo/nuevo, Netlify y assets.
 
 Cada entrega registra: diff pequeño, evidencia de pruebas actuales, límites, versión de cliente/esquema, aceptación y rollback probado. Los tests mockeados de usuarios y validaciones de stock no certifican RLS, concurrencia ni despliegue. No marcar una fase terminada por falta de tiempo o por pasar solo unitarias. Las comprobaciones pendientes de auditoria-tecnica.md permanecen pendientes hasta obtener evidencia.
+
+Implementación local fase 5 (17/11/2026 UTC): contexto y segregación implementados; SQL separado y pruebas registrados en estado-implementacion.md. Pendientes antes del despliegue: migración Dexie instalada, dos pestañas y smoke UI/PWA entre cuentas. No avanzar a fase 6 automáticamente.

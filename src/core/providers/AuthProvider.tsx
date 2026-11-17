@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
 import { syncService } from "@/core/db/sync";
+import { getDeviceId } from '@/core/utils/deviceId';
 import { logger } from "@/core/utils/logger";
 import { isPerfilValido, normalizePerfilFromSupabase } from "@/shared/utils/perfil";
 import type { Perfil, RolUsuario } from "@/features/usuarios/types";
@@ -72,11 +73,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialPerfilLoad, setIsInitialPerfilLoad] = useState(false);
-  const [cachedBusinessId, setCachedBusinessId] = useState<string | null>(null);
+
   const router = useRouter();
 
+  const authEpoch = useRef(0);
+  const currentUserRef = useRef<string | null>(null);
   const hydratedUserIdRef = useRef<string | null>(null);
-  const hydratingRef = useRef(false);
+
   const signOutRef = useRef<() => Promise<void>>(async () => { });
 
   const perfil = useLiveQuery<Perfil | undefined>(async () => {
@@ -85,25 +88,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.id]);
 
   const role = perfil?.rol ?? null;
-  const businessId = perfil?.business_id ?? cachedBusinessId;
+  const businessId = perfil?.id === user?.id ? perfil?.business_id ?? null : null;
 
+
+
+  const syncUserId = user?.id;
+  const syncEligible = !!syncUserId && perfil?.id === syncUserId && isPerfilValido(perfil);
   useEffect(() => {
-    if (perfil?.business_id) {
-      setCachedBusinessId(perfil.business_id);
-    }
-  }, [perfil?.business_id]);
-
+    syncService.setContext(syncEligible && syncUserId && businessId ? { userId: syncUserId, businessId, deviceId: getDeviceId() } : null);
+    return () => syncService.setContext(null);
+  }, [syncUserId, syncEligible, businessId]);
   const signOut = useCallback(async () => {
+    authEpoch.current++;
+    currentUserRef.current = null;
+    syncService.setContext(null);
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
-    setCachedBusinessId(null);
     setIsInitialPerfilLoad(false);
     hydratedUserIdRef.current = null;
     router.push("/login");
   }, [router]);
 
-  signOutRef.current = signOut;
+  useEffect(() => { signOutRef.current = signOut; }, [signOut]);
 
   const rejectSession = useCallback(async (reason: string) => {
     logger.warn(`[AuthProvider] ${reason}`);
@@ -111,7 +118,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   /** Refresca perfil en segundo plano sin bloquear la UI. */
-  const refreshPerfilInBackground = useCallback(async (authUserId: string, businessId: string | null) => {
+  const refreshPerfilInBackground = useCallback(async (authUserId: string) => {
+    const epoch = authEpoch.current;
     if (!navigator.onLine) return;
 
     try {
@@ -121,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .eq("id", authUserId)
         .maybeSingle();
 
-      if (error || !remotePerfil) return;
+      if (epoch !== authEpoch.current || currentUserRef.current !== authUserId || error || !remotePerfil) return;
 
       if (!isPerfilValido(remotePerfil as Perfil)) {
         await rejectSession("Usuario inactivo o eliminado, cerrando sesión");
@@ -129,10 +137,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       await db.perfiles.put(normalizePerfilFromSupabase(remotePerfil as Record<string, unknown>));
-
-      if (businessId) {
-        await syncService.pullFromSupabase(businessId);
-      }
     } catch (error) {
       logger.debug("[AuthProvider] Refresh de perfil en background omitido:", error);
     }
@@ -144,21 +148,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
    * Solo bloquea UI cuando es el primer acceso sin datos locales.
    */
   const resolvePerfil = useCallback(async (authUser: User, isNewSignIn: boolean) => {
-    if (hydratingRef.current) return;
+
+    const epoch = authEpoch.current;
     if (!isNewSignIn && hydratedUserIdRef.current === authUser.id) return;
 
-    hydratingRef.current = true;
 
     try {
       const localPerfil = await db.perfiles.get(authUser.id);
 
+      if (epoch !== authEpoch.current || currentUserRef.current !== authUser.id) return;
       if (isPerfilValido(localPerfil)) {
         hydratedUserIdRef.current = authUser.id;
-        if (localPerfil!.business_id) {
-          setCachedBusinessId(localPerfil!.business_id);
-        }
         setIsInitialPerfilLoad(false);
-        void refreshPerfilInBackground(authUser.id, localPerfil!.business_id);
+        void refreshPerfilInBackground(authUser.id);
         return;
       }
 
@@ -171,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq("id", authUser.id)
           .maybeSingle();
 
+        if (epoch !== authEpoch.current || currentUserRef.current !== authUser.id) return;
         if (error) {
           await rejectSession(`Error obteniendo perfil: ${error.message}`);
           return;
@@ -188,11 +191,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const normalized = normalizePerfilFromSupabase(remotePerfil as Record<string, unknown>);
         await db.perfiles.put(normalized);
-
-        if (normalized.business_id) {
-          setCachedBusinessId(normalized.business_id);
-          await syncService.pullFromSupabase(normalized.business_id);
-        }
       } else {
         await rejectSession("Se requiere conexión a internet para validar su perfil.");
         return;
@@ -200,16 +198,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       hydratedUserIdRef.current = authUser.id;
     } catch (error) {
+      if (epoch !== authEpoch.current) return;
       logger.error("[AuthProvider] Error resolviendo perfil:", error);
       await rejectSession("No se pudo validar el perfil del usuario.");
     } finally {
       setIsInitialPerfilLoad(false);
-      hydratingRef.current = false;
     }
   }, [refreshPerfilInBackground, rejectSession]);
 
   const resolvePerfilRef = useRef(resolvePerfil);
-  resolvePerfilRef.current = resolvePerfil;
+  useEffect(() => { resolvePerfilRef.current = resolvePerfil; }, [resolvePerfil]);
 
   useEffect(() => {
     if (hydratedUserIdRef.current !== user?.id) return;
@@ -229,13 +227,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (!mounted) return;
 
+      if (currentUserRef.current !== (session?.user?.id ?? null)) { authEpoch.current++; syncService.setContext(null); }
+      currentUserRef.current = session?.user?.id ?? null;
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
 
       if (event === "SIGNED_OUT") {
         hydratedUserIdRef.current = null;
-        setCachedBusinessId(null);
         setIsInitialPerfilLoad(false);
         return;
       }
@@ -248,7 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           void db.perfiles.get(authUser.id).then(local => {
             if (!mounted || hydratedUserIdRef.current !== authUser.id) return;
             if (event === 'USER_UPDATED' || local?.email !== authUser.email) {
-              void refreshPerfilInBackground(authUser.id, null);
+              void refreshPerfilInBackground(authUser.id);
             }
           }).catch(() => logger.debug('[AuthProvider] Refresh de email pendiente'));
         }, 0);

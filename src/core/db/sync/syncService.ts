@@ -1,508 +1,155 @@
-/**
- * @fileoverview Servicio de Sincronización Bidireccional (PULL/PUSH)
- * @description Implementa sincronización offline-first entre Dexie (IndexedDB) y Supabase.
- * 
- * Estrategias implementadas:
- * - PULL: Descarga datos desde Supabase al iniciar
- * - PUSH: Sube datos locales pendientes automáticamente
- * - Conflictos: Last Write Wins basado en timestamps
- * - Sincronización Híbrida: Completa para nuevos dispositivos, incremental para conocidos
- * 
- * @module SyncService
- * @see useBidirectionalSync - Hook React que consume este servicio
- */
-
 import { db } from '@/core/db';
 import { supabase } from '@/core/db/supabase';
-import { getDeviceId } from '@/core/utils/deviceId';
-import { logger } from '@/core/utils/logger';
-import { withRetry } from '@/core/utils/retry';
-import type { Paciente } from '@/features/pacientes/types';
 import { normalizeSignosVitales } from '@/features/atenciones/types';
+import { withRetry } from '@/core/utils/retry';
+import type { Table } from 'dexie';
 
-// ═══════════════════════════════════════════════════════════════════════════════
-// CONSTANTES DE CONFIGURACIÓN
-// ═══════════════════════════════════════════════════════════════════════════════
-
-/** Tablas para PULL (descargar de Supabase) - incluye perfiles para mantener datos actualizados */
-const PULL_TABLES = [
-  'instituciones',
-  'perfiles',
-  'programas_estudio',
-  'pacientes',
-  'medicamentos',
-  'atenciones',
-  'movimientos_stock'
-] as const;
-
-/** Tablas para PUSH (subir a Supabase) - excluye perfiles y programas_estudio */
-const PUSH_TABLES = [
-  'instituciones',
-  'pacientes',
-  'medicamentos',
-  'atenciones',
-  'movimientos_stock'
-] as const;
-
-/** Tablas sin columnas timestamp (movimientos_stock no tiene creado_at/actualizado_at en Supabase) */
-const TABLES_WITHOUT_TIMESTAMPS: string[] = ['movimientos_stock'];
-
-/** Tablas sin business_id (instituciones usa su propio id) */
-const TABLES_WITHOUT_BUSINESS_ID = ['instituciones'];
+export type SyncContext = Readonly<{ userId: string; businessId: string; deviceId: string }>;
+// Contrato cerrado. Movimientos tiene actualizado_at pero conserva PULL completo hasta fase 6.
+const TABLES = {
+  instituciones: { push: false, created: true, updated: false, incremental: false },
+  perfiles: { push: false, created: true, updated: true, incremental: true },
+  programas_estudio: { push: false, created: true, updated: true, incremental: true },
+  pacientes: { push: true, created: true, updated: true, incremental: true },
+  medicamentos: { push: true, created: true, updated: true, incremental: true },
+  atenciones: { push: true, created: true, updated: true, incremental: true },
+  movimientos_stock: { push: true, created: false, updated: true, incremental: false },
+} as const;
+type TableName = keyof typeof TABLES;
+type Row = Record<string, unknown> & { id: string; business_id?: string; sync_status?: string };
+const names = Object.keys(TABLES) as TableName[];
+const key = (c: SyncContext) => JSON.stringify([c.deviceId, c.businessId, c.userId]);
 
 export class SyncService {
   private static instance: SyncService;
-  private isPulling = false;
-  private isPushing = false;
-  private pendingPulls: string[] = []; // CRITICAL: Cola de businessIds pendientes
-  private readonly MAX_QUEUE_SIZE = 10; // Límite de cola para evitar memory leaks
-  private lastFullSyncTime = 0;
-  private readonly SYNC_COOLDOWN = 60000; // 1 minuto mínimo entre syncs completos
-
-  private constructor() { }
-
-  static getInstance(): SyncService {
-    if (!SyncService.instance) {
-      SyncService.instance = new SyncService();
-    }
-    return SyncService.instance;
+  private context: SyncContext | null = null;
+  private generation = 0;
+  private pulling = new Set<number>();
+  private pushing = new Set<number>();
+  private lastFullSync = 0;
+  static getInstance() { return this.instance ??= new SyncService(); }
+  setContext(context: SyncContext | null) {
+    if (this.context && context && key(this.context) === key(context)) return;
+    this.cancelSync();
+    this.context = context ? { ...context } : null;
   }
-
-  /**
-   * Verifica si el dispositivo es conocido (ya ha sincronizado antes)
-   * Retorna el lastSync timestamp si existe, null si es dispositivo nuevo
-   */
-  private async getDeviceSyncStatus(businessId: string): Promise<{ isKnown: boolean; lastSync: string | null }> {
-    const deviceId = getDeviceId();
-    const metadata = await db.sync_metadata.where({ deviceId, businessId }).first();
-
-    if (metadata) {
-      return { isKnown: true, lastSync: metadata.lastSync };
-    }
-
-    return { isKnown: false, lastSync: null };
+  cancelSync() { this.generation++; this.lastFullSync = 0; }
+  private check(c: SyncContext, generation: number) {
+    if (!c.userId || !c.businessId || !c.deviceId || !this.context || key(c) !== key(this.context) || generation !== this.generation) throw new Error('Sync session expired');
   }
-
-  /**
-   * Actualiza el timestamp de última sincronización para este dispositivo
-   */
-  private async updateLastSync(businessId: string): Promise<void> {
-    const deviceId = getDeviceId();
-    const now = new Date().toISOString();
-
-    await db.sync_metadata.put({
-      deviceId,
-      businessId,
-      lastSync: now
-    });
+  private async authorize(c: SyncContext, generation: number) {
+    this.check(c, generation);
+    const { data, error } = await supabase.auth.getUser();
+    this.check(c, generation);
+    if (error || data.user?.id !== c.userId) throw new Error('Sync identity mismatch');
+    const { data: perfil, error: profileError } = await supabase.from('perfiles').select('id,business_id,activo,deleted_at').eq('id', c.userId).maybeSingle();
+    this.check(c, generation);
+    if (profileError || !perfil || perfil.business_id !== c.businessId || !perfil.activo || perfil.deleted_at) throw new Error('Sync profile rejected');
   }
-
-  /**
-   * PULL: Descargar datos de Supabase para un business_id
-   * Estrategia Híbrida:
-   * - Dispositivo nuevo: PULL completo (todos los datos)
-   * - Dispositivo conocido: PULL incremental (solo cambios desde última sync)
-   * NOTA: instituciones.id IS the business_id, so we fetch all institutions first
-   */
-  async pullFromSupabase(businessId: string): Promise<void> {
-    // CRITICAL FIX: Si ya está sincronizando, encolar para procesar después
-    if (this.isPulling) {
-      if (!this.pendingPulls.includes(businessId)) {
-        // Limitar tamaño de cola
-        if (this.pendingPulls.length >= this.MAX_QUEUE_SIZE) {
-          this.pendingPulls.shift(); // Remover el más antiguo
-        }
-        this.pendingPulls.push(businessId);
-      }
-      return;
-    }
-
-    this.isPulling = true;
-
+  private table(name: TableName) { return db[name] as unknown as Table<Row, string>; }
+  private normalize(name: TableName, item: Row): Row {
+    const row: Row = { ...item, sync_status: 'synced' };
+    if ('activo' in row) row.activo = row.activo === true || row.activo === 1 ? 1 : 0;
+    if (name === 'atenciones') { row.diagnostico ??= ''; row.signos_vitales = normalizeSignosVitales(row.signos_vitales as Record<string, string>); }
+    return row;
+  }
+  async pullFromSupabase(c: SyncContext) {
+    const generation = this.generation;
+    await this.authorize(c, generation);
+    if (this.pulling.has(generation)) return;
+    this.pulling.add(generation);
     try {
-      // Detectar si es dispositivo nuevo o conocido
-      const { isKnown, lastSync } = await this.getDeviceSyncStatus(businessId);
-
-      // 1. Primero fetch todas las instituciones (sin filtro, siempre completo)
-      const { data: instituciones, error: institucionesError } = await withRetry(
-        async () => {
-          const result = await supabase.from('instituciones').select('*');
-          return result;
-        },
-        { maxRetries: 2 }
-      );
-
-      if (institucionesError) {
-        logger.error('[SyncService] Error PULL instituciones:', institucionesError);
-      } else if (instituciones && instituciones.length > 0) {
-        await db.instituciones.bulkPut(instituciones);
+      const metadata = await db.sync_context_metadata.get(key(c));
+      for (const name of names) {
+        await this.authorize(c, generation);
+        let query = supabase.from(name).select('*').eq(name === 'instituciones' ? 'id' : 'business_id', c.businessId);
+        if (metadata && TABLES[name].incremental) query = query.gt('actualizado_at', metadata.lastSync);
+        const { data, error } = await withRetry(async () => { await this.authorize(c, generation); return await query; }, { maxRetries: 2 });
+        this.check(c, generation);
+        if (error) throw error;
+        const rows = (data ?? []).filter((row: Row) => name === 'instituciones' ? row.id === c.businessId : row.business_id === c.businessId);
+        if (rows.length) await this.table(name).bulkPut(rows.map((row: Row) => this.normalize(name, row)));
       }
-
-      // 2. Fetch otras tablas filtrando por business_id
-      for (const tableName of PULL_TABLES) {
-        if (tableName === 'instituciones') continue; // Ya procesado arriba
-
-        let query = supabase.from(tableName).select('*').eq('business_id', businessId);
-
-        // Para dispositivos conocidos, usar filtro incremental SOLO si la tabla tiene actualizado_at
-        if (isKnown && lastSync && !TABLES_WITHOUT_TIMESTAMPS.includes(tableName)) {
-          query = query.gt('actualizado_at', lastSync);
-        }
-
-        const { data, error } = await withRetry(
-          async () => {
-            const result = await query;
-            return result;
-          },
-          { maxRetries: 2, shouldRetry: (err) => !String(err).includes('404') }
-        );
-
-        if (error) {
-          logger.error(`[SyncService] Error PULL ${tableName}:`, error);
-          continue;
-        }
-
-        if (!data || data.length === 0) {
-          continue;
-        }
-
-        // LOG: Mostrar datos descargados (solo en desarrollo)
-        if (process.env.NODE_ENV === 'development' && tableName === 'programas_estudio') {
-          logger.debug('[SyncService] Programas descargados de Supabase:', data.map((p: any) => ({ id: p.id, nombre: p.nombre })));
-        }
-
-        // Normalizar datos de Supabase para Dexie
-        // - activo: boolean -> 1/0
-        // - sync_status: siempre 'synced' (los datos de Supabase ya están sincronizados)
-        const normalizedData = data.map((item: any) => {
-          const normalized = {
-            ...item,
-            activo: typeof item.activo === 'boolean' ? (item.activo ? 1 : 0) : item.activo,
-            sync_status: 'synced',
-          };
-
-          if (tableName === 'atenciones') {
-            normalized.diagnostico = item.diagnostico ?? '';
-            normalized.signos_vitales = normalizeSignosVitales(item.signos_vitales);
-          }
-
-          return normalized;
-        });
-
-        // Upsert en Dexie local
-        const table = (db as any)[tableName];
-        await table.bulkPut(normalizedData);
-
-        // LOG: Verificar datos en Dexie después de bulkPut (solo en desarrollo)
-        if (process.env.NODE_ENV === 'development' && tableName === 'programas_estudio') {
-          const localPrograms = await db.programas_estudio.toArray();
-          logger.debug('[SyncService] Programas en Dexie después de bulkPut:', localPrograms.map((p: any) => ({ id: p.id, nombre: p.nombre })));
-        }
-      }
-
-      // Actualizar timestamp de última sincronización
-      await this.updateLastSync(businessId);
-    } catch (error) {
-      logger.error('[SyncService] Error en PULL:', error);
-      throw error;
-    } finally {
-      this.isPulling = false;
-
-      // CRITICAL FIX: Procesar siguiente PULL en cola si existe
-      if (this.pendingPulls.length > 0) {
-        const nextBusinessId = this.pendingPulls.shift();
-        // Usar setTimeout para evitar recursion profunda
-        setTimeout(() => {
-          if (nextBusinessId) {
-            this.pullFromSupabase(nextBusinessId).catch(console.error);
-          }
-        }, 100);
-      }
-    }
+      this.check(c, generation);
+      await db.sync_context_metadata.put({ ...c, id: key(c), lastSync: new Date().toISOString() });
+    } finally { this.pulling.delete(generation); }
   }
-
-  /**
-   * Normaliza activo (Dexie 1/0 ↔ Supabase boolean)
-   */
-  private normalizeActivo(value: unknown): number {
-    return value === true || value === 1 ? 1 : 0;
+  private async reconcile(local: Row, c: SyncContext, generation: number) {
+    await this.authorize(c, generation);
+    const { data: remote, error } = await supabase.from('pacientes').select('*').eq('business_id', c.businessId).eq('dni', local.dni).maybeSingle();
+    this.check(c, generation);
+    if (error) throw error;
+    if (!remote || remote.id === local.id || remote.business_id !== c.businessId) return;
+    const atenciones = await db.atenciones.where('paciente_id').equals(local.id).filter(a => a.business_id === c.businessId).toArray();
+    for (const a of atenciones) { this.check(c, generation); await db.atenciones.update(a.id, { paciente_id: remote.id, sync_status: 'pending' }); }
+    this.check(c, generation);
+    const localTime = Date.parse(String(local.actualizado_at || local.creado_at));
+    const remoteTime = Date.parse(String(remote.actualizado_at || remote.creado_at));
+    await this.table('pacientes').put(localTime >= remoteTime ? { ...local, id: remote.id } : this.normalize('pacientes', remote));
+    this.check(c, generation);
+    await db.pacientes.delete(local.id);
   }
-
-  /**
-   * Resuelve duplicados de paciente por (business_id, dni).
-   * Ocurre cuando el registro local tiene un id distinto al de Supabase
-   * (p. ej. creado offline antes del PULL o en otro dispositivo).
-   */
-  private async reconcilePacienteByDni(
-    local: Record<string, unknown>
-  ): Promise<void> {
-    const businessId = local.business_id as string | undefined;
-    const dni = local.dni as string | undefined;
-    const localId = local.id as string | undefined;
-
-    if (!businessId || !dni || !localId) return;
-
-    const { data: remote, error } = await supabase
-      .from('pacientes')
-      .select('*')
-      .eq('business_id', businessId)
-      .eq('dni', dni)
-      .maybeSingle();
-
-    if (error) {
-      logger.warn('[SyncService] No se pudo verificar paciente remoto por DNI:', error);
-      return;
-    }
-
-    if (!remote || remote.id === localId) return;
-
-    const remoteId = remote.id as string;
-    logger.info(
-      `[SyncService] Paciente DNI ${dni}: fusionando id local ${localId} → remoto ${remoteId}`
-    );
-
-    const atenciones = await db.atenciones
-      .where('paciente_id')
-      .equals(localId)
-      .toArray();
-
-    for (const atencion of atenciones) {
-      await db.atenciones.update(atencion.id, {
-        paciente_id: remoteId,
-        sync_status: 'pending',
-      });
-    }
-
-    const localTime = new Date(
-      (local.actualizado_at as string) || (local.creado_at as string)
-    ).getTime();
-    const remoteTime = new Date(
-      (remote.actualizado_at as string) || (remote.creado_at as string)
-    ).getTime();
-
-    if (localTime >= remoteTime) {
-      const merged: Paciente = {
-        ...(local as unknown as Paciente),
-        id: remoteId,
-        activo: this.normalizeActivo(local.activo),
-        sync_status: 'pending',
-      };
-      await db.pacientes.put(merged);
-    } else {
-      const adopted: Paciente = {
-        ...(remote as unknown as Paciente),
-        activo: this.normalizeActivo(remote.activo),
-        sync_status: 'synced',
-      };
-      await db.pacientes.put(adopted);
-    }
-
-    await db.pacientes.delete(localId);
-  }
-
-  /**
-   * Limpia metadatos locales antes de enviar a Supabase
-   */
-  private cleanRecordForPush(tableName: string, item: Record<string, unknown>): Record<string, unknown> {
-    const { sync_status, deleted_at, ...rest } = item;
-
-    if ('activo' in rest) {
-      rest.activo = rest.activo === 1 || rest.activo === true;
-    }
-
-    if (TABLES_WITHOUT_TIMESTAMPS.includes(tableName)) {
-      delete rest.creado_at;
-      delete rest.actualizado_at;
-    }
-
-    if (tableName === 'movimientos_stock' && !rest.tipo_medida) {
-      rest.tipo_medida = 'UNIDAD';
-    }
-
-    if (tableName === 'atenciones') {
-      rest.diagnostico = typeof rest.diagnostico === 'string' ? rest.diagnostico : '';
-      rest.signos_vitales = normalizeSignosVitales(
-        rest.signos_vitales as Record<string, string> | undefined
-      );
-    }
-
-    return rest;
-  }
-
-  /**
-   * Ejecuta upsert y marca registros como synced
-   */
-  private async upsertAndMarkSynced(
-    tableName: string,
-    table: { bulkUpdate: (updates: { key: string; changes: { sync_status: string } }[]) => Promise<number> },
-    pending: Record<string, unknown>[]
-  ): Promise<{ error: { code?: string; message?: string } | null }> {
-    const cleanData = pending.map((item) => this.cleanRecordForPush(tableName, item));
-
-    const { error } = await withRetry(
-      async () => {
-        const result = await supabase.from(tableName).upsert(cleanData, { onConflict: 'id' });
-        return result;
-      },
-      { maxRetries: 2 }
-    );
-
-    if (error) return { error };
-
-    const ids = pending.map((p) => p.id as string);
-    await table.bulkUpdate(
-      ids.map((id) => ({ key: id, changes: { sync_status: 'synced' } }))
-    );
-
-    return { error: null };
-  }
-
-  /**
-   * PUSH: Subir datos locales pendientes a Supabase
-   * Similar a useSimpleSync pero como servicio reutilizable
-   */
-  async pushToSupabase(): Promise<void> {
-    if (this.isPushing) {
-      logger.warn('[SyncService] ⚠️ PUSH ya en progreso, omitiendo');
-      return;
-    }
-
-    this.isPushing = true;
-    logger.info('[SyncService] 📤 Iniciando PUSH a Supabase');
-
+  async pushToSupabase(c: SyncContext) {
+    const generation = this.generation;
+    await this.authorize(c, generation);
+    if (this.pushing.has(generation)) return;
+    this.pushing.add(generation);
     try {
-      let totalPending = 0;
-      for (const tableName of PUSH_TABLES) {
-        const table = (db as any)[tableName];
-        let pending = await table.where('sync_status').equals('pending').toArray();
-
-        if (pending.length === 0) {
-          logger.debug(`[SyncService] ✓ Tabla ${tableName}: 0 registros pendientes`);
-          continue;
+      for (const name of names) {
+        if (!TABLES[name].push) continue;
+        const table = this.table(name);
+        const pending = () => table.where('sync_status').equals('pending').filter(row => row.business_id === c.businessId).toArray();
+        let rows = await pending();
+        if (name === 'pacientes') {
+          for (const row of rows) await this.reconcile(row, c, generation);
+          rows = await pending(); // Reaplicar aislamiento después de reconciliar.
         }
-
-        logger.info(`[SyncService] 📋 Tabla ${tableName}: ${pending.length} registros pendientes`);
-        totalPending += pending.length;
-
-        // VALIDACIÓN DE FOREIGN KEY: Filtrar movimientos con medicamento_id inválido
-        if (tableName === 'movimientos_stock') {
-          const medicamentoIds = new Set((await db.medicamentos.toArray()).map(m => m.id));
-          const validMovements = pending.filter((m: any) => medicamentoIds.has(m.medicamento_id));
-
-          if (validMovements.length < pending.length) {
-            const invalidCount = pending.length - validMovements.length;
-
-            const invalidIds = pending
-              .filter((m: any) => !medicamentoIds.has(m.medicamento_id))
-              .map((m: any) => m.id);
-
-            await table.bulkUpdate(invalidIds.map((id: string) => ({
-              key: id,
-              changes: { sync_status: 'failed' }
-            })));
-          }
-
-          pending = validMovements;
-          if (pending.length === 0) continue;
+        this.check(c, generation);
+        if (!rows.length) continue;
+        if (name === 'movimientos_stock') {
+          const medicamentos = new Set((await db.medicamentos.toArray()).filter(m => m.business_id === c.businessId).map(m => m.id));
+          this.check(c, generation);
+          const invalid = rows.filter(row => !medicamentos.has(String(row.medicamento_id)));
+          await table.bulkUpdate(invalid.map(row => ({ key: row.id, changes: { sync_status: 'failed' } })));
+          rows = rows.filter(row => medicamentos.has(String(row.medicamento_id)));
         }
-
-        // Pacientes: resolver duplicados por (business_id, dni) antes del upsert
-        if (tableName === 'pacientes') {
-          for (const item of pending) {
-            await this.reconcilePacienteByDni(item);
-          }
-          pending = await table.where('sync_status').equals('pending').toArray();
-          if (pending.length === 0) {
-            logger.debug('[SyncService] ✓ Tabla pacientes: conflictos DNI resueltos, nada pendiente');
-            continue;
-          }
+        if (!rows.length) continue;
+        const toPayload = (item: Row) => {
+          const row = { ...item }; delete row.sync_status; delete row.deleted_at;
+          if ('activo' in row) row.activo = row.activo === true || row.activo === 1;
+          if (!TABLES[name].created) delete row.creado_at;
+          if (!TABLES[name].updated) delete row.actualizado_at;
+          if (name === 'movimientos_stock') row.tipo_medida ||= 'UNIDAD';
+          if (name === 'atenciones') { row.diagnostico ??= ''; row.signos_vitales = normalizeSignosVitales(row.signos_vitales as Record<string, string>); }
+          return row;
+        };
+        let payload = rows.map(toPayload);
+        await this.authorize(c, generation);
+        let { error } = await withRetry(async () => { await this.authorize(c, generation); return await supabase.from(name).upsert(payload, { onConflict: 'id' }); }, { maxRetries: 2 });
+        this.check(c, generation);
+        if (error?.code === '23505' && name === 'pacientes') {
+          for (const row of rows) await this.reconcile(row, c, generation);
+          rows = await pending();
+          this.check(c, generation);
+          payload = rows.map(toPayload);
+          if (rows.length) {
+            await this.authorize(c, generation);
+            ({ error } = await supabase.from(name).upsert(payload, { onConflict: 'id' }));
+            this.check(c, generation);
+          } else error = null;
         }
-
-        let { error } = await this.upsertAndMarkSynced(tableName, table, pending);
-
-        // Reintento si persiste conflicto de DNI único en Supabase
-        if (error?.code === '23505' && tableName === 'pacientes') {
-          logger.warn('[SyncService] Conflicto DNI en pacientes — reintentando con reconciliación');
-          for (const item of pending) {
-            await this.reconcilePacienteByDni(item);
-          }
-          pending = await table.where('sync_status').equals('pending').toArray();
-          if (pending.length > 0) {
-            ({ error } = await this.upsertAndMarkSynced(tableName, table, pending));
-          } else {
-            error = null;
-          }
-        }
-
-        if (error) {
-          logger.error(`[SyncService] Error PUSH ${tableName}:`, error);
-          continue;
-        }
-
-        logger.debug(`[SyncService] ✅ ${tableName}: upsert exitoso`);
-        logger.debug(`[SyncService] ✅ ${tableName}: ${pending.length} registros marcados como synced`);
+        if (error) throw error;
+        await table.bulkUpdate(rows.map(row => ({ key: row.id, changes: { sync_status: 'synced' } })));
       }
-
-      logger.info(`[SyncService] 📊 Total registros sincronizados: ${totalPending}`);
-    } catch (error) {
-      logger.error('[SyncService] ❌ Error en PUSH:', error);
-      throw error;
-    } finally {
-      this.isPushing = false;
-      logger.debug('[SyncService] 🏁 PUSH finalizado');
-    }
+    } finally { this.pushing.delete(generation); }
   }
-
-  /**
-   * Resolución de conflictos: Last Write Wins
-   * Compara timestamps y decide qué versión mantener
-   */
-  async resolveConflict(tableName: string, id: string): Promise<void> {
-    const table = (db as any)[tableName];
-    const localItem = await table.get(id);
-
-    if (!localItem) return;
-
-    const { data: remoteItem } = await supabase
-      .from(tableName)
-      .select('*')
-      .eq('id', id)
-      .single();
-
-    if (!remoteItem) return;
-
-    // Comparar timestamps (usando creado_at ya que actualizado_at no existe en Supabase)
-    const localTime = new Date(localItem.creado_at).getTime();
-    const remoteTime = new Date(remoteItem.creado_at).getTime();
-
-    if (remoteTime > localTime) {
-      // Remoto gana, actualizar local
-      await table.put(remoteItem);
-    } else {
-      // Local gana, subir a remoto
-      const { sync_status, deleted_at, ...rest } = localItem;
-      await supabase.from(tableName).upsert(rest, { onConflict: 'id' });
-      await table.update(id, { sync_status: 'synced' });
-    }
-  }
-
-  /**
-   * Sincronización completa: PULL + PUSH con rate limiting
-   */
-  async fullSync(businessId: string): Promise<void> {
-    const now = Date.now();
-    const timeSinceLastSync = now - this.lastFullSyncTime;
-
-    // Rate limiting: no permitir sync completos más frecuentes que SYNC_COOLDOWN
-    if (timeSinceLastSync < this.SYNC_COOLDOWN) {
-      logger.warn(`[SyncService] ⚠️ Sync en cooldown (${Math.ceil((this.SYNC_COOLDOWN - timeSinceLastSync) / 1000)}s restantes)`);
-      return;
-    }
-
-    this.lastFullSyncTime = now;
-    await this.pullFromSupabase(businessId);
-    await this.pushToSupabase();
+  async requestPush() { if (this.context) await this.pushToSupabase(this.context); }
+  async fullSync(c: SyncContext) {
+    this.check(c, this.generation);
+    if (Date.now() - this.lastFullSync < 60000) return;
+    this.lastFullSync = Date.now();
+    await this.pullFromSupabase(c);
+    await this.pushToSupabase(c);
   }
 }
-
 export const syncService = SyncService.getInstance();

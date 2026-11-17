@@ -76,7 +76,7 @@ export function usePacientes(): UsePacientesReturn {
 
     await db.pacientes.add(paciente);
     if (isOnline) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.requestPush().catch(console.error);
     }
     return paciente.id;
   };
@@ -93,7 +93,7 @@ export function usePacientes(): UsePacientesReturn {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.requestPush().catch(console.error);
     }
   };
 
@@ -109,7 +109,7 @@ export function usePacientes(): UsePacientesReturn {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.requestPush().catch(console.error);
     }
   };
 

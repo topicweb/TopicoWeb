@@ -70,7 +70,7 @@ export function useMedicamentos() {
 
     await db.medicamentos.add(medicamento);
     if (isOnline) {
-      syncService.pushToSupabase().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
+      syncService.requestPush().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
     }
     return medicamento.id;
   };
@@ -87,7 +87,7 @@ export function useMedicamentos() {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.pushToSupabase().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
+      syncService.requestPush().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
     }
   };
 
@@ -103,7 +103,7 @@ export function useMedicamentos() {
       sync_status: 'pending',
     });
     if (isOnline) {
-      syncService.pushToSupabase().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
+      syncService.requestPush().catch((error) => logger.error('[useMedicamentos] Error en sync:', error));
     }
   };
 

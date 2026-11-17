@@ -132,7 +132,7 @@ export class DexieAtencionRepository {
 
       // Trigger PUSH automático solo si hay conexión
       if (typeof window !== 'undefined' && navigator.onLine) {
-        syncService.pushToSupabase().catch(console.error);
+        syncService.requestPush().catch(console.error);
       }
 
       return {
@@ -182,7 +182,7 @@ export class DexieAtencionRepository {
 
     // Trigger PUSH automático solo si hay conexión
     if (typeof window !== 'undefined' && navigator.onLine) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.requestPush().catch(console.error);
     }
 
     return {

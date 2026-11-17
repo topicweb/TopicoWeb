@@ -22,6 +22,7 @@ const db = new Dexie('TopicoDatabase') as Dexie & {
   medicamentos: EntityTable<Medicamento, 'id'>;
   atenciones: EntityTable<Atencion, 'id'>;
   movimientos_stock: EntityTable<MovimientoStock, 'id'>;
+  sync_context_metadata: EntityTable<{ id: string; deviceId: string; businessId: string; userId: string; lastSync: string }, 'id'>;
   sync_metadata: EntityTable<{ deviceId: string; businessId: string; lastSync: string }, 'deviceId'>;
 };
 
@@ -78,3 +79,5 @@ export { db };
 
 // Re-exportar utilidades para backward compatibility
 export { generateUUIDUtil as generateUUID };
+
+db.version(3).stores({ ...SCHEMA_V1, sync_context_metadata: 'id, [deviceId+businessId+userId]' });

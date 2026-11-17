@@ -2,6 +2,7 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/core/db";
+import { useAuth } from '@/core/providers/AuthProvider';
 import { useNetwork } from "@/core/providers/NetworkProvider";
 import { useBidirectionalSync } from "@/core/hooks/useBidirectionalSync";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,18 +18,20 @@ interface SyncMonitorProps {
 }
 
 export const SyncMonitor = ({ variant = "fixed" }: SyncMonitorProps) => {
+  const { businessId } = useAuth();
   const { isOnline } = useNetwork();
   const { forceSync, isSyncing } = useBidirectionalSync();
 
   const pendingCount = useLiveQuery(async () => {
+    if (!businessId) return 0;
     const [pacientes, atenciones, movimientos, medicamentos] = await Promise.all([
-      db.pacientes.where("sync_status").equals("pending").count(),
-      db.atenciones.where("sync_status").equals("pending").count(),
-      db.movimientos_stock.where("sync_status").equals("pending").count(),
-      db.medicamentos.where("sync_status").equals("pending").count(),
+      db.pacientes.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
+      db.atenciones.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
+      db.movimientos_stock.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
+      db.medicamentos.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
     ]);
     return pacientes + atenciones + movimientos + medicamentos;
-  }, []);
+  }, [businessId]);
 
   const hasPending = (pendingCount || 0) > 0;
 

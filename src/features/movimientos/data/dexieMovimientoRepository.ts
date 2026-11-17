@@ -65,7 +65,7 @@ export class DexieMovimientoRepository implements MovimientoRepository {
 
     // Trigger PUSH automático solo si hay conexión
     if (typeof window !== 'undefined' && navigator.onLine) {
-      syncService.pushToSupabase().catch(console.error);
+      syncService.requestPush().catch(console.error);
     }
 
     const medicamento = await db.medicamentos.get(input.medicamento_id);
