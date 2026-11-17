@@ -16,9 +16,9 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 
 | Fase | Estado | Cierre pendiente |
 |---|---|---|
-| 0 | Preparación local y herramientas disponibles | Build/smoke, configuración Auth/API y staging real |
+| 0 | Supabase local con Auth/PostgREST disponible y probado | Configuración cloud y smoke de la aplicación |
 | 1 | Parte local implementada y verificada | SQL coordinado con fase 2; staging y despliegue pendientes |
-| 2 | Migración implementada y matriz SQL local correcta (dos pasadas) | Staging Auth/API y smoke cliente; no desplegada |
+| 2 | Migración verificada en PostgreSQL y Supabase local Auth/API | Smoke cliente y despliegue; producción sin cambios |
 | 3 | Bloqueada por descarga; se conserva manifest/lockfile originales | Reintentar parche en entorno con npm estable y validar build |
 | 4–9 | Pendientes | Según plan, sin cambios aún |
 
@@ -59,3 +59,12 @@ No ejecutar supabase db push ni apply_migration sobre producción durante prepar
 - Verificación final tras recuperación: Node 20.19.0; next 16.1.6, react/react-dom 19.2.3; TypeScript correcto; Vitest 66/66; build webpack/PWA correcto con las 11 páginas. package.json, pnpm-lock.yaml y pnpm-workspace.yaml sin diferencias respecto a inicio.
 - PostgreSQL temporal detenido correctamente. No se borró su directorio; sus datos son únicamente sintéticos. Para repetir tests, iniciar ese cluster en el puerto 55439 antes de ejecutar run-local.ps1; el runner crea y retira su propia base aleatoria.
 - No se realizaron pruebas manuales de PWA/Auth ni escrituras remotas. Estado seguro para retomar: cambios de aplicación y SQL guardados en commits; fase 3 no quedó parcialmente aplicada.
+
+## Continuación — staging gratuito local
+
+- Usuario informa que no dispone de branches cloud por plan gratuito. Se inició Docker Desktop y Supabase local aislado en TEMP/topico-refactor-stack-20261116, sin crear proyectos ni costes cloud.
+- Stack real local: PostgreSQL + Auth + PostgREST + Kong + correo sintético. Esquema público sin filas y migración RLS aplicados solo ahí. No se conectó al proyecto remoto.
+- Luna preparó el test API; principal revisó y corrigió uso de apikey, pruebas sobre filas realmente existentes, cleanup, timeout y redirects. Wrapper PowerShell captura las claves locales en memoria sin imprimirlas.
+- Prueba `supabase/tests/run-auth-api-local.ps1`: correcta. Creación/login de cuatro usuarios, instituciones/perfiles A/B, aislamiento, intento de escalar rol/tenant/estado (403 y fila intacta), insert/upsert propio, escritura cruzada (403), update ajeno sin filas y sin cambios, inactivo solo perfil propio. Cleanup correcto.
+- No equivale a prueba de cookies SSR/Server Actions/PWA ni de configuración Auth cloud. No se despliega producción todavía. Ver staging-local.md para reproducir y detener servicios.
+- Fase 3 reanudada: lockfile resuelto para Next16.4.6/React19.2.9/server-only/eslint-config-next16.4.6; descarga previa a instalación en curso. Se detectó peer preexistente Supabase SSR0.12.4 requiere JS^2.111.0 frente a2.93.3 actual; registrar para validar Auth sin actualizar adicionalmente a ciegas.
