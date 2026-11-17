@@ -117,6 +117,17 @@ describe('validateAdminAccess — R1 reglas de rol/tenant', () => {
     ).rejects.toThrow('Usuario inactivo');
   });
 
+  it('admin con deleted_at: lanza aunque activo sea booleano true', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{
+      data: { rol: 'admin', business_id: TENANT_A, activo: true, deleted_at: '2026-01-01T00:00:00Z' },
+      error: null,
+    }];
+
+    await expect(updateUserAction('target-1', { business_id: TENANT_A })).rejects.toThrow('Usuario inactivo');
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
   it('admin de otro tenant: lanza', async () => {
     getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
     state.singleResponses = [{ data: { rol: 'admin', business_id: TENANT_B, activo: true }, error: null }];
@@ -181,6 +192,25 @@ describe('updateUserAction — R6 IDOR cross-tenant', () => {
     expect((state.lastUpdate.payload as { email?: string }).email).toBe('nueva@inst.edu.pe');
   });
 
+  it('admin rechaza rol inválido antes de Auth o escritura', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+
+    await expect(updateUserAction('target-1', {
+      rol: 'superadmin' as unknown as Perfil['rol'], business_id: TENANT_A,
+    })).rejects.toThrow('Rol inválido');
+    expect(state.lastAuthUpdate).toBeNull();
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it('admin rechaza email inválido antes de Auth o escritura', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+
+    await expect(updateUserAction('target-1', { email: 'bad-email', business_id: TENANT_A }))
+      .rejects.toThrow('Email inválido');
+    expect(state.lastAuthUpdate).toBeNull();
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
   it('admin intenta cambiar email a uno YA registrado en Auth → falla y no toca perfiles (R17)', async () => {
     getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
     state.singleResponses = [
@@ -211,11 +241,46 @@ describe('updateUserAction — R6 IDOR cross-tenant', () => {
 
   it('admin trata de modificar su propio perfil: path self-update sin rol admin requerido', async () => {
     getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [
+      { data: { email: 'admin@inst.edu.pe', activo: true, deleted_at: null }, error: null },
+    ];
 
-    const result = await updateUserAction(ADMIN_USER_ID, { nombre: 'Mi Nombre' });
+    const result = await updateUserAction(ADMIN_USER_ID, {
+      nombre: 'Mi Nombre', rol: 'personal', activo: 0, business_id: TENANT_B,
+    });
 
     expect(result).toEqual({ success: true });
-    expect((state.lastUpdate.payload as Record<string, unknown>)).toMatchObject({ nombre: 'Mi Nombre' });
+    expect(state.lastUpdate.payload).toEqual({ nombre: 'Mi Nombre' });
+    expect(state.lastAuthUpdate).toBeNull();
+  });
+
+  it.each([
+    ['inactivo', { email: 'admin@inst.edu.pe', activo: false, deleted_at: null }],
+    ['eliminado', { email: 'admin@inst.edu.pe', activo: true, deleted_at: '2026-01-01T00:00:00Z' }],
+  ])('self-update bloquea perfil %s', async (_label, perfil) => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: perfil, error: null }];
+
+    await expect(updateUserAction(ADMIN_USER_ID, { nombre: 'Cambio' })).rejects.toThrow('Usuario inactivo');
+    expect(state.lastUpdate.id).toBeNull();
+    expect(state.lastAuthUpdate).toBeNull();
+  });
+
+  it('self-update bloquea perfil inexistente o con error de lectura', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: null, error: { message: 'missing' } }];
+
+    await expect(updateUserAction(ADMIN_USER_ID, { nombre: 'Cambio' })).rejects.toThrow('Usuario no encontrado');
+    expect(state.lastUpdate.id).toBeNull();
+  });
+
+  it('self-update email inválido se rechaza sin Auth ni escritura de perfil', async () => {
+    getAuthenticatedUserMock.mockResolvedValue({ id: ADMIN_USER_ID });
+    state.singleResponses = [{ data: { email: 'admin@inst.edu.pe', activo: 1, deleted_at: null }, error: null }];
+
+    await expect(updateUserAction(ADMIN_USER_ID, { email: 'no-es-email' })).rejects.toThrow('Email inválido');
+    expect(state.lastAuthUpdate).toBeNull();
+    expect(state.lastUpdate.id).toBeNull();
   });
 });
 

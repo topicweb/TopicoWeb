@@ -2,8 +2,9 @@
 
 import { supabaseAdmin } from "@/core/db/supabase/admin";
 import { getAuthenticatedUser } from "@/core/db/supabase/server";
-import { isPerfilActivo } from "@/shared/utils/perfil";
+import { isPerfilActivo, isPerfilValido } from "@/shared/utils/perfil";
 import { PasswordSchema, RolSchema } from "@/shared/schemas/validation";
+import { AdminProfileUpdateSchema, SelfProfileUpdateSchema } from "../schemas/users";
 import { Perfil } from "../types";
 
 // ───────────────────────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ async function validateAdminAccess(businessId: string) {
     // Obtener perfil del usuario
     const { data: perfil, error } = await supabaseAdmin
       .from('perfiles')
-      .select('rol, business_id, activo')
+      .select('rol, business_id, activo, deleted_at')
       .eq('id', userId)
       .single();
 
@@ -32,7 +33,7 @@ async function validateAdminAccess(businessId: string) {
     }
 
     // Verificar que esté activo
-    if (!perfil.activo) {
+    if (!isPerfilValido(perfil)) {
       throw new Error('Usuario inactivo');
     }
 
@@ -155,30 +156,49 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
 
   // Si el usuario está actualizando su propio perfil, permitir sin ser admin
   if (currentUserId && id === currentUserId) {
+    const { data: ownProfile, error: ownProfileError } = await supabaseAdmin
+      .from('perfiles')
+      .select('email, activo, deleted_at')
+      .eq('id', id)
+      .single();
+
+    if (ownProfileError || !ownProfile) {
+      throw new Error('Usuario no encontrado');
+    }
+    if (!isPerfilValido(ownProfile)) {
+      throw new Error('Usuario inactivo');
+    }
+
+    // El formulario puede enviar rol/activo/business_id. Se validan y persisten
+    // únicamente los campos de autoservicio; los privilegiados se ignoran.
+    const selfInput = SelfProfileUpdateSchema.safeParse({
+      ...(data.nombre !== undefined ? { nombre: data.nombre } : {}),
+      ...(data.email !== undefined ? { email: data.email } : {}),
+    });
+    if (!selfInput.success) {
+      throw new Error(selfInput.error.issues[0].message);
+    }
+
     const updatePayload: Partial<Perfil> = {};
-    if (data.nombre !== undefined) updatePayload.nombre = data.nombre;
+    if (selfInput.data.nombre !== undefined) updatePayload.nombre = selfInput.data.nombre;
 
     // R17: si cambia el email, actualizar Primero el email en Supabase Auth
     // (respeta unicidad y deja trail) y solo entonces reflejarlo en perfiles.
-    if (data.email) {
-      const { data: ownProfile } = await supabaseAdmin
-        .from('perfiles')
-        .select('email')
-        .eq('id', id)
-        .single();
-
-      const emailChanged = !ownProfile || ownProfile.email !== data.email;
+    if (selfInput.data.email !== undefined) {
+      const emailChanged = ownProfile.email !== selfInput.data.email;
       if (emailChanged) {
         const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(id, {
-          email: data.email,
+          email: selfInput.data.email,
           email_confirm: true,
         });
         if (authErr) {
           throw new Error(`No se pudo actualizar el email: ${authErr.message}`);
         }
-        updatePayload.email = data.email;
+        updatePayload.email = selfInput.data.email;
       }
     }
+
+    if (Object.keys(updatePayload).length === 0) return { success: true };
 
     const { error } = await supabaseAdmin
       .from('perfiles')
@@ -193,6 +213,17 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
   // Si actualiza otro perfil, debe ser admin
   if (!data.business_id) {
     throw new Error("business_id es requerido");
+  }
+
+  const adminInput = AdminProfileUpdateSchema.safeParse({
+    ...(data.nombre !== undefined ? { nombre: data.nombre } : {}),
+    ...(data.email !== undefined ? { email: data.email } : {}),
+    ...(data.rol !== undefined ? { rol: data.rol } : {}),
+    ...(data.activo !== undefined ? { activo: data.activo } : {}),
+  });
+  if (!adminInput.success) {
+    const invalidRole = adminInput.error.issues.some((issue) => issue.path[0] === 'rol');
+    throw new Error(invalidRole ? 'Rol inválido' : adminInput.error.issues[0].message);
   }
 
   await validateAdminAccess(data.business_id);
@@ -216,10 +247,10 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
 
   // R17: si cambia el email, actualizar Primero el email en Supabase Auth
   // (respeta unicidad) y solo entonces reflejarlo en perfiles.
-  const emailChanged = !!data.email && data.email !== targetUser.email;
+  const emailChanged = adminInput.data.email !== undefined && adminInput.data.email !== targetUser.email;
   if (emailChanged) {
     const { error: authErr } = await supabaseAdmin.auth.admin.updateUserById(id, {
-      email: data.email,
+      email: adminInput.data.email!,
       email_confirm: true,
     });
     if (authErr) {
@@ -228,10 +259,10 @@ export async function updateUserAction(id: string, data: Partial<Perfil>) {
   }
 
   const updatePayload: Record<string, unknown> = {};
-  if (data.nombre !== undefined) updatePayload.nombre = data.nombre;
-  if (emailChanged) updatePayload.email = data.email;
-  if (data.rol !== undefined) updatePayload.rol = data.rol;
-  if (data.activo !== undefined) updatePayload.activo = isPerfilActivo(data.activo);
+  if (adminInput.data.nombre !== undefined) updatePayload.nombre = adminInput.data.nombre;
+  if (emailChanged) updatePayload.email = adminInput.data.email;
+  if (adminInput.data.rol !== undefined) updatePayload.rol = adminInput.data.rol;
+  if (adminInput.data.activo !== undefined) updatePayload.activo = isPerfilActivo(adminInput.data.activo);
   // R9: NO se permite cambiar business_id aquí — el parámetro queda solo como
   // validación del tenant, no para mover cuentas entre instituciones.
   updatePayload.actualizado_at = new Date().toISOString();
