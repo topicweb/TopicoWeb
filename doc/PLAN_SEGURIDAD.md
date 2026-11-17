@@ -1,5 +1,7 @@
 # 🛡️ PLAN DE SEGURIDAD — Análisis de Vulnerabilidades y Plan de Remediación
 
+> **Archivo histórico, sustituido:** consultar el [plan validado](../docs/refactorizacion/plan-refactorizacion.md) y el [estado actual](../docs/refactorizacion/estado-implementacion.md). Los ejemplos y checklists siguientes no son instrucciones actuales de despliegue. En fase 9 se retiraron `useSimpleSync.ts` y `seedData.ts`, sin consumidores.
+
 > **Fecha del análisis:** 06/11/2026
 > **Alcance:** `src/core/` + puntos de dependencia directa (`middleware.ts`, server actions de usuarios, migraciones SQL, configuración Next.js).
 > **Estado:** 🟡 **EN PROGRESO — Fase 1 casi completa** (ver Checklist Fase 1 y Registro de progreso).

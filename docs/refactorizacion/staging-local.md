@@ -85,6 +85,16 @@ El RPC de lectura `topico_stock_snapshot` toma saldo e IDs aplicados en una mism
 
 Antes de cualquier despliegue: pausar escritores antiguos y coordinar todos los dispositivos; resolver o aislar con evidencia sus colas legacy. Un movimiento pendiente anterior al corte puede tener su saldo ya reflejado por el cliente viejo: no deducirlo de fechas ni aplicarlo automáticamente sobre la apertura. Preservar cola y UUID hasta reconciliación dirigida. Los clientes antiguos que envíen stock absoluto serán rechazados; no reabrir grants para hacerlos funcionar. Revisar agregados de inconsistencias otra vez y duración de locks; si la migración rechaza datos, revierte completa y exige diagnóstico, sin reparación automática. Quedan pendientes navegación UI/PWA offline y dos pestañas reales de la aplicación.
 
+## Fase 9 — rendimiento aislado
+
+Con el stack sintético iniciado:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-performance-local.ps1
+```
+
+Crea/retira una base `topico_perf_test_<uuid>` en el contenedor local fijo; no modifica la base postgres del stack Auth. Usa fixture y 100.000 pacientes sintéticos. Mide bajo authenticated/RLS, evalúa y descarta el índice compuesto, prueba retirada de dos índices duplicados, constraints, rollback/reaplicación y rechazo de deriva. No ejecutar fixtures, función de medición ni EXPLAIN ANALYZE en producción. Emite JSON por línea; conservar stdout en UTF-8 para actualizar evidencia. Ver [fase9-rendimiento.md](fase9-rendimiento.md).
+
 ## Fase 8 — funciones, sesiones y PWA en navegador real
 
 ```powershell

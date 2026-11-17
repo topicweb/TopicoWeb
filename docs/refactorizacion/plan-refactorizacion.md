@@ -169,6 +169,8 @@ Subpasos finales de 4b, todos de prioridad ALTA:
 
 ### Fase 9 — Rendimiento medido y limpieza opcional
 
+**Estado actual:** cerrada localmente; evidencia y decisiones en [fase9-rendimiento.md](fase9-rendimiento.md). Migración limitada a dos índices no únicos duplicados; limpieza de dos módulos sin consumidores. El índice compuesto fue evaluado y se difiere, igual que triggers/otros índices opcionales. Producción y pendientes operativos anteriores sin certificar.
+
 1. **Prioridad/objetivo:** MEDIO/BAJO; simplificar solo con beneficio comprobado.
 2. **Problema/evidencia:** P01–P05, L15 y triggers duplicados en perfiles.
 3. **Archivos/componentes:** índices/políticas/triggers, syncService.ts, useSimpleSync.ts, seedData.ts y documentación obsoleta.

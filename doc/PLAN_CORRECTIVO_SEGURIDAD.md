@@ -1,5 +1,7 @@
 # 🔧 PLAN CORRECTIVO DE SEGURIDAD — TópicoWeb (PWA + Supabase)
 
+> **Archivo histórico, sustituido:** consultar el [plan validado](../docs/refactorizacion/plan-refactorizacion.md) y el [estado actual](../docs/refactorizacion/estado-implementacion.md). No ejecutar los ejemplos históricos como migraciones. En fase 9 se retiraron `useSimpleSync.ts` y `seedData.ts`, sin consumidores.
+
 > **Fecha:** 07/11/2026
 > **Origen:** re-auditoría de `PLAN_SEGURIDAD.md` contra el código real.
 > **Veredicto global:** 12 hallazgos confirmados, 1 parcial (R6), 1 falso positivo parcial (R6–softDelete), 4 hallazgos nuevos (R16–R19).
