@@ -1,47 +1,52 @@
-/**
- * Retry logic con exponential backoff
- * Reintenta operaciones fallidas con delays crecientes
- */
+/** Retry logic with exponential backoff for transient network and database errors. */
 
-interface RetryOptions {
+export interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
   maxDelay?: number;
   shouldRetry?: (error: unknown) => boolean;
 }
 
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {}
-): Promise<T> {
-  const {
-    maxRetries = 3,
-    baseDelay = 1000,
-    maxDelay = 10000,
-    shouldRetry = () => true,
-  } = options;
+type ErrorLike = { name?: unknown; code?: unknown; status?: unknown; statusCode?: unknown; message?: unknown };
 
-  let lastError: unknown;
+function isTransient(error: unknown): boolean {
+  if (error instanceof TypeError) return true; // fetch network failures
+  if (!error || typeof error !== 'object') return false;
+  const e = error as ErrorLike;
+  if (e.name === 'TypeError' || e.name === 'AuthRetryableFetchError') return true;
+  if (Number(e.status) === 0 && typeof e.message === 'string' && /fetch|network|ECONNRESET|ECONNREFUSED/i.test(e.message)) return true;
+  const code = typeof e.code === 'string' ? e.code : '';
+  if (['40001', '40P01', '53300', '57P01'].includes(code)) return true;
+  const status = Number(e.status ?? e.statusCode);
+  return status === 408 || status === 429 || status >= 500;
+}
 
-  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+export async function withRetry<T>(fn: () => PromiseLike<T>, options: RetryOptions = {}): Promise<T> {
+  const { maxRetries = 3, baseDelay = 1000, maxDelay = 10000, shouldRetry = isTransient } = options;
+  for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (error) {
-      lastError = error;
-
-      // Si no debe reintentar o es el último intento, lanzar error
-      if (!shouldRetry(error) || attempt === maxRetries) {
-        throw error;
-      }
-
-      // Calcular delay con exponential backoff
-      const delay = Math.min(baseDelay * Math.pow(2, attempt), maxDelay);
-      
-      console.warn(`[Retry] Intento ${attempt + 1}/${maxRetries + 1} falló, reintentando en ${delay}ms...`);
-      
-      await new Promise(resolve => setTimeout(resolve, delay));
+      if (!shouldRetry(error) || attempt >= maxRetries) throw error;
+      await new Promise<void>((resolve) => setTimeout(resolve, Math.min(baseDelay * 2 ** attempt, maxDelay)));
     }
   }
+}
 
-  throw lastError;
+/** Retries Supabase's resolved { error } responses as well as rejected requests. */
+export function withSupabaseRetry<T extends { error?: unknown; status?: unknown }>(
+  fn: () => PromiseLike<T>,
+  options: RetryOptions = {},
+): Promise<T> {
+  return withRetry(async () => {
+    const result = await fn();
+    if (result?.error) {
+      const error = result.error;
+      if (error && typeof error === 'object' && (error as ErrorLike).status == null && result.status != null) {
+        try { Object.assign(error, { status: result.status }); } catch { /* retain original error */ }
+      }
+      throw error;
+    }
+    return result;
+  }, options);
 }

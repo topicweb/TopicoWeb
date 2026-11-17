@@ -1,95 +1,41 @@
 "use client";
-
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/core/db";
+import { useLiveQuery } from 'dexie-react-hooks';
+import type { Table } from 'dexie';
+import { useState } from 'react';
+import { db } from '@/core/db';
 import { useAuth } from '@/core/providers/AuthProvider';
-import { useNetwork } from "@/core/providers/NetworkProvider";
-import { useBidirectionalSync } from "@/core/hooks/useBidirectionalSync";
-import { motion, AnimatePresence } from "framer-motion";
-import { Cloud, CloudOff, RefreshCw, CheckCircle2 } from "lucide-react";
+import { useNetwork } from '@/core/providers/NetworkProvider';
+import { useBidirectionalSync } from '@/core/hooks/useBidirectionalSync';
+import { getDeviceId } from '@/core/utils/deviceId';
+import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
 
-// ───────────────────────────────────────────────────────────────────────────────
-// MONITOR DE SINCRONIZACIÓN
-// Indicador de estado de red y cambios pendientes. Crítico en entorno médico
-// ───────────────────────────────────────────────────────────────────────────────
-
-interface SyncMonitorProps {
-  variant?: "fixed" | "inline";
-}
-
-export const SyncMonitor = ({ variant = "fixed" }: SyncMonitorProps) => {
-  const { businessId } = useAuth();
+export const SyncMonitor = ({ variant = 'fixed' }: { variant?: 'fixed' | 'inline' }) => {
+  const { businessId, user } = useAuth();
   const { isOnline } = useNetwork();
-  const { forceSync, isSyncing } = useBidirectionalSync();
-
-  const pendingCount = useLiveQuery(async () => {
-    if (!businessId) return 0;
-    const [pacientes, atenciones, movimientos, medicamentos] = await Promise.all([
-      db.pacientes.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
-      db.atenciones.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
-      db.movimientos_stock.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
-      db.medicamentos.where("sync_status").equals("pending").filter(row => row.business_id === businessId).count(),
-    ]);
-    return pacientes + atenciones + movimientos + medicamentos;
-  }, [businessId]);
-
-  const hasPending = (pendingCount || 0) > 0;
-
-  const containerClasses =
-    variant === "fixed"
-      ? "hidden md:block fixed top-4 right-4 z-50"
-      : "w-full";
-
-  const handleSyncClick = () => {
-    if (isOnline && hasPending) {
-      console.log('[SyncMonitor] 🔄 Forzando sincronización manual');
-      forceSync();
-    }
+  const { forceSync, retryFailed, isSyncing } = useBidirectionalSync();
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const status = useLiveQuery(async () => {
+    if (!businessId || !user) return { pending: 0, failed: 0, error: false };
+    const tables = [db.pacientes, db.atenciones, db.movimientos_stock, db.medicamentos] as unknown as Table<{ business_id: string }, string>[];
+    const pending = await Promise.all(tables.map(table => table.where('sync_status').equals('pending').filter(row => row.business_id === businessId).count()));
+    const failed = await Promise.all(tables.map(table => table.where('sync_status').equals('failed').filter(row => row.business_id === businessId).count()));
+    const errors = await db.sync_table_metadata.where('businessId').equals(businessId).filter(row => row.userId === user.id && row.deviceId === getDeviceId() && !!row.error).count();
+    return { pending: pending.reduce((a, b) => a + b, 0), failed: failed.reduce((a, b) => a + b, 0), error: errors > 0 };
+  }, [businessId, user?.id]);
+  const hasError = !!status?.failed || !!status?.error || (!!requestError && requestError === businessId);
+  const run = async () => {
+    try { if (status?.failed) await retryFailed(); else await forceSync(); setRequestError(null); }
+    catch { setRequestError(businessId); }
   };
-
-  return (
-    <div className={containerClasses}>
-      <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-        <div
-          className={`flex h-7 w-7 items-center justify-center rounded-lg ${
-            isOnline
-              ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-              : "bg-[var(--danger-soft)] text-[var(--danger)]"
-          }`}
-        >
-          {isOnline ? <Cloud size={14} /> : <CloudOff size={14} />}
-        </div>
-
-        <div className="flex items-center gap-2 pr-2">
-          {hasPending ? (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key="pending"
-                initial={{ opacity: 0, x: -5 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 5 }}
-                transition={{ duration: 0.15 }}
-                className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 transition-colors hover:bg-[var(--primary-soft)]"
-                onClick={handleSyncClick}
-                title={isOnline ? "Click para sincronizar" : "Sin conexión"}
-              >
-                <RefreshCw
-                  size={12}
-                  className={`text-[var(--warning)] ${isSyncing ? "animate-spin" : ""}`}
-                />
-                <span className="text-xs font-semibold text-slate-700">
-                  {pendingCount}
-                </span>
-              </motion.div>
-            </AnimatePresence>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <CheckCircle2 size={12} className="text-[var(--accent)]" />
-              <span className="text-xs font-medium text-slate-500">Sync OK</span>
-            </div>
-          )}
-        </div>
-      </div>
+  return <div className={variant === 'fixed' ? 'hidden md:block fixed top-4 right-4 z-50' : 'w-full'}>
+    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+      {isOnline ? <Cloud size={16} /> : <CloudOff size={16} />}
+      <button type="button" disabled={!isOnline || isSyncing || !businessId} onClick={() => void run()}
+        className="flex items-center gap-2 text-xs disabled:opacity-60" title="Sincronizar o reintentar cambios pendientes">
+        {isSyncing ? <RefreshCw size={14} className="animate-spin" /> : hasError ? <AlertCircle size={14} className="text-red-600" /> : <CheckCircle2 size={14} />}
+        {isSyncing ? 'Sincronizando…' : !status ? 'Verificando…' : hasError ? `${status?.failed ?? 0} fallidos · Reintentar` : status?.pending ? `${status.pending} pendientes` : 'Sync OK'}
+      </button>
+      {hasError && <span role="status" className="text-xs text-red-600">Sincronización incompleta</span>}
     </div>
-  );
+  </div>;
 };

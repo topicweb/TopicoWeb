@@ -53,3 +53,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-auth-api-
 Requiere el contenedor local supabase_db_topico-refactor-stack-20261116, Docker en su ruta instalada y Mailpit en http://127.0.0.1:54324. El test acepta únicamente API HTTP loopback; no usar túneles ni redirigir puertos a producción. Instala y retira temporalmente un CHECK sintético en perfiles para provocar fallos de INSERT y espejo de email; por ello ejecutarlo solo en este stack aislado, sin otros tests simultáneos. No realiza esas operaciones mediante MCP remoto.
 
 Valida aprovisionamiento atómico, marcador confiable, rollback sin huérfanos, email canónico, espejo transaccional, duplicados, permisos RPC y confirmación de email propio con los dos correos de Mailpit. Solo consulta cuerpos de mensajes dirigidos a los UUID sintéticos de su ejecución y mantiene enlaces/claves en memoria sin imprimirlos. Retira usuarios/perfiles/instituciones, constraint temporal y mensajes generados, e informa fallos de limpieza. Repetir también la matriz Auth/RLS original tras aplicar la migración.
+
+## Fase 6 — frontera y páginas reales
+
+Después de aplicar las migraciones anteriores y `20261117000200_sync_boundaries.sql` solo en el stack sintético local:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-auth-api-local.ps1 -TestScript sync-api-local.mjs
+```
+
+Incluye la matriz Auth/RLS previa y crea 425 pacientes sintéticos adicionales en una institución nueva de la ejecución. Valida paginación real por timestamp/id, RPC de frontera, relojes no confiables, incremental posterior y escritor PostgreSQL que tarda en confirmar. Usa Docker local para el escritor y no ejecuta comandos del sistema a través de SQL. El wrapper mantiene claves solo en memoria. Cleanup elimina exclusivamente datos de las instituciones/cuentas sintéticas creadas por la ejecución. No ejecutar junto a tests que alteren triggers o restricciones.
+
+La migración usa seis triggers de timestamp, un watermark privado y locks advisory de transacción (clave 726061706). No deshabilitarlos durante el test. La variante local final incluye backfill de timestamps nulos y NOT NULL; no crea creado_at en movimientos. Las consultas de la prueba verifican IDs completos, no solo HTTP 200.
+
+Los tests del servicio (`src/core/db/sync/syncService.test.ts`) ejercitan errores y rollback de caché mediante mocks; no sustituyen la migración de IndexedDB instalada ni PWA/dos pestañas reales.

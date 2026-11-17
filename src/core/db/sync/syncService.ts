@@ -1,24 +1,34 @@
 import { db } from '@/core/db';
 import { supabase } from '@/core/db/supabase';
 import { normalizeSignosVitales } from '@/features/atenciones/types';
-import { withRetry } from '@/core/utils/retry';
+import { withSupabaseRetry } from '@/core/utils/retry';
 import type { Table } from 'dexie';
 
 export type SyncContext = Readonly<{ userId: string; businessId: string; deviceId: string }>;
-// Contrato cerrado. Movimientos tiene actualizado_at pero conserva PULL completo hasta fase 6.
 const TABLES = {
-  instituciones: { push: false, created: true, updated: false, incremental: false },
-  perfiles: { push: false, created: true, updated: true, incremental: true },
-  programas_estudio: { push: false, created: true, updated: true, incremental: true },
-  pacientes: { push: true, created: true, updated: true, incremental: true },
-  medicamentos: { push: true, created: true, updated: true, incremental: true },
-  atenciones: { push: true, created: true, updated: true, incremental: true },
-  movimientos_stock: { push: true, created: false, updated: true, incremental: false },
+  instituciones: { push: false, created: true, incremental: false },
+  perfiles: { push: false, created: true, incremental: true },
+  programas_estudio: { push: false, created: true, incremental: true },
+  pacientes: { push: true, created: true, incremental: true },
+  medicamentos: { push: true, created: true, incremental: true },
+  atenciones: { push: true, created: true, incremental: true },
+  movimientos_stock: { push: true, created: false, incremental: true },
 } as const;
 type TableName = keyof typeof TABLES;
 type Row = Record<string, unknown> & { id: string; business_id?: string; sync_status?: string };
 const names = Object.keys(TABLES) as TableName[];
-const key = (c: SyncContext) => JSON.stringify([c.deviceId, c.businessId, c.userId]);
+const key = (c: SyncContext, table?: TableName) => JSON.stringify([c.deviceId, c.businessId, c.userId, ...(table ? [table] : [])]);
+const PAGE_SIZE = 200;
+const timestamp = (value: unknown): bigint => {
+  if (typeof value !== 'string' || !Number.isFinite(Date.parse(value))) return BigInt(-1);
+  const fraction = value.match(/\.(\d+)/)?.[1] ?? '';
+  return BigInt(Date.parse(value)) * BigInt(1000) + BigInt(fraction.slice(3, 6).padEnd(3, '0') || '0');
+};
+const fingerprint = (value: unknown): string => {
+  if (Array.isArray(value)) return JSON.stringify(value.map(fingerprint));
+  if (value && typeof value === 'object') return JSON.stringify(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => [k, fingerprint(v)]));
+  return JSON.stringify(value) ?? 'undefined';
+};
 
 export class SyncService {
   private static instance: SyncService;
@@ -26,23 +36,21 @@ export class SyncService {
   private generation = 0;
   private pulling = new Set<number>();
   private pushing = new Set<number>();
-  private lastFullSync = 0;
   static getInstance() { return this.instance ??= new SyncService(); }
   setContext(context: SyncContext | null) {
     if (this.context && context && key(this.context) === key(context)) return;
-    this.cancelSync();
-    this.context = context ? { ...context } : null;
+    this.cancelSync(); this.context = context ? { ...context } : null;
   }
-  cancelSync() { this.generation++; this.lastFullSync = 0; }
+  cancelSync() { this.generation++; }
   private check(c: SyncContext, generation: number) {
     if (!c.userId || !c.businessId || !c.deviceId || !this.context || key(c) !== key(this.context) || generation !== this.generation) throw new Error('Sync session expired');
   }
   private async authorize(c: SyncContext, generation: number) {
     this.check(c, generation);
-    const { data, error } = await supabase.auth.getUser();
+    const { data, error } = await withSupabaseRetry(() => supabase.auth.getUser());
     this.check(c, generation);
     if (error || data.user?.id !== c.userId) throw new Error('Sync identity mismatch');
-    const { data: perfil, error: profileError } = await supabase.from('perfiles').select('id,business_id,activo,deleted_at').eq('id', c.userId).maybeSingle();
+    const { data: perfil, error: profileError } = await withSupabaseRetry(() => supabase.from('perfiles').select('id,business_id,activo,deleted_at').eq('id', c.userId).maybeSingle());
     this.check(c, generation);
     if (profileError || !perfil || perfil.business_id !== c.businessId || !perfil.activo || perfil.deleted_at) throw new Error('Sync profile rejected');
   }
@@ -53,41 +61,112 @@ export class SyncService {
     if (name === 'atenciones') { row.diagnostico ??= ''; row.signos_vitales = normalizeSignosVitales(row.signos_vitales as Record<string, string>); }
     return row;
   }
+  private async recordError(c: SyncContext, name: TableName, generation: number) {
+    this.check(c, generation);
+    const id = key(c, name);
+    await db.transaction('rw', db.sync_table_metadata, async () => {
+      this.check(c, generation);
+      const previous = await db.sync_table_metadata.get(id);
+      await db.sync_table_metadata.put({ ...previous, ...c, id, table: name, error: 'No se pudo completar la sincronización. Reintente.' });
+    });
+  }
   async pullFromSupabase(c: SyncContext) {
     const generation = this.generation;
     await this.authorize(c, generation);
     if (this.pulling.has(generation)) return;
     this.pulling.add(generation);
     try {
-      const metadata = await db.sync_context_metadata.get(key(c));
-      for (const name of names) {
-        await this.authorize(c, generation);
-        let query = supabase.from(name).select('*').eq(name === 'instituciones' ? 'id' : 'business_id', c.businessId);
-        if (metadata && TABLES[name].incremental) query = query.gt('actualizado_at', metadata.lastSync);
-        const { data, error } = await withRetry(async () => { await this.authorize(c, generation); return await query; }, { maxRetries: 2 });
-        this.check(c, generation);
-        if (error) throw error;
-        const rows = (data ?? []).filter((row: Row) => name === 'instituciones' ? row.id === c.businessId : row.business_id === c.businessId);
-        if (rows.length) await this.table(name).bulkPut(rows.map((row: Row) => this.normalize(name, row)));
-      }
+      const { data: upper } = await withSupabaseRetry(() => supabase.rpc('topico_sync_boundary'));
       this.check(c, generation);
-      await db.sync_context_metadata.put({ ...c, id: key(c), lastSync: new Date().toISOString() });
-    } finally { this.pulling.delete(generation); }
+      if (typeof upper !== 'string' || !Number.isFinite(Date.parse(upper))) throw new Error('Sync boundary unavailable');
+      for (const name of names) {
+        try {
+          const table = this.table(name);
+          const metadata = await db.sync_table_metadata.get(key(c, name));
+          let after: Row | undefined;
+          while (true) {
+            const { data } = await withSupabaseRetry(async () => {
+              await this.authorize(c, generation);
+              let query = supabase.from(name).select('*').eq(name === 'instituciones' ? 'id' : 'business_id', c.businessId);
+              if (TABLES[name].incremental) {
+                query = query.lte('actualizado_at', upper).order('actualizado_at').order('id');
+                // Repetir la frontera es idempotente y conserva empates.
+                if (metadata?.lastSync) query = query.gte('actualizado_at', metadata.lastSync);
+                if (after) query = query.or(`actualizado_at.gt.${after.actualizado_at},and(actualizado_at.eq.${after.actualizado_at},id.gt.${after.id})`);
+              } else { query = query.order('id'); if (after) query = query.gt('id', after.id); }
+              return await query.limit(PAGE_SIZE);
+            });
+            this.check(c, generation);
+            if (!data) throw new Error('Sync page missing');
+            const rows = data as Row[];
+            if (rows.some(row => name === 'instituciones' ? row.id !== c.businessId : row.business_id !== c.businessId)) throw new Error('Sync scope mismatch');
+            await db.transaction('rw', table, async () => {
+              for (const row of rows) {
+                this.check(c, generation);
+                const local = await table.get(row.id);
+                if (local?.sync_status === 'pending' || local?.sync_status === 'failed') continue;
+                if (local && TABLES[name].incremental && timestamp(local.actualizado_at) > timestamp(row.actualizado_at)) continue;
+                await table.put(this.normalize(name, row));
+              }
+              this.check(c, generation);
+            });
+            if (!rows.length) break;
+            const next = rows[rows.length - 1];
+            if (after && fingerprint(after) === fingerprint(next)) throw new Error('Sync pagination stalled');
+            after = next;
+            // No asumir que el límite efectivo de PostgREST coincide con PAGE_SIZE.
+          }
+          await db.transaction('rw', db.sync_table_metadata, async () => {
+            this.check(c, generation);
+            const previous = await db.sync_table_metadata.get(key(c, name));
+            await db.sync_table_metadata.put({ ...c, id: key(c, name), table: name, lastSync: timestamp(previous?.lastSync) > timestamp(upper) ? previous!.lastSync : upper });
+          });
+        } catch (error) { await this.recordError(c, name, generation); throw error; }
+      }
+    } catch (error) { await this.recordError(c, 'pacientes', generation); throw error; }
+    finally { this.pulling.delete(generation); }
   }
   private async reconcile(local: Row, c: SyncContext, generation: number) {
     await this.authorize(c, generation);
-    const { data: remote, error } = await supabase.from('pacientes').select('*').eq('business_id', c.businessId).eq('dni', local.dni).maybeSingle();
+    const { data: remote } = await withSupabaseRetry(() => supabase.from('pacientes').select('*').eq('business_id', c.businessId).eq('dni', local.dni).maybeSingle());
     this.check(c, generation);
-    if (error) throw error;
     if (!remote || remote.id === local.id || remote.business_id !== c.businessId) return;
-    const atenciones = await db.atenciones.where('paciente_id').equals(local.id).filter(a => a.business_id === c.businessId).toArray();
-    for (const a of atenciones) { this.check(c, generation); await db.atenciones.update(a.id, { paciente_id: remote.id, sync_status: 'pending' }); }
-    this.check(c, generation);
-    const localTime = Date.parse(String(local.actualizado_at || local.creado_at));
-    const remoteTime = Date.parse(String(remote.actualizado_at || remote.creado_at));
-    await this.table('pacientes').put(localTime >= remoteTime ? { ...local, id: remote.id } : this.normalize('pacientes', remote));
-    this.check(c, generation);
-    await db.pacientes.delete(local.id);
+    await db.transaction('rw', db.pacientes, db.atenciones, async () => {
+      this.check(c, generation);
+      const current = await this.table('pacientes').get(local.id);
+      if (!current) return; // Reintento tras transacción ya confirmada.
+      if (fingerprint(current) !== fingerprint(local)) throw new Error('Paciente editado durante reconciliación; reintente');
+      const target = await this.table('pacientes').get(remote.id);
+      if (target && target.business_id !== c.businessId) throw new Error('Sync scope mismatch');
+      if (target?.sync_status === 'pending' || target?.sync_status === 'failed') throw new Error('Dos ediciones locales del mismo DNI requieren revisión');
+      const atenciones = await db.atenciones.where('paciente_id').equals(local.id).filter(a => a.business_id === c.businessId).toArray();
+      for (const a of atenciones) await db.atenciones.update(a.id, { paciente_id: remote.id, sync_status: 'pending' });
+      // Conservar la edición pendiente, aunque el reloj local sea anterior.
+      await this.table('pacientes').put({ ...current, id: remote.id });
+      await db.pacientes.delete(local.id);
+      this.check(c, generation);
+    });
+  }
+  private payload(name: TableName, item: Row) {
+    const row = { ...item }; delete row.sync_status; delete row.sync_error;
+    if ('activo' in row) row.activo = row.activo === true || row.activo === 1;
+    if (!TABLES[name].created) delete row.creado_at;
+    delete row.actualizado_at; // Siempre asignado por el servidor.
+    if (name === 'movimientos_stock') row.tipo_medida ||= 'UNIDAD';
+    if (name === 'atenciones') { row.diagnostico ??= ''; row.signos_vitales = normalizeSignosVitales(row.signos_vitales as Record<string, string>); }
+    return row;
+  }
+  private async acknowledge(name: TableName, sent: Row[], accepted: Map<string, string>, c: SyncContext, generation: number) {
+    const table = this.table(name);
+    await db.transaction('rw', table, async () => {
+      for (const snapshot of sent) {
+        this.check(c, generation);
+        const current = await table.get(snapshot.id);
+        if (!current || current.business_id !== c.businessId || fingerprint(current) !== fingerprint(snapshot)) continue;
+        await table.update(snapshot.id, accepted.has(snapshot.id) ? { sync_status: 'synced', actualizado_at: accepted.get(snapshot.id) } : { sync_status: 'failed' });
+      }
+      this.check(c, generation);
+    });
   }
   async pushToSupabase(c: SyncContext) {
     const generation = this.generation;
@@ -98,58 +177,58 @@ export class SyncService {
       for (const name of names) {
         if (!TABLES[name].push) continue;
         const table = this.table(name);
-        const pending = () => table.where('sync_status').equals('pending').filter(row => row.business_id === c.businessId).toArray();
-        let rows = await pending();
-        if (name === 'pacientes') {
-          for (const row of rows) await this.reconcile(row, c, generation);
-          rows = await pending(); // Reaplicar aislamiento después de reconciliar.
-        }
-        this.check(c, generation);
-        if (!rows.length) continue;
-        if (name === 'movimientos_stock') {
-          const medicamentos = new Set((await db.medicamentos.toArray()).filter(m => m.business_id === c.businessId).map(m => m.id));
-          this.check(c, generation);
-          const invalid = rows.filter(row => !medicamentos.has(String(row.medicamento_id)));
-          await table.bulkUpdate(invalid.map(row => ({ key: row.id, changes: { sync_status: 'failed' } })));
-          rows = rows.filter(row => medicamentos.has(String(row.medicamento_id)));
-        }
-        if (!rows.length) continue;
-        const toPayload = (item: Row) => {
-          const row = { ...item }; delete row.sync_status; delete row.deleted_at;
-          if ('activo' in row) row.activo = row.activo === true || row.activo === 1;
-          if (!TABLES[name].created) delete row.creado_at;
-          if (!TABLES[name].updated) delete row.actualizado_at;
-          if (name === 'movimientos_stock') row.tipo_medida ||= 'UNIDAD';
-          if (name === 'atenciones') { row.diagnostico ??= ''; row.signos_vitales = normalizeSignosVitales(row.signos_vitales as Record<string, string>); }
-          return row;
-        };
-        let payload = rows.map(toPayload);
-        await this.authorize(c, generation);
-        let { error } = await withRetry(async () => { await this.authorize(c, generation); return await supabase.from(name).upsert(payload, { onConflict: 'id' }); }, { maxRetries: 2 });
-        this.check(c, generation);
-        if (error?.code === '23505' && name === 'pacientes') {
-          for (const row of rows) await this.reconcile(row, c, generation);
-          rows = await pending();
-          this.check(c, generation);
-          payload = rows.map(toPayload);
-          if (rows.length) {
-            await this.authorize(c, generation);
-            ({ error } = await supabase.from(name).upsert(payload, { onConflict: 'id' }));
+        let sent: Row[] = [];
+        try {
+          const pending = async () => structuredClone(await table.where('sync_status').equals('pending').filter(row => row.business_id === c.businessId).toArray());
+          let rows = await pending();
+          if (name === 'pacientes') { for (const row of rows) await this.reconcile(row, c, generation); rows = await pending(); }
+          for (let offset = 0; offset < rows.length; offset += 100) {
+            sent = rows.slice(offset, offset + 100);
+            const send = async () => {
+              await this.authorize(c, generation);
+              return await supabase.from(name).upsert(sent.map(row => this.payload(name, row)), { onConflict: 'id' }).select('id,actualizado_at');
+            };
+            let result;
+            try { result = await withSupabaseRetry(send); }
+            catch (error) {
+              if (name !== 'pacientes' || (error as { code?: string }).code !== '23505') throw error;
+              for (const row of sent) await this.reconcile(row, c, generation);
+              // Releer la cola completa en el siguiente intento, sin ACK de IDs sustituidos.
+              throw new Error('DNI reconciliado; reintente la sincronización');
+            }
             this.check(c, generation);
-          } else error = null;
+            const accepted = new Map<string, string>((result.data ?? []).filter((row: { id: string; actualizado_at?: string }) => timestamp(row.actualizado_at) >= BigInt(0)).map((row: { id: string; actualizado_at: string }) => [row.id, row.actualizado_at]));
+            await this.acknowledge(name, sent, accepted, c, generation);
+            if (sent.some(row => !accepted.has(row.id))) throw new Error('Sync acknowledgement incomplete');
+            sent = [];
+          }
+        } catch (error) {
+          this.check(c, generation);
+          await this.acknowledge(name, sent, new Map(), c, generation);
+          await this.recordError(c, name, generation);
+          throw error;
         }
-        if (error) throw error;
-        await table.bulkUpdate(rows.map(row => ({ key: row.id, changes: { sync_status: 'synced' } })));
       }
     } finally { this.pushing.delete(generation); }
+  }
+  async retryFailed(c: SyncContext) {
+    const generation = this.generation;
+    await this.authorize(c, generation);
+    for (const name of names) {
+      if (!TABLES[name].push) continue;
+      const table = this.table(name);
+      await db.transaction('rw', table, async () => {
+        const failed = await table.where('sync_status').equals('failed').filter(row => row.business_id === c.businessId).toArray();
+        for (const row of failed) { this.check(c, generation); await table.update(row.id, { sync_status: 'pending' }); }
+      });
+    }
+    await this.fullSync(c);
   }
   async requestPush() { if (this.context) await this.pushToSupabase(this.context); }
   async fullSync(c: SyncContext) {
     this.check(c, this.generation);
-    if (Date.now() - this.lastFullSync < 60000) return;
-    this.lastFullSync = Date.now();
-    await this.pullFromSupabase(c);
     await this.pushToSupabase(c);
+    await this.pullFromSupabase(c);
   }
 }
 export const syncService = SyncService.getInstance();

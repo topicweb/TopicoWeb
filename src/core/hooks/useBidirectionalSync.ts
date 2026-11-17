@@ -9,8 +9,10 @@ export function useBidirectionalSync() {
   const { user, businessId, perfil } = useAuth();
   const { isOnline } = useNetwork();
   const [isSyncing, setIsSyncing] = useState(false);
-  const context = useMemo(() => user && businessId && perfil?.id === user.id && perfil.activo && !perfil.deleted_at
-    ? { userId: user.id, businessId, deviceId: getDeviceId() } : null, [user, businessId, perfil]);
+  const syncUserId = user?.id;
+  const eligible = !!syncUserId && perfil?.id === syncUserId && !!perfil.activo && !perfil.deleted_at;
+  const context = useMemo(() => syncUserId && businessId && eligible
+    ? { userId: syncUserId, businessId, deviceId: getDeviceId() } : null, [syncUserId, businessId, eligible]);
   useEffect(() => {
     if (!context || !isOnline) return;
     let active = true;
@@ -34,5 +36,11 @@ export function useBidirectionalSync() {
   const triggerPush = useCallback(async () => {
     if (context && isOnline) await syncService.pushToSupabase(context);
   }, [context, isOnline]);
-  return { isSyncing, forceSync, triggerPush };
+  const retryFailed = useCallback(async () => {
+    if (!context || !isOnline) return;
+    setIsSyncing(true);
+    try { await syncService.retryFailed(context); }
+    finally { setIsSyncing(false); }
+  }, [context, isOnline]);
+  return { isSyncing, forceSync, triggerPush, retryFailed };
 }
