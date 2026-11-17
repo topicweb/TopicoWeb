@@ -6,7 +6,9 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
-    exclude: ['node_modules', '.next', 'dist'],
+    // El simulador e2e es operativo: importa clientes y ofrece escritura/limpieza.
+    // No es una suite unitaria y nunca debe ejecutarse con credenciales locales.
+    exclude: ['node_modules', '.next', 'dist', 'src/test/e2e/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],
