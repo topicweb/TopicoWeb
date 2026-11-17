@@ -22,7 +22,10 @@ Autorización: usuario aprobó implementar el plan el 16/11/2026, usar Luna para
 | 3 | Parche instalado y validado localmente | Prueba PWA instalada y despliegue Netlify |
 | 4a | Implementada y verificada localmente; decisión online confirmada | Prueba interactiva y despliegue |
 | 4b | Implementada y verificada localmente | Smoke interactivo y despliegue coordinado SQL/aplicación |
-| 5–9 | Pendientes; fuera del alcance de esta sesión | Retomar en otro chat por indicación del usuario |
+| 5 | Implementada y verificada localmente; commit 033e9cc | PWA instalada, upgrade Dexie y dos pestañas |
+| 6 | Implementada y verificada localmente; commit 35e0f7e | PWA/multiventana y despliegue coordinado |
+| 7 | Implementada y verificada localmente en esta continuación | Smoke UI/PWA, preparación de corte y despliegue |
+| 8–9 | Pendientes | Fuera del alcance solicitado en esta continuación |
 
 ## Regla de continuidad
 
@@ -163,3 +166,32 @@ Aplicar primero migraciones 1–5 y luego 20261117000200_sync_boundaries.sql, ve
 Por instrucción del usuario, detener después del commit local de fase 6. Fase 7 no iniciada.
 
 Verificación adicional final: user-consistency-local.mjs correcto tras los nuevos triggers; aprovisionamiento/rollback Auth, guard/espejo de email y confirmación doble siguen pasando, con cleanup. Build definitivo y lint de hook/monitor correctos tras estabilizar contexto y estado de carga.
+
+## Fase 7 — integridad y stock remoto implementados localmente
+
+La instrucción actual autoriza continuar hasta fase 7 y guardar commits locales. Al iniciar, HEAD era 35e0f7e, árbol limpio y fases 5/6 ya implementadas/commitadas; no se duplicaron. Se usaron subagentes Luna para validaciones/repositorios y matriz API, con diseño, integración y revisión del agente principal.
+
+- Contrato conservado: cantidades enteras positivas hasta 2.147.483.647 en todas las medidas, coherente con UI y columnas integer existentes. No se introducen fracciones, conversiones ni reinterpretación de PORCENTAJE. Stock mínimo entero no negativo; medicamentos nuevos del cliente comienzan en cero y las existencias entran mediante eventos. Cambiar de medida con saldo/historia se rechaza.
+- Migración `20261117000300_stock_integrity.sql`: referencias compuestas `(business_id,id)` para programa de paciente, paciente/perfil de atención, medicamento/atención de movimiento. CHECK de cantidades/tipo/saldos. Toda inconsistencia provoca rollback del cambio, sin reparar o eliminar datos a ciegas.
+- Autoridad única del cliente: se retiran grants INSERT/UPDATE de stock_actual y PUSH omite ese campo. AFTER INSERT de movimiento bloquea el medicamento con NO KEY UPDATE y aplica delta, valida medida/saldo/overflow e inserta efecto privado en la misma transacción. UPDATE idéntico por UUID permite replay sin efecto; modificar un evento confirmado se rechaza. Se conserva RLS y no se concede DELETE.
+- Apertura: captura protegida por locks de escritores, sin recalcular historial previo. `private.stock_opening_balances` conserva los saldos preexistentes; `private.stock_applied_events` registra deltas nuevos. Medicamentos nuevos creados por cliente tienen apertura cero. Se probó historia previa de 99 con apertura 12: permanece 12, nuevo egreso 2 deja 10, reconstruible desde apertura y efecto nuevo.
+- Reconciliación: snapshot MVCC único devuelve saldos e IDs pendientes ya aplicados. El cliente conserva metadata local y suma únicamente eventos pending aún no aplicados; failed sigue visible/reintentable y usa saldo confirmado. Respuestas de sesión anterior o con edición concurrente no se aplican. PUSH comprueba RPC antes de cualquier escritura si falta el esquema. Sin cambios de versión Dexie ni cursores.
+- Validación local adicional en transacciones Dexie: paciente/perfil/medicamento/atención pertenecen al mismo tenant; cantidad/tipo/overflow; whitelist al actualizar atención e inventario. No se cambia autoridad de roles ni administración Auth.
+
+### Evidencia actual
+
+- MCP solo lectura reconsultó columnas integer, FK simples y triggers de timestamp actuales. Auditoría agregada: cero stock inválido, cantidades/tipo inválidos, cinco clases de referencias entre tenants y medida de movimiento distinta del medicamento. Estos agregados no prueban que el saldo histórico coincida con toda la historia y no autorizan recalcularlo. Sin datos clínicos ni claves en salida; sin escrituras cloud.
+- Migración final aplicada correctamente en base sintética temporal de Docker mediante `run-stock-migration-local.ps1`, con apertura/historia/reconstrucción y grants comprobados; base retirada al finalizar. La variante aplicada al stack Auth real difiere solo en la incorporación final del lock explícito al inicio, que sí ejecutó el runner de migración final.
+- Matriz `stock-api-local.mjs` con Auth/PostgREST reales: alta de medicamento a cero, stock absoluto rechazado, cinco referencias cruzadas rechazadas, filas ajenas invisibles/saldo intacto, cero/negativo/fracción/nulos rechazados, replay sin duplicar, evento inmutable, medida protegida, dos egresos concurrentes de 7 sobre saldo 10 (uno acepta, otro revierte; saldo 3), entradas concurrentes sumadas, rollback de lote sin eventos ni saldo parcial, snapshot aislado y anon/inactivo denegados. Dos ejecuciones correctas (segunda con controles ampliados), limpieza de cuentas y tenants sintéticos correcta.
+- Matrices `user-consistency-local.mjs` y `sync-api-local.mjs` repetidas correctamente tras fase 7; incluyen Auth/RLS/SDK previo, confirmación de email, 425 filas paginadas y frontera que espera escritor lento. Cleanup correcto.
+- TypeScript correcto; Vitest 133/133, siete suites. Lint de todos los archivos TypeScript modificados correcto. Build webpack/PWA correcto, 11 páginas; avisos de middleware/Browserslist/caché y diferencias de mayúsculas de rutas Windows, sin fallo de build. No se instalaron dependencias.
+
+### Límites, despliegue y reversión
+
+Implementación local terminada; no se desplegó ni se modificó producción. Pendiente smoke de aplicación mediante UI/PWA offline, dos pestañas y dispositivos reales, así como los upgrades Dexie instalados pendientes de fases 5/6. Concurrencia real se probó con dos peticiones API simultáneas, no con dos interfaces PWA. La atención y sus eventos siguen siendo filas sincronizadas por separado: un evento rechazado permanece failed; no se promete atomicidad remota de todo el formulario de atención.
+
+Antes de publicar: auditar agregados otra vez, revisar tiempos/bloqueos y coordinar todos los clientes. Pausar escritores antiguos; resolver o aislar con evidencia sus colas legacy. Un evento pendiente anterior al corte puede estar ya reflejado en el saldo absoluto antiguo: no se puede decidir por fecha si aplicarlo; no enviarlo automáticamente sobre la apertura. Conservar pendiente/UUID hasta reconciliación dirigida. Sin corte comprobado no autorizar despliegue. Aplicar migraciones previas y después fase 7 antes del cliente nuevo; versiones antiguas que envíen saldo absoluto serán rechazadas.
+
+Reversión antes de despliegue: revertir commit local. Después: pausar sync/escrituras afectadas, conservar IndexedDB, colas, apertura, efectos e IDs; corregir hacia delante con cliente compatible. No retirar trigger mientras existan clientes de eventos, reabrir stock absoluto ni recalcular/borrar historia. El test de lote confirma rollback transaccional de efecto/saldo, sin rollback operativo destructivo automático. No se avanzó a fases 8/9.
+
+Stack Supabase local detenido correctamente al finalizar, conservando volúmenes y sin detener otros servicios. No se hizo push Git ni despliegue.

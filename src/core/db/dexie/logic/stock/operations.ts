@@ -4,10 +4,10 @@
 // ───────────────────────────────────────────────────────────────────────────────
 
 import { db } from '../../db';
-import { TipoMovimiento, TipoMedida, Medicamento } from '@/features/inventario/types';
-import { ERROR_MESSAGES, UNIDADES_POR_TIPO } from './constants';
+import { TipoMovimiento, TipoMedida } from '@/features/inventario/types';
+import { ERROR_MESSAGES, MAX_CANTIDAD_STOCK, UNIDADES_POR_TIPO } from './constants';
 import { StockError } from './errors';
-import { validarCantidad, validarTipoMedida, validarCompatibilidadTipoMedida, validarStockSuficiente } from './validation';
+import { validarCantidad, validarTipoMedida, validarTipoMovimiento, validarCompatibilidadTipoMedida, validarStockSuficiente } from './validation';
 
 /**
  * Actualiza el `stock_actual` de un medicamento basado en un movimiento de inventario.
@@ -29,10 +29,12 @@ export async function updateMedicamentoStock(
   tipo: TipoMovimiento,
   timestamp: string,
   tipoMedida?: TipoMedida,
-  descripcion?: string
+  descripcion?: string,
+  businessId?: string
 ): Promise<void> {
   // Validar cantidad
   validarCantidad(cantidad);
+  validarTipoMovimiento(tipo);
 
   // Obtener medicamento
   const medicamento = await db.medicamentos.get(medicamentoId);
@@ -41,6 +43,15 @@ export async function updateMedicamentoStock(
       ERROR_MESSAGES.MEDICAMENTO_NO_ENCONTRADO(medicamentoId),
       'MEDICAMENTO_NO_ENCONTRADO',
       medicamentoId
+    );
+  }
+
+  if (businessId !== undefined && medicamento.business_id !== businessId) {
+    throw new StockError(
+      ERROR_MESSAGES.TENANT_INVALIDO(medicamentoId),
+      'TENANT_INVALIDO',
+      medicamentoId,
+      { businessId, medicamentoBusinessId: medicamento.business_id }
     );
   }
 
@@ -57,9 +68,15 @@ export async function updateMedicamentoStock(
 
   // Calcular nuevo stock
   const stockActual = medicamento.stock_actual ?? 0;
-  const nuevoStock = tipo === 'ENTRADA'
-    ? stockActual + cantidad
-    : Math.max(0, stockActual - cantidad);
+  const nuevoStock = tipo === 'ENTRADA' ? stockActual + cantidad : stockActual - cantidad;
+  if (nuevoStock > MAX_CANTIDAD_STOCK) {
+    throw new StockError(
+      ERROR_MESSAGES.STOCK_EXCEDIDO(stockActual, cantidad),
+      'STOCK_EXCEDIDO',
+      medicamentoId,
+      { stockActual, cantidad, stockMaximo: MAX_CANTIDAD_STOCK }
+    );
+  }
 
   // Actualizar medicamento
   await db.medicamentos.update(medicamentoId, {

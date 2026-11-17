@@ -7,7 +7,7 @@
 export class StockError extends Error {
   constructor(
     message: string,
-    public readonly code: 'STOCK_INSUFICIENTE' | 'TIPO_MEDIDA_INVALIDO' | 'INCOMPATIBILIDAD_TIPO' | 'MEDICAMENTO_NO_ENCONTRADO' | 'CANTIDAD_INVALIDA',
+    public readonly code: 'STOCK_INSUFICIENTE' | 'TIPO_MEDIDA_INVALIDO' | 'TIPO_MOVIMIENTO_INVALIDO' | 'INCOMPATIBILIDAD_TIPO' | 'MEDICAMENTO_NO_ENCONTRADO' | 'CANTIDAD_INVALIDA' | 'STOCK_EXCEDIDO' | 'TENANT_INVALIDO',
     public readonly medicamentoId?: string,
     public readonly detalles?: Record<string, unknown>
   ) {

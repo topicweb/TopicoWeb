@@ -4,7 +4,7 @@
 // ───────────────────────────────────────────────────────────────────────────────
 
 import { TipoMedida, TipoMovimiento, Medicamento } from '@/features/inventario/types';
-import { TIPOS_MEDIDA_VALIDOS, ERROR_MESSAGES, UNIDADES_POR_TIPO } from './constants';
+import { TIPOS_MEDIDA_VALIDOS, TIPOS_MOVIMIENTO_VALIDOS, MAX_CANTIDAD_STOCK, ERROR_MESSAGES, UNIDADES_POR_TIPO } from './constants';
 import { StockError } from './errors';
 
 /**
@@ -27,12 +27,23 @@ export function validarTipoMedida(tipo: unknown): asserts tipo is TipoMedida {
  * @throws {StockError} Si la cantidad es inválida
  */
 export function validarCantidad(cantidad: number): void {
-  if (!Number.isFinite(cantidad) || cantidad <= 0) {
+  if (!Number.isInteger(cantidad) || cantidad <= 0 || cantidad > MAX_CANTIDAD_STOCK) {
     throw new StockError(
       ERROR_MESSAGES.CANTIDAD_INVALIDA(cantidad),
       'CANTIDAD_INVALIDA',
       undefined,
       { cantidad }
+    );
+  }
+}
+
+export function validarTipoMovimiento(tipo: unknown): asserts tipo is TipoMovimiento {
+  if (!TIPOS_MOVIMIENTO_VALIDOS.includes(tipo as TipoMovimiento)) {
+    throw new StockError(
+      ERROR_MESSAGES.TIPO_MOVIMIENTO_INVALIDO(String(tipo)),
+      'TIPO_MOVIMIENTO_INVALIDO',
+      undefined,
+      { tipoRecibido: tipo, tiposValidos: TIPOS_MOVIMIENTO_VALIDOS }
     );
   }
 }

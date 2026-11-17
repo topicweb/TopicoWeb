@@ -123,6 +123,7 @@ export class SyncService {
           });
         } catch (error) { await this.recordError(c, name, generation); throw error; }
       }
+      await this.refreshStock(c, generation);
     } catch (error) { await this.recordError(c, 'pacientes', generation); throw error; }
     finally { this.pulling.delete(generation); }
   }
@@ -152,7 +153,7 @@ export class SyncService {
     if ('activo' in row) row.activo = row.activo === true || row.activo === 1;
     if (!TABLES[name].created) delete row.creado_at;
     delete row.actualizado_at; // Siempre asignado por el servidor.
-    if (name === 'movimientos_stock') row.tipo_medida ||= 'UNIDAD';
+    if (name === 'medicamentos') delete row.stock_actual; // Saldo remoto: solo eventos.
     if (name === 'atenciones') { row.diagnostico ??= ''; row.signos_vitales = normalizeSignosVitales(row.signos_vitales as Record<string, string>); }
     return row;
   }
@@ -174,6 +175,10 @@ export class SyncService {
     if (this.pushing.has(generation)) return;
     this.pushing.add(generation);
     try {
+      // Fallar antes de escribir si el esquema aún no tiene autoridad de stock.
+      const readiness = await withSupabaseRetry(() => supabase.rpc('topico_stock_snapshot', { medicine_ids: [], pending_ids: [] }));
+      this.check(c, generation);
+      if (!readiness.data || !Array.isArray(readiness.data.medicamentos) || !Array.isArray(readiness.data.applied_ids)) throw new Error('Stock schema unavailable');
       for (const name of names) {
         if (!TABLES[name].push) continue;
         const table = this.table(name);
@@ -206,10 +211,51 @@ export class SyncService {
           this.check(c, generation);
           await this.acknowledge(name, sent, new Map(), c, generation);
           await this.recordError(c, name, generation);
+          if (name === 'movimientos_stock') {
+            try { await this.refreshStock(c, generation); } catch { /* Conservar el error original y la cola. */ }
+          }
           throw error;
         }
       }
+      await this.refreshStock(c, generation);
     } finally { this.pushing.delete(generation); }
+  }
+  private async refreshStock(c: SyncContext, generation: number) {
+    const medicines = await db.medicamentos.where('business_id').equals(c.businessId).filter(() => true).toArray();
+    if (!medicines.length) return;
+    // Limitar petición y transacción por lote; no transferir historia completa.
+    for (let offset = 0; offset < medicines.length; offset += 100) {
+      const ids = medicines.slice(offset, offset + 100).map(m => m.id);
+      const pending = async () => await db.movimientos_stock.where('business_id').equals(c.businessId)
+        .filter(m => ids.includes(m.medicamento_id) && (m.sync_status === 'pending' || m.sync_status === 'failed')).toArray();
+      const before = await pending();
+      const captured = new Map(medicines.slice(offset, offset + 100).map(m => [m.id, fingerprint(m)]));
+      await this.authorize(c, generation);
+      const { data } = await withSupabaseRetry(() => supabase.rpc('topico_stock_snapshot', { medicine_ids: ids, pending_ids: before.map(m => m.id) }));
+      this.check(c, generation);
+      if (!data || !Array.isArray(data.medicamentos) || !Array.isArray(data.applied_ids)) throw new Error('Stock snapshot unavailable');
+      const applied = new Set<string>(data.applied_ids);
+      await db.transaction('rw', db.medicamentos, db.movimientos_stock, async () => {
+        this.check(c, generation);
+        const current = await pending();
+        // Otra pestaña/editó/envió durante la petición: conservar hasta siguiente sync.
+        if (fingerprint(current) !== fingerprint(before)) return;
+        for (const remote of data.medicamentos as Row[]) {
+          if (remote.business_id !== c.businessId || !ids.includes(remote.id)) throw new Error('Stock scope mismatch');
+          const local = await this.table('medicamentos').get(remote.id);
+          if (!local || fingerprint(local) !== captured.get(remote.id)) continue;
+          if (timestamp(local.actualizado_at) > timestamp(remote.actualizado_at) && local.sync_status === 'synced') continue;
+          const delta = current.filter(m => m.medicamento_id === remote.id && m.sync_status === 'pending' && !applied.has(m.id))
+            .reduce((sum, m) => sum + (m.tipo === 'ENTRADA' ? m.cantidad : -m.cantidad), 0);
+          // Un conflicto remoto puede dejar proyección negativa; se muestra el saldo
+          // confirmado y se conserva el evento failed para resolución/reintento.
+          const projected = Number(remote.stock_actual) + delta;
+          const stock = projected >= 0 ? projected : Number(remote.stock_actual);
+          await this.table('medicamentos').update(remote.id, { stock_actual: stock });
+        }
+        this.check(c, generation);
+      });
+    }
   }
   async retryFailed(c: SyncContext) {
     const generation = this.generation;

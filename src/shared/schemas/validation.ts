@@ -36,5 +36,5 @@ export const MedicamentoSchema = z.object({
   nombre: z.string().min(3, "El nombre del medicamento es muy corto"),
   descripcion: z.string().optional(),
   unidad_medida: z.string().min(1, "La unidad de medida es requerida"),
-  stock_minimo: z.coerce.number().min(0, "El stock mínimo no puede ser negativo"),
+  stock_minimo: z.coerce.number().int("El stock mínimo debe ser entero").min(0, "El stock mínimo no puede ser negativo").max(2_147_483_647, "El stock mínimo excede el máximo permitido"),
 });

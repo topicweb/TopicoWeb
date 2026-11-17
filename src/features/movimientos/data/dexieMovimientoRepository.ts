@@ -52,14 +52,27 @@ export class DexieMovimientoRepository implements MovimientoRepository {
       sync_status: "pending",
     };
 
-    await db.transaction("rw", db.movimientos_stock, db.medicamentos, async () => {
+    await db.transaction("rw", db.movimientos_stock, db.medicamentos, db.atenciones, async () => {
+      if (input.atencion_id) {
+        const atencion = await db.atenciones.get(input.atencion_id);
+        if (!atencion || atencion.business_id !== businessId) {
+          throw new StockError(
+            `Atención "${input.atencion_id}" no encontrada o fuera del negocio actual`,
+            'TENANT_INVALIDO',
+            input.medicamento_id,
+            { atencionId: input.atencion_id, businessId, atencionBusinessId: atencion?.business_id }
+          );
+        }
+      }
       await db.movimientos_stock.add(movimiento);
       await updateMedicamentoStock(
         input.medicamento_id,
         input.cantidad,
         input.tipo,
         timestamp,
-        input.tipo_medida
+        input.tipo_medida,
+        undefined,
+        businessId
       );
     });
 

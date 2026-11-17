@@ -102,6 +102,24 @@ const buildMovimiento = (
  * - Enriquecimiento de datos para queries complejas (JOINs manuales)
  */
 export class DexieAtencionRepository {
+  private async validarContextoTenant(datos: AtencionFormData, contexto: AtencionContext): Promise<void> {
+    const paciente = await db.pacientes.get(datos.paciente_id);
+    if (!paciente || paciente.business_id !== contexto.businessId) {
+      throw new AtencionError("Paciente no encontrado o fuera del negocio actual", "PACIENTE_NO_ENCONTRADO", {
+        pacienteId: datos.paciente_id,
+        businessId: contexto.businessId,
+      });
+    }
+
+    const perfil = await db.perfiles.get(contexto.perfilId);
+    if (!perfil || perfil.business_id !== contexto.businessId) {
+      throw new AtencionError("Perfil no encontrado o fuera del negocio actual", "PERFIL_NO_ENCONTRADO", {
+        perfilId: contexto.perfilId,
+        businessId: contexto.businessId,
+      });
+    }
+  }
+
   /**
    * Crea una atención completa con dispensaciones en una transacción atómica
    *
@@ -126,7 +144,8 @@ export class DexieAtencionRepository {
 
     // Sin dispensaciones: solo crear atención
     if (dispensaciones.length === 0) {
-      await db.transaction("rw", db.atenciones, async () => {
+      await db.transaction("rw", db.atenciones, db.pacientes, db.perfiles, async () => {
+        await this.validarContextoTenant(datos, contexto);
         await db.atenciones.add(buildAtencion(datos, atencionId, contexto, timestamp));
       });
 
@@ -164,10 +183,9 @@ export class DexieAtencionRepository {
     // Ejecutar transacción atómica
     await db.transaction(
       "rw",
-      db.atenciones,
-      db.movimientos_stock,
-      db.medicamentos,
+      [db.atenciones, db.movimientos_stock, db.medicamentos, db.pacientes, db.perfiles],
       async () => {
+        await this.validarContextoTenant(datos, contexto);
         // 1. Crear atención
         await db.atenciones.add(buildAtencion(datos, atencionId, contexto, timestamp));
 
@@ -175,7 +193,7 @@ export class DexieAtencionRepository {
         for (const disp of dispensaciones) {
           const movimiento = buildMovimiento(disp, atencionId, contexto, timestamp, descripcionConsolidada);
           await db.movimientos_stock.add(movimiento);
-          await updateMedicamentoStock(disp.medicamento_id, disp.cantidad, "SALIDA", timestamp, disp.tipo_medida);
+          await updateMedicamentoStock(disp.medicamento_id, disp.cantidad, "SALIDA", timestamp, disp.tipo_medida, undefined, contexto.businessId);
         }
       }
     );
@@ -395,23 +413,51 @@ export class DexieAtencionRepository {
    * Actualiza campos de una atención con verificación de permisos
    */
   async actualizar(id: string, cambios: Partial<Atencion>, businessId: string): Promise<void> {
-    const atencion = await db.atenciones.get(id);
+    await db.transaction("rw", [db.atenciones, db.pacientes, db.perfiles], async () => {
+      const atencion = await db.atenciones.get(id);
+      if (!atencion) {
+        throw new AtencionError("Atención no encontrada", "VALIDACION_FALLIDA", { id });
+      }
+      if (atencion.business_id !== businessId) {
+        throw new AtencionError("Sin permisos para actualizar esta atención", "VALIDACION_FALLIDA", {
+          id,
+          businessId,
+        });
+      }
 
-    if (!atencion) {
-      throw new AtencionError("Atención no encontrada", "VALIDACION_FALLIDA", { id });
-    }
+      if (cambios.paciente_id !== undefined) {
+        const paciente = await db.pacientes.get(cambios.paciente_id);
+        if (!paciente || paciente.business_id !== businessId) {
+          throw new AtencionError("Paciente no encontrado o fuera del negocio actual", "PACIENTE_NO_ENCONTRADO", {
+            pacienteId: cambios.paciente_id,
+            businessId,
+          });
+        }
+      }
+      if (cambios.perfil_id !== undefined) {
+        const perfil = await db.perfiles.get(cambios.perfil_id);
+        if (!perfil || perfil.business_id !== businessId) {
+          throw new AtencionError("Perfil no encontrado o fuera del negocio actual", "PERFIL_NO_ENCONTRADO", {
+            perfilId: cambios.perfil_id,
+            businessId,
+          });
+        }
+      }
 
-    if (atencion.business_id !== businessId) {
-      throw new AtencionError("Sin permisos para actualizar esta atención", "VALIDACION_FALLIDA", {
-        id,
-        businessId,
+      const cambiosPermitidos: Partial<Atencion> = {};
+      const camposPermitidos = [
+        'paciente_id', 'perfil_id', 'motivo_consulta', 'diagnostico',
+        'signos_vitales', 'observacion', 'activo', 'fecha_atencion',
+      ] as const;
+      for (const campo of camposPermitidos) {
+        if (cambios[campo] !== undefined) cambiosPermitidos[campo] = cambios[campo] as never;
+      }
+
+      await db.atenciones.update(id, {
+        ...cambiosPermitidos,
+        actualizado_at: generarTimestampISO(),
+        sync_status: "pending",
       });
-    }
-
-    await db.atenciones.update(id, {
-      ...cambios,
-      actualizado_at: generarTimestampISO(),
-      sync_status: "pending",
     });
   }
 

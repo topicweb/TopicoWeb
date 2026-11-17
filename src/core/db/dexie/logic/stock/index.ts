@@ -4,7 +4,7 @@
 // ───────────────────────────────────────────────────────────────────────────────
 
 // Constants
-export { TIPOS_MEDIDA_VALIDOS, ERROR_MESSAGES, UNIDADES_POR_TIPO } from './constants';
+export { TIPOS_MEDIDA_VALIDOS, TIPOS_MOVIMIENTO_VALIDOS, MAX_CANTIDAD_STOCK, ERROR_MESSAGES, UNIDADES_POR_TIPO } from './constants';
 
 // Errors
 export { StockError } from './errors';
@@ -12,6 +12,7 @@ export { StockError } from './errors';
 // Validation
 export {
   validarTipoMedida,
+  validarTipoMovimiento,
   validarCantidad,
   validarCompatibilidadTipoMedida,
   validarStockSuficiente,

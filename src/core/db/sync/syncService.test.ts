@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-const s = vi.hoisted(() => ({ local: new Map<string, Record<string, unknown>[]>(), remote: new Map<string, Record<string, unknown>[]>(), meta: new Map<string, Record<string, unknown>>(), writes: [] as Record<string, unknown>[], user: 'a', tenant: 'A', active: true, gate: null as null | (() => Promise<void>), edit: null as null | (() => void), failPage: 0, pages: 0, failPut: false, emptyAck: false }));
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
+const s = vi.hoisted(() => ({ local: new Map<string, Record<string, unknown>[]>(), remote: new Map<string, Record<string, unknown>[]>(), meta: new Map<string, Record<string, unknown>>(), writes: [] as Record<string, unknown>[], user: 'a', tenant: 'A', active: true, schemaReady: true, stockGate: null as null | (() => Promise<void>), gate: null as null | (() => Promise<void>), edit: null as null | (() => void), failPage: 0, pages: 0, failPut: false, emptyAck: false }));
 function table(name: string) {
   const rows = () => s.local.get(name) ?? [];
   return {
@@ -20,7 +20,7 @@ vi.mock('@/core/db', () => ({ db: new Proxy({
 }, { get: (target, name) => name in target ? target[name as keyof typeof target] : table(String(name)) }) }));
 vi.mock('@/core/db/supabase', () => ({ supabase: {
   auth: { getUser: async () => ({ data: { user: { id: s.user } }, error: null }) },
-  rpc: async () => ({ data: '2026-11-17T12:00:00.000000+00:00', error: null }),
+  rpc: async (name: string) => { if (name === 'topico_stock_snapshot' && s.stockGate) await s.stockGate(); return ({ data: name === 'topico_stock_snapshot' ? !s.schemaReady ? null : { medicamentos: structuredClone(s.remote.get('medicamentos') ?? []), applied_ids: (s.remote.get('movimientos_stock') ?? []).map(r => r.id) } : '2026-11-17T12:00:00.000000+00:00', error: null }); },
   from: (name: string) => ({
     select: () => {
       const filters: Array<(r: Record<string, unknown>) => boolean> = [];
@@ -55,8 +55,24 @@ const A: SyncContext = { userId: 'a', businessId: 'A', deviceId: 'device' };
 const B: SyncContext = { userId: 'b', businessId: 'B', deviceId: 'device' };
 const row = (id: string, tenant = 'A', status = 'pending') => ({ id, business_id: tenant, sync_status: status, actualizado_at: '2026-11-16T00:00:00.000000+00:00', dni: id, nombres: 'local' });
 const cursor = (name: string) => s.meta.get(JSON.stringify(['device','A','a',name]));
-beforeEach(() => { s.local.clear(); s.remote.clear(); s.meta.clear(); s.writes=[]; s.user='a'; s.tenant='A'; s.active=true; s.gate=null; s.edit=null; s.failPage=0; s.pages=0; s.failPut=false; s.emptyAck=false; syncService.setContext(null); syncService.setContext(A); });
+beforeEach(() => { s.local.clear(); s.remote.clear(); s.meta.clear(); s.writes=[]; s.user='a'; s.tenant='A'; s.active=true; s.schemaReady=true; s.stockGate=null; s.gate=null; s.edit=null; s.failPage=0; s.pages=0; s.failPut=false; s.emptyAck=false; syncService.setContext(null); syncService.setContext(A); });
 describe('sync reliability', () => {
+  it('fails closed before all writes when the stock migration is absent', async () => {
+    s.schemaReady=false; s.local.set('pacientes',[row('p')]);
+    await expect(syncService.pushToSupabase(A)).rejects.toThrow('Stock schema unavailable');
+    expect(s.writes).toEqual([]); expect(s.local.get('pacientes')![0].sync_status).toBe('pending');
+  });
+  it('discards a delayed stock snapshot after logout', async () => {
+    s.local.set('medicamentos',[{...row('m'),stock_actual:99}]);
+    s.remote.set('medicamentos',[{...row('m','A','synced'),stock_actual:5}]);
+    let release!:()=>void;
+    s.stockGate=()=>new Promise<void>(resolve=>{release=resolve;});
+    const promise=syncService.pullFromSupabase(A);
+    await vi.waitFor(()=>expect(release).toBeTypeOf('function'));
+    syncService.setContext(null); release();
+    await expect(promise).rejects.toThrow('Sync session expired');
+    expect(s.local.get('medicamentos')![0].stock_actual).toBe(99);
+  });
   it('sends only current tenant and preserves foreign pending', async () => {
     s.local.set('pacientes', [row('a'),row('b','B')]); await syncService.pushToSupabase(A);
     expect(s.writes.map(r => r.id)).toEqual(['a']); expect(s.local.get('pacientes')?.find(r => r.id==='b')?.sync_status).toBe('pending');
@@ -94,6 +110,29 @@ describe('sync reliability', () => {
   it('old ACK cannot hide an edit made during the request', async () => {
     s.local.set('medicamentos',[row('m')]); s.edit=()=>{s.local.get('medicamentos')![0].nombres='new edit';}; await syncService.pushToSupabase(A);
     expect(s.local.get('medicamentos')![0].sync_status).toBe('pending'); expect(s.writes[0].nombres).toBe('local');
+  });
+  it('never uploads an absolute medicine stock snapshot', async () => {
+    s.local.set('medicamentos', [{...row('m'), stock_actual: 99}]);
+    await syncService.pushToSupabase(A);
+    expect(s.writes[0]).not.toHaveProperty('stock_actual');
+    expect(s.local.get('medicamentos')![0].stock_actual).toBe(99);
+  });
+  it('rebases stock on remote balance and preserves unconfirmed pending events', async () => {
+    s.local.set('medicamentos', [{...row('m'), stock_actual: 90}]);
+    s.remote.set('medicamentos', [{...row('m','A','synced'), stock_actual: 10}]);
+    s.local.set('movimientos_stock', [{...row('waiting'), medicamento_id:'m', tipo:'SALIDA', cantidad:2}]);
+    // PULL no envía los eventos locales; su proyección debe seguir visible.
+    await syncService.pullFromSupabase(A);
+    expect(s.local.get('medicamentos')![0].stock_actual).toBe(8);
+    expect(s.local.get('movimientos_stock')![0].sync_status).toBe('pending');
+  });
+  it('does not count a pending replay already present remotely twice', async () => {
+    s.local.set('medicamentos', [{...row('m'), stock_actual: 90}]);
+    s.remote.set('medicamentos', [{...row('m','A','synced'), stock_actual: 8}]);
+    const movement = {...row('waiting'), medicamento_id:'m', tipo:'SALIDA', cantidad:2};
+    s.local.set('movimientos_stock', [movement]); s.remote.set('movimientos_stock', [movement]);
+    await syncService.pullFromSupabase(A);
+    expect(s.local.get('medicamentos')![0].stock_actual).toBe(8);
   });
   it('requires returned IDs and makes failed rows retryable', async () => {
     s.local.set('medicamentos',[row('m')]); s.emptyAck=true; await expect(syncService.pushToSupabase(A)).rejects.toThrow('incomplete'); expect(s.local.get('medicamentos')![0].sync_status).toBe('failed');

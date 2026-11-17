@@ -67,3 +67,20 @@ Incluye la matriz Auth/RLS previa y crea 425 pacientes sintéticos adicionales e
 La migración usa seis triggers de timestamp, un watermark privado y locks advisory de transacción (clave 726061706). No deshabilitarlos durante el test. La variante local final incluye backfill de timestamps nulos y NOT NULL; no crea creado_at en movimientos. Las consultas de la prueba verifican IDs completos, no solo HTTP 200.
 
 Los tests del servicio (`src/core/db/sync/syncService.test.ts`) ejercitan errores y rollback de caché mediante mocks; no sustituyen la migración de IndexedDB instalada ni PWA/dos pestañas reales.
+
+## Fase 7 — integridad y autoridad de stock
+
+Aplicar `20261117000300_stock_integrity.sql` después de las migraciones anteriores, exclusivamente al stack sintético durante desarrollo. Es una migración de una sola aplicación; no repetirla sobre la misma base. No usar `db reset` ni modificar filas históricas para hacerla pasar. La aplicación nueva comprueba la presencia del RPC antes de comenzar PUSH; no publicar aisladamente sobre esquema antiguo.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-stock-migration-local.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File supabase/tests/run-auth-api-local.ps1 -TestScript stock-api-local.mjs
+```
+
+El primer runner crea una base temporal con nombre aleatorio dentro del contenedor local y la retira al finalizar. Carga el fixture con Auth simulado, fases 2/6 y datos históricos sintéticos, luego aplica el SQL final de fase 7. Comprueba saldo de apertura, replay histórico sin efecto, reconstrucción apertura+eventos nuevos y grants por columna. La matriz API usa el stack con Auth/PostgREST real: relaciones entre tenants, cero/negativos/fracciones, alta de medicamento a cero, saldo absoluto denegado, replay de UUID, inmutabilidad, medidas, dos peticiones concurrentes, rollback de lote y snapshot aislado. Limpia únicamente instituciones/cuentas sintéticas de la ejecución. Repetir las matrices de usuarios y sincronización tras aplicar.
+
+La cantidad mantiene enteros positivos en todas las medidas y máximo INT; sin conversiones ni nuevas fracciones. Cada INSERT nuevo de movimiento actualiza saldo en su misma transacción bajo lock del medicamento; upsert idéntico no repite efecto y una edición distinta del evento se rechaza. Las correcciones futuras requieren otro evento. El saldo anterior se captura sin recalcular historia en `private.stock_opening_balances`; los efectos posteriores quedan en `private.stock_applied_events`. Para medicamentos nuevos de cliente, apertura implícita cero. Las tablas privadas no están concedidas a clientes.
+
+El RPC de lectura `topico_stock_snapshot` toma saldo e IDs aplicados en una misma sentencia MVCC. Dexie conserva metadata pendiente y reconstituye la proyección con eventos pending que aún no existen remotamente; failed conserva su fila y muestra saldo confirmado. Una modificación local o cambio de sesión durante la respuesta impide aplicarla. No cambia versión de Dexie ni cursores.
+
+Antes de cualquier despliegue: pausar escritores antiguos y coordinar todos los dispositivos; resolver o aislar con evidencia sus colas legacy. Un movimiento pendiente anterior al corte puede tener su saldo ya reflejado por el cliente viejo: no deducirlo de fechas ni aplicarlo automáticamente sobre la apertura. Preservar cola y UUID hasta reconciliación dirigida. Los clientes antiguos que envíen stock absoluto serán rechazados; no reabrir grants para hacerlos funcionar. Revisar agregados de inconsistencias otra vez y duración de locks; si la migración rechaza datos, revierte completa y exige diagnóstico, sin reparación automática. Quedan pendientes navegación UI/PWA offline y dos pestañas reales de la aplicación.

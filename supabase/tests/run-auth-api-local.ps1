@@ -1,7 +1,7 @@
 param(
   [string]$SupabaseCli = 'C:/Users/rival/AppData/Local/Programs/Supabase/supabase.exe',
   [string]$Node = 'C:/Program Files/nodejs/node.exe',
-  [ValidateSet('auth-api-local.mjs','user-consistency-local.mjs','sync-api-local.mjs')]
+  [ValidateSet('auth-api-local.mjs','user-consistency-local.mjs','sync-api-local.mjs','stock-api-local.mjs')]
   [string]$TestScript = 'auth-api-local.mjs'
 )
 $ErrorActionPreference = 'Stop'

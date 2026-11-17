@@ -1,19 +1,14 @@
 /**
  * @module core/db/dexie/logic/stock.test
  *
- * Tests de integración para la lógica de stock multi-medida.
- * FASE 4.1: Testing de Escenarios Críticos
- *
- * Escenarios cubiertos:
- * - Offline → Online sync con múltiples dispensaciones
- * - Concurrencia de atenciones simultáneas
- * - Validación de stock en escenarios límite
- * - Rollback automático en fallos
+ * Pruebas unitarias de validaciones y agrupación de stock por medida.
+ * Concurrencia remota y rollback se verifican en la matriz API local.
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   validarTipoMedida,
+  validarTipoMovimiento,
   validarCantidad,
   validarCompatibilidadTipoMedida,
   validarStockSuficiente,
@@ -23,7 +18,6 @@ import {
   generarDescripcionMovimiento,
   generarResumenPorTipoMedida,
   StockError,
-  verificarStockDisponible,
 } from './stock';
 import type { Medicamento, TipoMedida, DispensacionMedicamento } from '@/features/inventario/types';
 
@@ -87,20 +81,34 @@ describe('validarTipoMedida', () => {
 // ── Tests de Validación de Cantidad ─────────────────────────────────────────
 
 describe('validarCantidad', () => {
-  it('acepta cantidades positivas', () => {
+  it('acepta cantidades enteras positivas dentro del límite SQL', () => {
     expect(() => validarCantidad(1)).not.toThrow();
     expect(() => validarCantidad(100)).not.toThrow();
-    expect(() => validarCantidad(0.5)).not.toThrow();
+    expect(() => validarCantidad(2_147_483_647)).not.toThrow();
   });
 
   it('lanza error para cantidad cero o negativa', () => {
     expect(() => validarCantidad(0)).toThrow(StockError);
     expect(() => validarCantidad(-1)).toThrow(StockError);
+    expect(() => validarCantidad(0.5)).toThrow(StockError);
+    expect(() => validarCantidad(2_147_483_648)).toThrow(StockError);
   });
 
   it('lanza error para cantidad no numérica', () => {
     expect(() => validarCantidad(NaN)).toThrow(StockError);
     expect(() => validarCantidad(Infinity)).toThrow(StockError);
+  });
+});
+
+describe('validarTipoMovimiento', () => {
+  it('acepta ENTRADA y SALIDA', () => {
+    expect(() => validarTipoMovimiento('ENTRADA')).not.toThrow();
+    expect(() => validarTipoMovimiento('SALIDA')).not.toThrow();
+  });
+
+  it('rechaza tipos de movimiento inválidos', () => {
+    expect(() => validarTipoMovimiento('AJUSTE')).toThrow(StockError);
+    expect(() => validarTipoMovimiento('AJUSTE')).toThrow('Tipo de movimiento inválido');
   });
 });
 
