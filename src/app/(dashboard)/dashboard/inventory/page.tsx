@@ -10,7 +10,7 @@ import { useInventoryUI } from "@/features/inventario/hooks/useInventoryUI";
 
 // ───────────────────────────────────────────────────────────────────────────────
 // INVENTORY MANAGEMENT PAGE
-// Control de stock de farmacia con ajustes y alertas de bajo stock
+// Control de stock del tópico con ajustes y alertas de bajo stock
 // ───────────────────────────────────────────────────────────────────────────────
 
 export default function InventoryPage() {

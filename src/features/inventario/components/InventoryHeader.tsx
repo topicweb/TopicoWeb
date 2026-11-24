@@ -15,7 +15,7 @@ export function InventoryHeader({ searchTerm, onSearchChange, onAddNew }: Invent
       <div className="flex flex-col justify-between gap-4 border-b border-border pb-5 md:flex-row md:items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Inventario de <span className="text-gradient">Farmacia</span>
+            Inventario del <span className="text-gradient">Tópico</span>
           </h1>
           <p className="mt-1 text-sm text-muted">Control de stock y suministros</p>
         </div>

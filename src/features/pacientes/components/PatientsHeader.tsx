@@ -11,7 +11,7 @@ export function PatientsHeader({ onAddNew }: PatientsHeaderProps) {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Gestión de <span className="text-gradient">Pacientes</span>
         </h1>
-        <p className="mt-1 text-sm text-muted">Directorio y fichas clínicas de la farmacia</p>
+        <p className="mt-1 text-sm text-muted">Directorio y fichas clínicas de pacientes del tópico</p>
       </div>
       <button
         onClick={onAddNew}
